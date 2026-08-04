@@ -1,0 +1,177 @@
+# Panel superior — receta Berry (estilo Raspberry Pi OS)
+Global {
+  edge=top
+  align=left
+  margin=0
+  widthtype=percent
+  width=100
+  height=36
+  transparent=0
+  tintcolor=#edeceb
+  alpha=255
+  autohide=0
+  setdocktype=1
+  setpartialstrut=1
+  usefontcolor=1
+  fontcolor=#1d1d1d
+  background=0
+  backgroundfile=
+  iconsize=28
+}
+Plugin {
+  type=space
+  Config {
+    Size=4
+  }
+}
+Plugin {
+  type=menu
+  Config {
+    image=/usr/share/icons/Papirus/24x24/apps/applications-all.svg
+    item {
+      name=Terminal
+      image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
+      action=lxterminal
+    }
+    item {
+      name=Browser (Chromium)
+      image=/usr/share/icons/Papirus/24x24/apps/chromium.svg
+      action=chromium
+    }
+    item {
+      name=Archivos
+      image=/usr/share/icons/Papirus/24x24/apps/system-file-manager.svg
+      action=pcmanfm
+    }
+    item {
+      name=Multimedia (VLC)
+      image=/usr/share/icons/Papirus/24x24/apps/vlc.svg
+      action=vlc
+    }
+    separator {
+    }
+    menu {
+      name=Acceso remoto
+      image=/usr/share/icons/Papirus/24x24/apps/preferences-desktop-remote-desktop.svg
+      item {
+        name=VNC client
+        image=/usr/share/icons/Papirus/24x24/apps/krdc.svg
+        action=vnc-connect
+      }
+      item {
+        name=RDP client (FreeRDP)
+        image=/usr/share/icons/Papirus/24x24/apps/remmina.svg
+        action=rdp-connect
+      }
+      item {
+        name=FileZilla (FTP/SFTP)
+        image=/usr/share/icons/Papirus/24x24/apps/filezilla.svg
+        action=filezilla
+      }
+    }
+    menu {
+      name=Gaming
+      image=/usr/share/icons/Papirus/24x24/apps/applications-games.svg
+      item {
+        name=Steam
+        image=/usr/share/icons/Papirus/24x24/apps/steam.svg
+        action=run-steam
+      }
+      item {
+        name=Steam Big Picture (modo Deck)
+        image=/usr/share/icons/Papirus/24x24/devices/input-gaming.svg
+        action=run-steam -bigpicture
+      }
+      item {
+        name=ProtonDB (compatibilidad de juegos)
+        image=/usr/share/icons/Papirus/24x24/actions/web-browser.svg
+        action=chromium https://www.protondb.com/
+      }
+    }
+    menu {
+      name=All applications
+      image=/usr/share/icons/Papirus/24x24/apps/applications-other.svg
+      system {
+      }
+    }
+    separator {
+    }
+    item {
+      name=Ejecutar…
+      image=/usr/share/icons/Papirus/24x24/actions/system-run.svg
+      command=run
+    }
+  }
+}
+Plugin {
+  type=space
+  Config {
+    Size=6
+  }
+}
+Plugin {
+  type=launchbar
+  Config {
+    Button {
+      id=chromium.desktop
+    }
+    Button {
+      id=pcmanfm.desktop
+    }
+    Button {
+      id=lxterminal.desktop
+    }
+  }
+}
+Plugin {
+  type=space
+  Config {
+    Size=8
+  }
+}
+Plugin {
+  type=taskbar
+  expand=1
+  Config {
+    tooltips=1
+    IconsOnly=0
+    ShowAllDesks=0
+    UseMouseWheel=1
+    UseUrgencyHint=1
+    FlatButton=1
+    MaxTaskWidth=200
+    spacing=2
+  }
+}
+Plugin {
+  type=tray
+  Config {
+  }
+}
+Plugin {
+  type=cpu
+  Config {
+  }
+}
+Plugin {
+  type=space
+  Config {
+    Size=6
+  }
+}
+Plugin {
+  type=dclock
+  Config {
+    ClockFmt=%H:%M
+    TooltipFmt=%A %d %B %Y
+    BoldFont=1
+    IconOnly=0
+    CenterText=1
+  }
+}
+Plugin {
+  type=space
+  Config {
+    Size=6
+  }
+}

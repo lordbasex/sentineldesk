@@ -1,0 +1,25 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# TLS_MODE=wildcard — a Let's Encrypt WILDCARD (*.domain) through the DNS-01
+# challenge with Cloudflare. It needs:
+#   - The Caddy image with the DNS plugin:
+#       docker build -t caddy-cloudflare -f deploy/Dockerfile.caddy deploy
+#   - CADDY_IMAGE=caddy-cloudflare
+#   - CLOUDFLARE_API_TOKEN with Zone:DNS:Edit permission on the domain
+{$DOMAIN}, *.{$DOMAIN} {
+	tls {
+		dns cloudflare {$CLOUDFLARE_API_TOKEN}
+	}
+	reverse_proxy 127.0.0.1:8080
+}

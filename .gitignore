@@ -1,0 +1,125 @@
+# ---------------------------------------------------------------------------
+# Go
+# ---------------------------------------------------------------------------
+# Compiled objects and archives
+*.o
+*.a
+*.so
+*.dylib
+
+# Test / profiling output
+*.test
+*.out
+*.prof
+*.pprof
+coverage.txt
+coverage.html
+
+# Dependency and build caches
+/vendor/
+/bin/
+/dist/
+/build/
+go.work
+go.work.sum
+
+# Binaries produced by `go build` at the repo root or next to their package.
+# The package name doubles as the default binary name.
+/sentineldesk
+cmd/sentineldesk/sentineldesk
+
+# ---------------------------------------------------------------------------
+# Binaries (generic, cross-platform)
+# ---------------------------------------------------------------------------
+*.exe
+*.exe~
+*.dll
+*.bin
+*.elf
+*.app
+
+# ---------------------------------------------------------------------------
+# macOS
+# ---------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+Icon?
+
+# ---------------------------------------------------------------------------
+# Windows / Linux desktop cruft
+# ---------------------------------------------------------------------------
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ---------------------------------------------------------------------------
+# Editors / IDEs
+# ---------------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# ---------------------------------------------------------------------------
+# Secrets, certificates and local config
+# ---------------------------------------------------------------------------
+# certs/ holds runtime TLS material; only its README belongs in git.
+certs/*
+!certs/README.md
+*.pem
+*.key
+*.crt
+*.csr
+*.p12
+*.pfx
+.env
+.env.*
+!.env.example
+
+# ---------------------------------------------------------------------------
+# Python (tools/)
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# ---------------------------------------------------------------------------
+# Runtime / logs / temp
+# ---------------------------------------------------------------------------
+*.log
+logs/
+tmp/
+.tmp/
+*.pid
+*.sock
+
+# Recordings and captures produced by the desktop at runtime
+recordings/
+*.mp4
+*.webm
+*.mkv
+
+# Local build-version state (each machine counts its own builds)
+version.txt

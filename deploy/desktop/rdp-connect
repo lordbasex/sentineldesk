@@ -1,0 +1,13 @@
+#!/bin/sh
+# RDP client (FreeRDP) with a connection dialog
+host=$(zenity --entry --title="RDP client" \
+    --text="RDP server (host or host:port):" 2>/dev/null) || exit 0
+[ -z "$host" ] && exit 0
+user=$(zenity --entry --title="RDP client" --text="Username (optional):" 2>/dev/null)
+
+for bin in xfreerdp3 xfreerdp sdl-freerdp3 sdl-freerdp; do
+    if command -v "$bin" >/dev/null 2>&1; then
+        exec "$bin" /v:"$host" ${user:+/u:"$user"} /dynamic-resolution /cert:ignore
+    fi
+done
+zenity --error --text="FreeRDP is not installed" 2>/dev/null

@@ -1,0 +1,6 @@
+#!/bin/sh
+# VNC client with a connection dialog
+host=$(zenity --entry --title="VNC client" \
+    --text="VNC server (host or host:port):" 2>/dev/null) || exit 0
+[ -z "$host" ] && exit 0
+exec xtigervncviewer "$host"

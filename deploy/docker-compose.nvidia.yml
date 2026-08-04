@@ -1,0 +1,72 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Production on Linux with an NVIDIA GPU — NVENC (H.264 in hardware).
+# Requiere nvidia-container-toolkit instalado en el host.
+#
+#   AUTH_USER=admin AUTH_PASS=secret docker compose -f docker-compose.nvidia.yml up -d
+#   with TLS: ... --profile tls up -d
+services:
+  sentineldesk:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: sentineldesk:latest
+    container_name: sentineldesk
+    network_mode: host
+    gpus: all
+    environment:
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - DISPLAY_WIDTH=${DISPLAY_WIDTH:-1920}
+      - DISPLAY_HEIGHT=${DISPLAY_HEIGHT:-1080}
+      - FPS=${FPS:-60}
+      - ENCODER=auto            # detects NVENC; force it with ENCODER=nvenc
+      - VIDEO_BITRATE_KBPS=${VIDEO_BITRATE_KBPS:-10000}
+      - AUTH_USER=${AUTH_USER:?set AUTH_USER}
+      - AUTH_PASS=${AUTH_PASS:?set AUTH_PASS}
+      - AUTH_SECRET=${AUTH_SECRET:-}
+      - CLIENT_STUN=stun:stun.l.google.com:19302
+      # Native TLS in the backend: TLS_SELFSIGNED=1 (self-signed) or TLS_CERT/TLS_KEY
+      - TLS_SELFSIGNED=${TLS_SELFSIGNED:-0}
+      - TLS_CERT=${TLS_CERT:-}
+      - TLS_KEY=${TLS_KEY:-}
+      - TLS_HOSTS=${TLS_HOSTS:-}
+    volumes:
+      - sentineldesk-home:/home/sentineldesk
+      - ./certs:/certs:ro
+      # Put your background images in ./wallpaper/ (see wallpaper/README.md)
+      - ./wallpaper:/wallpaper:ro
+    shm_size: "2g"
+    restart: unless-stopped
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2}
+    container_name: webrtc-caddy
+    profiles: ["tls"]
+    network_mode: host
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+      - ACME_EMAIL=${ACME_EMAIL:-}
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+    volumes:
+      # auto (Let's Encrypt) | selfsigned | custom (wildcard propio) | wildcard (LE DNS-01)
+      - ./deploy/Caddyfile.${TLS_MODE:-auto}:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+volumes:
+  sentineldesk-home:
+  caddy_data:
+  caddy_config:

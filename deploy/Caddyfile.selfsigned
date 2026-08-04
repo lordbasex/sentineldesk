@@ -1,0 +1,20 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# TLS_MODE=selfsigned — a self-signed certificate from Caddy's internal CA.
+# It needs neither a domain nor DNS: it serves https://<IP or name> with the
+# browser's "not trusted" warning, or install the CA from /data/caddy/pki.
+{$DOMAIN:localhost} {
+	tls internal
+	reverse_proxy 127.0.0.1:8080
+}

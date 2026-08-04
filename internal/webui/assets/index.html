@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<!--
+ * SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+-->
+
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentinelDesk</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root { color-scheme: dark; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #0b0e14; overflow: hidden;
+               font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #screen { width: 100%; height: 100%; object-fit: contain; display: block;
+            background: #000; cursor: default; outline: none; }
+
+  /* --- status overlay --- */
+  #status { position: absolute; inset: 0; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; gap: 16px;
+            color: #8b95a7; background: #0b0e14; transition: opacity .3s; }
+  #status.hidden { opacity: 0; pointer-events: none; }
+  #status .brand { font-size: 15px; font-weight: 600; letter-spacing: 3px;
+            color: #4f8ef7; text-transform: uppercase; }
+  #status .spinner { width: 36px; height: 36px; border: 3px solid #232a38;
+            border-top-color: #4f8ef7; border-radius: 50%;
+            animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* --- the instrument rail ---------------------------------------------------
+     The control layer, floating over live video of a real desktop. Everything it
+     occupies is desktop the person stops seeing, and the background behind it is
+     unpredictable — a terminal, a photo, a light document — so it reads as
+     frosted glass rather than a solid panel.
+
+     Control state is encoded by SHAPE, not colour alone: a solid chip means you
+     are driving, a diagonally hatched one means somebody else is. Colour carries
+     the same message twice, for anyone who cannot rely on it. */
+
+  :root {
+    --sd-surface: rgba(13,17,16,.55);
+    --sd-panel: rgba(16,22,20,.96);
+    --sd-line: rgba(255,255,255,.16);
+    --sd-line-soft: rgba(255,255,255,.08);
+    --sd-hover: rgba(255,255,255,.07);
+    --sd-ink: #E7EDEA;
+    --sd-dim: #93A09A;
+    --sd-drive: #3FD68C;      /* phosphor: you have control */
+    --sd-drive-ink: #052B17;
+    --sd-watch: #F2B33D;      /* amber: somebody else does */
+    --sd-watch-ink: #2A1C02;
+    --sd-rec: #FF5D55;
+    --sd-focus: #6FD9FF;
+  }
+  /* The viewer's theme wins: the media query carries the OS preference, the
+     data-theme attribute overrides it in both directions. Only tokens change. */
+  @media (prefers-color-scheme: light) {
+    :root {
+      --sd-surface: rgba(250,251,250,.62); --sd-panel: rgba(255,255,255,.97);
+      --sd-line: rgba(8,18,13,.2); --sd-line-soft: rgba(8,18,13,.09);
+      --sd-hover: rgba(8,18,13,.06); --sd-ink: #14201A; --sd-dim: #5A6660;
+      --sd-drive: #0B8A4E; --sd-drive-ink: #F0FBF5;
+      --sd-watch: #8F6400; --sd-watch-ink: #FFF6E1;
+      --sd-rec: #C2352F; --sd-focus: #0A84C1;
+    }
+  }
+  :root[data-theme="dark"] {
+    --sd-surface: rgba(13,17,16,.55); --sd-panel: rgba(16,22,20,.96);
+    --sd-line: rgba(255,255,255,.16); --sd-line-soft: rgba(255,255,255,.08);
+    --sd-hover: rgba(255,255,255,.07); --sd-ink: #E7EDEA; --sd-dim: #93A09A;
+    --sd-drive: #3FD68C; --sd-drive-ink: #052B17;
+    --sd-watch: #F2B33D; --sd-watch-ink: #2A1C02;
+    --sd-rec: #FF5D55; --sd-focus: #6FD9FF;
+  }
+  :root[data-theme="light"] {
+    --sd-surface: rgba(250,251,250,.62); --sd-panel: rgba(255,255,255,.97);
+    --sd-line: rgba(8,18,13,.2); --sd-line-soft: rgba(8,18,13,.09);
+    --sd-hover: rgba(8,18,13,.06); --sd-ink: #14201A; --sd-dim: #5A6660;
+    --sd-drive: #0B8A4E; --sd-drive-ink: #F0FBF5;
+    --sd-watch: #8F6400; --sd-watch-ink: #FFF6E1;
+    --sd-rec: #C2352F; --sd-focus: #0A84C1;
+  }
+
+  [hidden] { display: none !important; }
+  :focus-visible { outline: 2px solid var(--sd-focus); outline-offset: 2px;
+             border-radius: 4px; }
+
+  #toolbar { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+             z-index: 10; width: 240px; display: flex; flex-direction: column;
+             max-height: calc(100% - 24px); overflow-x: hidden; overflow-y: auto;
+             font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+             font-variant-numeric: tabular-nums;
+             background: var(--sd-surface); color: var(--sd-ink);
+             backdrop-filter: blur(16px) saturate(1.3);
+             -webkit-backdrop-filter: blur(16px) saturate(1.3);
+             border: 1px solid var(--sd-line); border-radius: 12px;
+             box-shadow: 0 16px 48px rgba(0,0,0,.42);
+             /* Recedes while untouched and comes forward under the pointer or
+                the keyboard: the desktop is the thing being looked at, and the
+                rail only needs to be fully present when it is being used. */
+             opacity: .74;
+             transition: opacity .2s ease, width .26s cubic-bezier(.4,0,.2,1),
+                         transform .32s cubic-bezier(.4,0,.2,1), opacity .26s; }
+  /* The scrollbar would cut the frosted edge; the rail scrolls without one. */
+  #about { padding: 8px 12px 9px; font-size: 9px; letter-spacing: .08em;
+        color: var(--sd-dim); opacity: .75; user-select: text;
+        border-top: 1px solid var(--sd-line-soft); margin-top: 4px; }
+  #about:empty { display: none; }
+  #toolbar { scrollbar-width: none; }
+  #toolbar::-webkit-scrollbar { display: none; }
+  #toolbar:hover, #toolbar:focus-within { opacity: 1; }
+  #toolbar.collapsed { width: 58px; }
+  #toolbar.hidden { transform: translate(calc(-100% - 40px), -50%);
+             opacity: 0 !important; pointer-events: none; }
+
+  /* A 3px strip repeating the control signature, readable even when the rail is
+     collapsed to icons and there is no room for words. */
+  #rail-sig { position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+             border-radius: 0 2px 2px 0; background: var(--sd-line); }
+  #toolbar.you-control #rail-sig {
+             background: var(--sd-drive); box-shadow: 0 0 12px var(--sd-drive); }
+  #toolbar.watching #rail-sig {
+             background: repeating-linear-gradient(180deg,
+                         var(--sd-watch) 0 6px, transparent 6px 12px); }
+
+  #wordmark { padding: 10px 12px 0; font-size: 9px; letter-spacing: .24em;
+             color: var(--sd-dim); }
+  #toolbar.collapsed #wordmark { padding: 10px 0 0; text-align: center;
+             letter-spacing: .12em; }
+
+  /* Labels collapse to nothing rather than disappearing, so the width animates
+     instead of the text snapping out of existence. */
+  #toolbar .lb { display: inline-block; opacity: 1; max-width: 158px;
+             margin-left: 10px; overflow: hidden; white-space: nowrap;
+             transition: opacity .16s .1s, max-width .26s, margin-left .26s; }
+  #toolbar.collapsed .lb { opacity: 0; max-width: 0; margin-left: 0;
+             transition: opacity .08s, max-width .26s, margin-left .26s; }
+  #toolbar.collapsed .x-only { display: none; }
+  .c-only { display: none; }
+  #toolbar.collapsed .c-only { display: flex; flex-direction: column;
+             align-items: center; gap: 8px; }
+
+  .sd-sep { height: 1px; background: var(--sd-line-soft); margin: 0 10px; }
+  .sd-group { padding: 9px 12px 2px; font-size: 9.5px; letter-spacing: .16em;
+             text-transform: uppercase; color: var(--sd-dim); }
+  .sd-rows { padding: 2px 6px 4px; }
+
+  #toolbar .row { width: 100%; display: flex; align-items: center;
+             justify-content: flex-start; padding: 7px 10px; border: 0;
+             border-radius: 7px; background: none; color: var(--sd-ink);
+             font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  #toolbar.collapsed .row { flex-direction: column; justify-content: center;
+             gap: 3px; padding: 9px 0; }
+  #toolbar .row:hover { background: var(--sd-hover); }
+  #toolbar .row:active { transform: translateY(1px); }
+  #toolbar .row .ic { display: flex; width: 20px; height: 20px; flex: none;
+             align-items: center; justify-content: center; opacity: .92; }
+  #toolbar .row svg { width: 17px; height: 17px; fill: none; stroke: currentColor;
+             stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  #toolbar .row[aria-disabled="true"] { opacity: .45; cursor: not-allowed;
+             color: var(--sd-dim); }
+  #toolbar .row[aria-disabled="true"]:hover { background: none; }
+
+  /* Active states tint their own row rather than inverting it: the rail stays
+     one surface and the live control is the only thing that glows. */
+  #btn-mic.live { color: var(--sd-drive);
+             background: color-mix(in srgb, var(--sd-drive) 10%, transparent); }
+  #btn-mic.live:hover { background: color-mix(in srgb, var(--sd-drive) 16%, transparent); }
+  #btn-mic.live .ic svg rect { fill: currentColor; }
+  .live-chip { font-size: 9px; font-weight: 700; letter-spacing: .1em;
+             padding: 2px 5px; border-radius: 4px; background: var(--sd-drive);
+             color: var(--sd-drive-ink); animation: sd-pulse 1.6s infinite; }
+  #btn-rec.live { color: var(--sd-rec);
+             background: color-mix(in srgb, var(--sd-rec) 13%, transparent); }
+  #btn-rec.live:hover { background: color-mix(in srgb, var(--sd-rec) 20%, transparent); }
+  #btn-rec.live .lb { font-weight: 700; }
+  #btn-rec.live .ring { animation: sd-pulse 1.2s infinite; }
+  #btn-rec .dot-in { fill: var(--sd-rec); stroke: none; }
+  #btn-rec .stop-in { display: none; fill: currentColor; stroke: none; }
+  #btn-rec.live .dot-in { display: none; }
+  #btn-rec.live .stop-in { display: block; }
+  #rec-mini { display: none; font-size: 9px; color: var(--sd-rec); }
+  #toolbar.collapsed #btn-rec.live #rec-mini { display: block; }
+  #btn-audio.muted { color: var(--sd-dim); }
+  #btn-audio.muted .lb { text-decoration: line-through; text-decoration-thickness: 1px; }
+  #btn-audio .spk-on { display: block; }
+  #btn-audio .spk-off { display: none; }
+  #btn-audio.muted .spk-on { display: none; }
+  #btn-audio.muted .spk-off { display: block; }
+  #btn-logout:hover { background: color-mix(in srgb, var(--sd-rec) 12%, transparent);
+             color: var(--sd-rec); }
+  #lang-code { font-size: 9px; padding: 1px 4px; border: 1px solid var(--sd-line);
+             border-radius: 4px; color: var(--sd-dim); }
+
+  /* --- presence: the hero module --------------------------------------------
+     The most consequential thing on screen. Not knowing you are only watching
+     means pressing keys and having nothing happen, which reads as a broken
+     connection rather than as a rule. */
+  #presence { padding: 9px 12px 12px; }
+  #toolbar.collapsed #presence { display: none; }
+  #pres-head { display: flex; align-items: baseline; justify-content: space-between;
+             gap: 8px; }
+  #pres-head .k { font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase;
+             color: var(--sd-dim); }
+  #pres-count { font-size: 9.5px; letter-spacing: .06em; color: var(--sd-dim);
+             white-space: nowrap; }
+  #pres-chip { display: flex; align-items: center; gap: 8px; margin-top: 9px;
+             padding: 7px 9px; border-radius: 6px; font-size: 11px;
+             letter-spacing: .05em; text-transform: uppercase;
+             border: 1px solid var(--sd-line-soft); color: var(--sd-dim); }
+  #pres-chip svg { width: 15px; height: 15px; flex: none; fill: none;
+             stroke: currentColor; stroke-width: 1.8; stroke-linecap: round;
+             stroke-linejoin: round; }
+  #presence.you-control #pres-chip { border: 0; padding: 8px 10px; font-weight: 700;
+             letter-spacing: .06em; background: var(--sd-drive);
+             color: var(--sd-drive-ink);
+             box-shadow: 0 0 16px color-mix(in srgb, var(--sd-drive) 35%, transparent); }
+  /* An agent at the controls gets its own signature. Amber already means
+     "somebody else is driving"; violet says that somebody is not a person, and
+     the pointer moving by itself stops reading as a fault. */
+  #toolbar.agent-controls #rail-sig {
+             background: repeating-linear-gradient(180deg,
+                         #b08cf7 0 6px, transparent 6px 12px); }
+  #presence.watching.has-agent #pres-chip { border-color: #b08cf7;
+             color: #b08cf7;
+             background: repeating-linear-gradient(135deg,
+                         color-mix(in srgb, #b08cf7 15%, transparent) 0 5px,
+                         transparent 5px 11px); }
+  #presence.watching #pres-chip { padding: 8px 10px; font-weight: 700;
+             letter-spacing: .06em; border: 1px solid var(--sd-watch);
+             color: var(--sd-watch);
+             background: repeating-linear-gradient(135deg,
+                         color-mix(in srgb, var(--sd-watch) 15%, transparent) 0 5px,
+                         transparent 5px 11px); }
+  /* One icon per state; the others stay out of the flow entirely. */
+  #pres-chip .i-solo, #pres-chip .i-drive, #pres-chip .i-watch { display: none; }
+  #presence.solo #pres-chip .i-solo { display: block; }
+  #presence.you-control #pres-chip .i-drive { display: block; fill: currentColor;
+             stroke: none; }
+  #presence.watching #pres-chip .i-watch { display: block; }
+
+  #btn-control { display: block; width: 100%; margin-top: 8px; padding: 8px 10px;
+             border: 0; border-radius: 6px; background: var(--sd-watch);
+             color: var(--sd-watch-ink); font: inherit; font-size: 11.5px;
+             font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+             text-align: center; cursor: pointer; }
+  #btn-control:hover { filter: brightness(1.12); }
+  #btn-control:active { transform: translateY(1px); }
+  /* Handing control back is a real action people look for, not a footnote.
+     It used to be an underlined link and went unnoticed; it is a button now,
+     outlined rather than filled so it never competes with "Take control". */
+  #presence.you-control #btn-control { margin-top: 8px;
+             background: none; color: var(--sd-ink);
+             border: 1px solid var(--sd-line); }
+  #presence.you-control #btn-control:hover { background: var(--sd-hover);
+             filter: none; }
+  #btn-control[hidden] { display: none; }
+
+  /* Collapsed presence: a ring carrying the count, its stroke telling the state
+     — solid for driving, dashed for watching. */
+  #pres-mini { padding: 8px 0 10px; }
+  #pres-ring { display: flex; align-items: center; justify-content: center;
+             width: 26px; height: 26px; border-radius: 50%;
+             border: 1.5px solid var(--sd-line); color: var(--sd-dim);
+             font-size: 11px; font-weight: 700; }
+  #toolbar.you-control #pres-ring { border: 2px solid var(--sd-drive);
+             color: var(--sd-drive);
+             box-shadow: 0 0 10px color-mix(in srgb, var(--sd-drive) 45%, transparent); }
+  #toolbar.watching #pres-ring { border: 2px dashed var(--sd-watch);
+             color: var(--sd-watch); }
+  #pres-ring svg { width: 13px; height: 13px; fill: none; stroke: currentColor;
+             stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #toolbar.you-control #pres-ring svg, #toolbar.watching #pres-ring svg { display: none; }
+  #toolbar:not(.watching) #btn-control-mini { display: none; }
+  #btn-control-mini { display: flex; align-items: center; justify-content: center;
+             width: 30px; height: 30px; border: 0; border-radius: 7px;
+             background: var(--sd-watch); color: var(--sd-watch-ink); cursor: pointer; }
+  #btn-control-mini:hover { filter: brightness(1.12); }
+  #btn-control-mini svg { width: 15px; height: 15px; fill: currentColor; stroke: none; }
+
+  /* --- foot: collapse and hide ---------------------------------------------- */
+  #rail-foot { display: flex; justify-content: space-between; gap: 4px; padding: 6px; }
+  #toolbar.collapsed #rail-foot { flex-direction: column; align-items: center; }
+  #rail-foot button { display: flex; align-items: center; justify-content: center;
+             width: 30px; height: 26px; border: 0; border-radius: 6px;
+             background: none; color: var(--sd-dim); font: inherit; font-size: 12px;
+             line-height: 1; cursor: pointer; }
+  #rail-foot button:hover { background: var(--sd-hover); color: var(--sd-ink); }
+  #toolbar-hide { border: 1px solid var(--sd-line-soft) !important; }
+  #toolbar-collapse svg { width: 15px; height: 15px; fill: none; stroke: currentColor;
+             stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #toolbar .chev-in { display: none; }
+  #toolbar.collapsed .chev-in { display: block; }
+  #toolbar.collapsed .chev-out { display: none; }
+
+  /* --- the watching notice --------------------------------------------------
+     The action sits inside the notice: the message and the way to act on it are
+     the same object, so nobody has to hunt for the button after reading why. */
+  #watching { position: absolute; left: 50%; bottom: 26px; transform: translateX(-50%);
+             z-index: 20; display: none; align-items: center; gap: 12px;
+             padding: 10px 12px 10px 18px; background: var(--sd-panel);
+             border: 1px solid var(--sd-watch); border-radius: 9px;
+             box-shadow: 0 14px 36px rgba(0,0,0,.4);
+             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+             color: var(--sd-ink); white-space: nowrap;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+             animation: sd-rise .3s ease; }
+  #watching.show { display: flex; }
+  #watching .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+             border-radius: 9px 0 0 9px; opacity: .85;
+             background: repeating-linear-gradient(135deg,
+                         var(--sd-watch) 0 5px, transparent 5px 10px); }
+  #watching svg { width: 16px; height: 16px; flex: none; color: var(--sd-watch);
+             fill: none; stroke: currentColor; stroke-width: 1.8;
+             stroke-linecap: round; stroke-linejoin: round; }
+  #watching .msg { font-size: 12.5px; }
+  #watching .msg b { color: var(--sd-watch); }
+  #watching button { padding: 7px 12px; border: 0; border-radius: 6px;
+             background: var(--sd-watch); color: var(--sd-watch-ink); font: inherit;
+             font-size: 11px; font-weight: 700; letter-spacing: .05em;
+             text-transform: uppercase; cursor: pointer; }
+  #watching button:hover { filter: brightness(1.12); }
+
+  /* --- the agent asking for control ------------------------------------------
+     Centred and modal-ish on purpose. Everything else in this layer avoids
+     covering the desktop; this one is a decision that expires, and a prompt
+     nobody notices is the same as no prompt at all. */
+  #ask-control { position: absolute; inset: 0; z-index: 45; display: none;
+             align-items: center; justify-content: center;
+             background: rgba(0,0,0,.35); }
+  #ask-control.show { display: flex; }
+  #ask-control .ac-card { width: min(420px, 90vw); padding: 18px 20px 14px;
+             background: var(--sd-panel); border: 1px solid #b08cf7;
+             border-radius: 11px; box-shadow: 0 24px 64px rgba(0,0,0,.5);
+             backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+             color: var(--sd-ink); animation: sd-rise .25s ease;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  #ask-control .ac-head { display: flex; align-items: center; gap: 9px;
+             font-size: 11px; font-weight: 700; letter-spacing: .1em;
+             text-transform: uppercase; color: #b08cf7; }
+  #ask-control .ac-head svg { width: 17px; height: 17px; flex: none; fill: none;
+             stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
+             stroke-linejoin: round; }
+  #ask-control .ac-msg { margin: 11px 0 15px; font-size: 12.5px; line-height: 1.5; }
+  #ask-control .ac-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  #ask-control button { padding: 7px 14px; border: 1px solid var(--sd-line);
+             border-radius: 6px; background: none; color: var(--sd-ink);
+             font: inherit; font-size: 11.5px; font-weight: 700;
+             letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
+  #ask-control button:hover { background: var(--sd-hover); }
+  #ask-control #ask-allow { background: #b08cf7; color: #1b1130; border-color: #b08cf7; }
+  #ask-control #ask-allow:hover { filter: brightness(1.1); background: #b08cf7; }
+  /* The bar draining is the deadline made visible: silence refuses, and that
+     is only fair if you can see the silence running out. */
+  #ask-control .ac-timer { margin-top: 12px; height: 2px;
+             background: var(--sd-line-soft); border-radius: 2px; overflow: hidden; }
+  #ask-control .ac-timer i { display: block; height: 100%; width: 100%;
+             background: #b08cf7; transform-origin: left;
+             animation: ac-drain linear forwards; }
+  @keyframes ac-drain { from { transform: scaleX(1) } to { transform: scaleX(0) } }
+
+  /* --- popovers, anchored to the right of the rail -------------------------- */
+  .sd-pop { position: fixed; z-index: 60; padding: 6px; background: var(--sd-panel);
+             border: 1px solid var(--sd-line); border-radius: 9px;
+             box-shadow: 0 14px 36px rgba(0,0,0,.4);
+             backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+             color: var(--sd-ink); animation: sd-fade .18s;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+             font-variant-numeric: tabular-nums; }
+  .sd-pop button { display: flex; align-items: center; justify-content: space-between;
+             gap: 9px; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px;
+             background: none; color: inherit; font: inherit; font-size: 12px;
+             text-align: left; cursor: pointer; }
+  .sd-pop button:hover { background: var(--sd-hover); }
+  .sd-pop .head { padding: 6px 10px 4px; font-size: 9.5px; letter-spacing: .16em;
+             color: var(--sd-dim); }
+  .sd-pop .tick { width: 13px; height: 13px; flex: none; color: var(--sd-drive);
+             fill: none; stroke: currentColor; stroke-width: 2.4;
+             stroke-linecap: round; stroke-linejoin: round; visibility: hidden; }
+  .sd-pop button[aria-checked="true"] .tick { visibility: visible; }
+  .sd-pop .dot { width: 7px; height: 7px; flex: none; border-radius: 50%;
+             border: 1px solid var(--sd-line); }
+  .sd-pop button[aria-checked="true"] .dot { background: var(--sd-drive);
+             border-color: var(--sd-drive); }
+
+  /* Screenshot: a brief white flash, the way a camera confirms it fired. */
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 40;
+             pointer-events: none; transition: opacity .16s; }
+  #flash.on { opacity: .65; transition: none; }
+
+  @keyframes sd-pulse { 0%, 100% { opacity: 1 } 50% { opacity: .3 } }
+  @keyframes sd-rise { from { opacity: 0; transform: translate(-50%, 10px) }
+                       to { opacity: 1; transform: translate(-50%, 0) } }
+  @keyframes sd-fade { from { opacity: 0 } to { opacity: 1 } }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+
+  /* Recording is easy to forget, so it says so on screen the whole time —
+     away from the rail, which can be hidden entirely. */
+  #rec-badge { position: absolute; top: 14px; right: 14px; z-index: 41;
+             display: flex; align-items: center; gap: 8px;
+             padding: 6px 11px; background: var(--sd-panel);
+             border: 1px solid var(--sd-rec); border-radius: 6px;
+             color: var(--sd-rec); font-size: 11.5px; font-weight: 700;
+             letter-spacing: .1em;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+             font-variant-numeric: tabular-nums;
+             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+             animation: sd-fade .25s; }
+  #rec-badge[hidden] { display: none; }
+  #rec-badge .dot { width: 8px; height: 8px; border-radius: 50%;
+             background: var(--sd-rec); animation: sd-pulse 1.2s infinite; }
+
+  /* The whisker: what is left when the rail is hidden. Barely there until the
+     pointer finds it, so the shortcut is not the only way back. */
+  #toolbar-handle { position: absolute; left: 0; top: 50%;
+             transform: translateY(-50%); z-index: 9;
+             display: flex; flex-direction: column; align-items: center;
+             justify-content: center; gap: 4px; width: 20px; height: 76px;
+             cursor: pointer; background: var(--sd-surface);
+             border: 1px solid var(--sd-line); border-left: 0;
+             border-radius: 0 9px 9px 0; color: var(--sd-dim); font-size: 11px;
+             font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+             opacity: .16; transition: opacity .2s, color .2s;
+             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  #toolbar-handle:hover { opacity: 1; color: var(--sd-ink); }
+  #toolbar-handle svg { width: 12px; height: 12px; fill: none; stroke: currentColor;
+             stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* Which microphone to share. With several plugged in, the first one the
+     browser offers is rarely the right one, so choosing is the whole point. */
+  .dev-menu { min-width: 210px; max-width: min(380px, 90vw); }
+  .dev-menu button { justify-content: flex-start; white-space: nowrap;
+             overflow: hidden; text-overflow: ellipsis; }
+
+  /* Statistics: a reading, not a log line — and a panel rather than a popover.
+     A popover closes the moment attention moves elsewhere, which is precisely
+     backwards here: these numbers are for watching WHILE doing something else,
+     so it stays until it is dismissed. Bottom-left by default, out of the way
+     of both the rail and the desktop's own top panel. */
+  #stats { position: absolute; left: 14px; bottom: 14px; z-index: 25;
+           display: none; width: 212px; padding: 0 14px 12px;
+           background: var(--sd-surface);
+           backdrop-filter: blur(28px) saturate(1.3);
+           -webkit-backdrop-filter: blur(28px) saturate(1.3);
+           border: 1px solid var(--sd-line); border-radius: 9px;
+           box-shadow: 0 14px 36px rgba(0,0,0,.4); color: var(--sd-ink);
+           font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+           font-variant-numeric: tabular-nums; animation: sd-fade .18s; }
+  #stats.show { display: block; }
+  #stats .st-head { display: flex; align-items: center; gap: 8px;
+           margin: 0 -14px 8px; padding: 8px 10px 8px 14px;
+           border-bottom: 1px solid var(--sd-line-soft);
+           cursor: move; user-select: none; -webkit-user-select: none;
+           touch-action: none; }
+  #stats .st-head > span:first-child { font-size: 9.5px; letter-spacing: .16em;
+           color: var(--sd-dim); }
+  #stats .st-live { width: 6px; height: 6px; border-radius: 50%;
+           background: var(--sd-drive); animation: sd-pulse 1.6s infinite; }
+  #stats-close { margin-left: auto; display: flex; align-items: center;
+           justify-content: center; width: 22px; height: 20px; border: 0;
+           border-radius: 5px; background: none; color: var(--sd-dim);
+           cursor: pointer; }
+  #stats-close:hover { background: var(--sd-hover); color: var(--sd-ink); }
+  #stats-close svg { width: 11px; height: 11px; fill: none; stroke: currentColor;
+           stroke-width: 2; stroke-linecap: round; }
+  #stats .grid { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px;
+           font-size: 12px; }
+  #stats .grid .k { color: var(--sd-dim); font-size: 10.5px; }
+  #stats svg.spark { display: block; margin-top: 10px; }
+  #stats polyline { fill: none; stroke: var(--sd-drive); stroke-width: 1.5;
+           stroke-linejoin: round; }
+
+  /* --- login --- */
+  #login { position: absolute; inset: 0; display: none; align-items: center;
+           justify-content: center; z-index: 20;
+           background: radial-gradient(1200px 600px at 50% -10%, #14203a 0%, #0b0e14 55%); }
+  #login.visible { display: flex; }
+  #login form { background: #121722ee; border: 1px solid #232a38; border-radius: 16px;
+           padding: 34px 30px 28px; width: min(360px, 92vw); display: flex;
+           flex-direction: column; gap: 14px;
+           box-shadow: 0 18px 60px #000a, 0 0 0 1px #4f8ef71a; }
+  #login .logo { width: 52px; height: 52px; margin: 0 auto 4px; border-radius: 14px;
+           background: linear-gradient(135deg, #4f8ef7, #7b5cf0);
+           display: flex; align-items: center; justify-content: center;
+           font-size: 26px; box-shadow: 0 6px 24px #4f8ef755; }
+  #login h1 { font-size: 19px; color: #e6ebf5; font-weight: 650; text-align: center; }
+  #login .subtitle { font-size: 13px; color: #8b95a7; text-align: center;
+           margin-top: -8px; margin-bottom: 6px; }
+  #login label { font-size: 12px; color: #8b95a7; font-weight: 600;
+           letter-spacing: .4px; text-transform: uppercase; }
+  #login input { background: #0b0e14; border: 1px solid #2a3345; border-radius: 9px;
+           color: #e6ebf5; padding: 11px 13px; font-size: 14px; outline: none;
+           transition: border-color .15s, box-shadow .15s; width: 100%; }
+  #login input:focus { border-color: #4f8ef7; box-shadow: 0 0 0 3px #4f8ef72e; }
+  #login button { background: linear-gradient(135deg, #4f8ef7, #6b7bf7); border: 0;
+           border-radius: 9px; color: #fff; padding: 12px; font-size: 14.5px;
+           font-weight: 650; cursor: pointer; margin-top: 6px;
+           transition: filter .15s, transform .05s; }
+  #login button:hover { filter: brightness(1.1); }
+  #login button:active { transform: translateY(1px); }
+  #login button:disabled { filter: grayscale(.6) brightness(.8); cursor: wait; }
+  #login .error { color: #f38ba8; font-size: 13px; min-height: 17px; text-align: center; }
+
+  /* --- dropping files onto the page ------------------------------------------
+     Dragging a file from your own desktop onto the remote one is the gesture
+     people expect; making it work only inside the file manager would be a trap.
+
+     The overlay dims, which is the exception to the rule that this layer never
+     darkens the desktop: a drop target has to be unmistakable, and it lasts
+     only as long as the drag. The card carries the phosphor accent because the
+     file is going TO the remote desktop, and that is what the colour means. */
+  #dropzone { position: absolute; inset: 0; z-index: 35; display: none;
+        align-items: center; justify-content: center;
+        background: rgba(0,0,0,.5); pointer-events: none; }
+  #dropzone.armed { display: flex; }
+  #dropzone .dz-card { display: flex; flex-direction: column; align-items: center;
+        gap: 12px; padding: 38px 56px; border: 2px dashed var(--sd-drive);
+        border-radius: 14px; background: var(--sd-surface);
+        backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+        color: var(--sd-ink); box-shadow: 0 24px 64px rgba(0,0,0,.45);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  #dropzone .dz-icon { width: 34px; height: 34px; color: var(--sd-drive);
+        fill: none; stroke: currentColor; stroke-width: 1.7;
+        stroke-linecap: round; stroke-linejoin: round; }
+  #dropzone .dz-title { font-size: 13.5px; font-weight: 700; letter-spacing: .03em; }
+  #dropzone .dz-sub { font-size: 11px; color: var(--sd-dim); }
+
+  /* --- file manager ----------------------------------------------------------
+     Two panes, the shape everybody recognises for moving files between two
+     places. It used to wear Midnight Commander's blue and cyan, which read as a
+     different application bolted onto this one; it now uses the same tokens as
+     the rail, so the two sides are told apart by an accent instead of by a
+     wholly separate palette.
+
+     Which side is which is the thing that must never be ambiguous: the remote
+     desktop carries the phosphor accent, your own machine the amber one. */
+  /* The layer that centres the window catches nothing. It used to sit over the
+     whole screen and swallow every click, which put it on top of the rail:
+     pressing a toolbar button actually hit this, and closed the manager. Now
+     only the window itself is interactive, and the rail keeps working while the
+     file manager is open. */
+  #fm { position: absolute; inset: 0; display: none; align-items: center;
+        justify-content: center; z-index: 30; background: transparent;
+        pointer-events: none; }
+  #fm.open { display: flex; }
+  /* The same frosted material as the rail — one control layer, not a window
+     from some other application parked on top of it. */
+  /* Same material as the rail, but the blur radius has to scale with the area
+     it covers. Sixteen pixels erases everything behind a 240px strip; across
+     940x640 it only softens the wallpaper's large shapes, and what survives
+     reads as an out-of-focus photograph rather than as frosted glass. */
+  #fm-window { pointer-events: auto; display: flex; flex-direction: column;
+        width: min(940px, 100% - 72px); height: min(640px, 100% - 72px);
+        background: var(--sd-surface);
+        backdrop-filter: blur(44px) saturate(1.3);
+        -webkit-backdrop-filter: blur(44px) saturate(1.3);
+        border: 1px solid var(--sd-line); border-radius: 10px;
+        box-shadow: 0 24px 64px rgba(0,0,0,.45); color: var(--sd-ink);
+        overflow: hidden; font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; }
+
+  /* The title bar is the handle: it is the one strip with nothing to click. */
+  #fm-title { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+        border-bottom: 1px solid var(--sd-line-soft); cursor: move;
+        user-select: none; -webkit-user-select: none; touch-action: none; }
+  #fm-window.dragging { transition: none; }
+  #fm-title .fm-tt { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+  #fm-title .fm-sub { font-size: 11px; color: var(--sd-dim); }
+  #fm-title #fm-close { margin-left: auto; display: flex; align-items: center;
+        justify-content: center; width: 26px; height: 24px; border: 0;
+        border-radius: 5px; background: none; color: var(--sd-dim);
+        cursor: pointer; }
+  #fm-title #fm-close:hover { background: var(--sd-hover); color: var(--sd-ink); }
+  #fm-title #fm-close svg { width: 13px; height: 13px; fill: none;
+        stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+  /* --- streaming out --------------------------------------------------------
+     Built on the file manager's frame, because it is the same kind of object: a
+     window of this control layer, not an application. What differs is the
+     weight — this one is a short form, so it is sized to its content instead of
+     claiming the screen. */
+  #rs { position: absolute; inset: 0; display: none; align-items: center;
+        justify-content: center; z-index: 31; background: transparent;
+        pointer-events: none; }
+  #rs.open { display: flex; }
+  #rs-window { pointer-events: auto; display: flex; flex-direction: column;
+        width: min(430px, 100% - 48px); max-height: calc(100% - 48px);
+        background: var(--sd-surface);
+        backdrop-filter: blur(44px) saturate(1.3);
+        -webkit-backdrop-filter: blur(44px) saturate(1.3);
+        border: 1px solid var(--sd-line); border-radius: 10px;
+        box-shadow: 0 24px 64px rgba(0,0,0,.45); color: var(--sd-ink);
+        overflow: hidden;
+        font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace; }
+  #rs-title { display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+        border-bottom: 1px solid var(--sd-line-soft); cursor: move;
+        user-select: none; -webkit-user-select: none; touch-action: none; }
+  #rs-window.dragging { transition: none; }
+  #rs-title .rs-tt { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+  #rs-title .rs-sub { font-size: 11px; color: var(--sd-dim); }
+  #rs-title #rs-close { margin-left: auto; display: flex; align-items: center;
+        justify-content: center; width: 26px; height: 24px; border: 0;
+        border-radius: 5px; background: none; color: var(--sd-dim); cursor: pointer; }
+  #rs-title #rs-close:hover { background: var(--sd-hover); color: var(--sd-ink); }
+  #rs-title #rs-close svg { width: 13px; height: 13px; fill: none;
+        stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+
+  #rs-body { padding: 12px; overflow-y: auto; display: flex;
+        flex-direction: column; gap: 10px; }
+
+  /* Four destinations, equal weight: none of them is the expected answer. */
+  .rs-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .rs-plat { display: flex; flex-direction: column; align-items: center; gap: 5px;
+        padding: 9px 4px 7px; border: 1px solid var(--sd-line-soft);
+        border-radius: 7px; background: none; color: var(--sd-dim);
+        cursor: pointer; font: inherit; }
+  .rs-plat:hover { background: var(--sd-hover); color: var(--sd-ink); }
+  .rs-plat[aria-checked="true"] { border-color: var(--sd-drive);
+        color: var(--sd-ink); background: color-mix(in srgb, var(--sd-drive) 12%, transparent); }
+  .rs-logo svg { width: 21px; height: 21px; display: block; fill: none;
+        stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; }
+  .rs-name { font-size: 9.5px; letter-spacing: .04em; }
+
+  .rs-field { display: flex; flex-direction: column; gap: 5px; }
+  .rs-field > span { font-size: 9.5px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--sd-dim); }
+  #rs-url { width: 100%; padding: 8px 10px; font: inherit; font-size: 12px;
+        color: var(--sd-ink); background: rgba(0,0,0,.28);
+        border: 1px solid var(--sd-line-soft); border-radius: 6px; outline: none; }
+  #rs-url:focus { border-color: var(--sd-focus); }
+  #rs-url::placeholder { color: color-mix(in srgb, var(--sd-dim) 65%, transparent); }
+
+  .rs-hint { font-size: 11px; line-height: 1.45; color: var(--sd-dim); }
+  .rs-opts { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; }
+  .rs-opts label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .rs-opts input { accent-color: var(--sd-drive); }
+  #rs-kf-wrap[hidden] { display: none; }
+
+  .rs-actions { display: flex; align-items: center; gap: 10px; padding-top: 2px; }
+  #rs-go { padding: 8px 16px; font: inherit; font-size: 12px; font-weight: 700;
+        letter-spacing: .04em; border: 0; border-radius: 6px;
+        background: var(--sd-drive); color: var(--sd-drive-ink); cursor: pointer; }
+  #rs-go:hover { filter: brightness(1.08); }
+  #rs-go:disabled { opacity: .45; cursor: default; filter: none; }
+  #rs-msg { font-size: 11px; color: var(--sd-dim); }
+  #rs-help { margin-left: auto; font-size: 11px; color: var(--sd-dim);
+        text-decoration: none; white-space: nowrap; border-bottom: 1px solid transparent; }
+  #rs-help:hover { color: var(--sd-drive); border-bottom-color: currentColor; }
+  #rs-msg.bad { color: var(--sd-rec); }
+
+  #rs-active { border-top: 1px solid var(--sd-line-soft); padding-top: 10px;
+        display: flex; flex-direction: column; gap: 7px; }
+  #rs-active[hidden] { display: none; }
+  .rs-active-head { font-size: 9.5px; letter-spacing: .14em;
+        text-transform: uppercase; color: var(--sd-rec); }
+  #rs-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+  #rs-list li { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+  #rs-list .dest { flex: 1; overflow: hidden; text-overflow: ellipsis;
+        white-space: nowrap; }
+  #rs-list .plat { color: var(--sd-ink); font-weight: 700; }
+  #rs-list .url { color: var(--sd-dim); }
+  #rs-list button { padding: 3px 9px; font: inherit; font-size: 10.5px;
+        border: 1px solid var(--sd-line); border-radius: 5px; background: none;
+        color: var(--sd-dim); cursor: pointer; }
+  #rs-list button:hover { border-color: var(--sd-rec); color: var(--sd-rec); }
+
+  /* The rail's own live badge, so a stream is visible without opening this. */
+  #btn-rtmp.live { color: var(--sd-rec); }
+  #btn-rtmp.live #rtmp-live { animation: sd-pulse 1.2s infinite; }
+
+  #fm-panes { flex: 1; display: grid; grid-template-columns: 1fr 44px 1fr;
+        gap: 0; padding: 10px; min-height: 0; }
+  .pane { display: flex; flex-direction: column; min-width: 0; min-height: 0;
+        border: 1px solid var(--sd-line-soft); border-radius: 6px;
+        overflow: hidden; outline: none; }
+  .pane:focus-within, .pane.active { border-color: var(--sd-line); }
+  .pane > header { display: flex; align-items: baseline; gap: 8px;
+        padding: 7px 10px; background: var(--sd-hover);
+        border-bottom: 1px solid var(--sd-line-soft); }
+  .pane > header .side { font-size: 10px; font-weight: 700; letter-spacing: .14em;
+        text-transform: uppercase; white-space: nowrap; color: var(--sd-drive); }
+  #pane-local > header .side { color: var(--sd-watch); }
+  .pane > header .cwd { font-size: 11px; color: var(--sd-dim); overflow: hidden;
+        text-overflow: ellipsis; white-space: nowrap; direction: rtl;
+        text-align: left; }
+
+  .colhead, .list li { display: grid; grid-template-columns: 1fr 82px 132px;
+        gap: 16px; padding: 3px 10px; }
+  .colhead { padding: 5px 10px; font-size: 9.5px; letter-spacing: .1em;
+        color: var(--sd-dim); border-bottom: 1px solid var(--sd-line-soft); }
+  .colhead span:nth-child(2), .colhead span:nth-child(3) { text-align: right; }
+  .list { flex: 1; overflow-y: auto; list-style: none; padding: 4px 0;
+        font-size: 12px; }
+  .list li { cursor: pointer; white-space: nowrap; border-radius: 4px; }
+  .list li span:nth-child(2), .list li span:nth-child(3) {
+        text-align: right; color: var(--sd-dim); }
+  .list li .nm { overflow: hidden; text-overflow: ellipsis; }
+  /* Directories read heavier than files, the ".." entry gets the accent: both
+     are navigation, and navigation is what the eye scans for first. */
+  .list li.dir .nm { font-weight: 700; }
+  .list li.up .nm { color: var(--sd-drive); }
+  .list li.sel { background: var(--sd-drive); color: var(--sd-drive-ink); }
+  .list li.sel span, .list li.sel .nm { color: var(--sd-drive-ink); }
+  .list li.marked .nm { color: var(--sd-watch); }
+  .list li.marked.sel .nm { color: var(--sd-drive-ink); }
+  .list li:hover:not(.sel) { background: var(--sd-hover); }
+  .list li.err { color: var(--sd-rec); cursor: default; }
+  .pane > footer { padding: 6px 10px; border-top: 1px solid var(--sd-line-soft);
+        font-size: 10.5px; color: var(--sd-dim); white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; }
+
+  #fm-mid { display: flex; flex-direction: column; align-items: center;
+        justify-content: center; gap: 8px; }
+  #fm-mid button { display: flex; align-items: center; justify-content: center;
+        width: 30px; height: 28px; border: 1px solid var(--sd-line);
+        border-radius: 6px; background: none; color: var(--sd-dim);
+        cursor: pointer; }
+  #fm-mid button:hover:not(:disabled) { background: var(--sd-hover);
+        color: var(--sd-ink); }
+  #fm-mid button:disabled { opacity: .3; cursor: default; }
+  #fm-mid svg { width: 12px; height: 12px; fill: currentColor; stroke: none; }
+
+  #local-hint { padding: 9px 10px; border-top: 1px dashed var(--sd-line);
+        font-size: 11px; color: var(--sd-dim); }
+  #local-hint p + p { margin-top: 7px; display: flex; align-items: center;
+        gap: 8px; }
+  #local-hint b { color: var(--sd-watch); }
+  #local-hint .muted { font-size: 10.5px; }
+  #btn-pick { padding: 5px 10px; border: 1px solid var(--sd-line);
+        border-radius: 6px; background: none; color: var(--sd-ink);
+        font: inherit; font-size: 11px; cursor: pointer; }
+  #btn-pick:hover { background: var(--sd-hover); }
+  /* The drop target announces itself in amber: files land on YOUR machine's
+     side of the window, and the colour already means that here. */
+  .pane.drop { border-color: var(--sd-watch);
+        background: color-mix(in srgb, var(--sd-watch) 10%, transparent); }
+
+  /* Function keys, the way a two-pane manager has always ended. The keycap is
+     drawn as a keycap so the shortcut is learnable by looking. */
+  #fm-keys { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px;
+        border-top: 1px solid var(--sd-line-soft); }
+  #fm-keys button { display: flex; align-items: center; justify-content: center;
+        gap: 7px; flex: 1; min-width: 90px; padding: 5px 10px; border: 0;
+        border-radius: 6px; background: none; color: var(--sd-ink);
+        font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }
+  #fm-keys button:hover { background: var(--sd-hover); }
+  #fm-keys button b { font-size: 9.5px; font-weight: 700; padding: 1px 5px;
+        border: 1px solid var(--sd-line); border-radius: 4px;
+        color: var(--sd-dim); }
+
+  #fm-progress { height: 3px; background: var(--sd-line-soft); }
+  #fm-progress > div { height: 100%; width: 0; background: var(--sd-drive);
+        transition: width .15s; }
+</style>
+</head>
+<body>
+  <video id="screen" autoplay playsinline muted tabindex="0"></video>
+
+  <div id="status">
+    <div class="brand">SentinelDesk</div>
+    <div class="spinner"></div>
+    <div id="status-text" data-i18n="status.connecting">Connecting…</div>
+  </div>
+
+  <div id="login">
+    <form id="login-form" autocomplete="off">
+      <div class="logo">🖥️</div>
+      <h1>SentinelDesk</h1>
+      <div class="subtitle" data-i18n="login.subtitle">Sign in to access your remote desktop</div>
+      <label for="login-user" data-i18n="login.username">Username</label>
+      <input id="login-user" data-i18n-placeholder="login.username" placeholder="Username" autocomplete="username" autofocus>
+      <label for="login-pass" data-i18n="login.password">Password</label>
+      <input id="login-pass" type="password" data-i18n-placeholder="login.password" placeholder="Password" autocomplete="current-password">
+      <div class="error" id="login-error"></div>
+      <button type="submit" id="login-btn" data-i18n="login.submit">Sign in</button>
+    </form>
+  </div>
+
+  <!-- Other participants' pointers -->
+
+  <div id="toolbar-handle" data-i18n-title="toolbar.show" title="Show the toolbar (º)">
+    <span>º</span>
+    <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+  </div>
+
+  <div id="toolbar" role="toolbar" aria-orientation="vertical" aria-label="SentinelDesk">
+    <span id="rail-sig" aria-hidden="true"></span>
+    <div id="wordmark"><span class="x-only">SENTINELDESK</span><span class="c-only">SD</span></div>
+
+    <!-- Presence: which of the three states you are in, said twice — by shape
+         and by colour — because it decides whether your clicks do anything. -->
+    <div id="presence" class="x-only" data-i18n-title="toolbar.presence" title="Who is in this session">
+      <div id="pres-head">
+        <span class="k" data-i18n="room.session">Session</span>
+        <span id="pres-count"></span>
+      </div>
+      <div id="pres-chip">
+        <svg class="i-solo" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19.5c.9-3.6 3.5-5.3 6.5-5.3s5.6 1.7 6.5 5.3"/></svg>
+        <svg class="i-drive" viewBox="0 0 24 24"><path d="M5.5 3.5l13.5 8-6 1.6-3.4 5.4z"/></svg>
+        <svg class="i-watch" viewBox="0 0 24 24"><path d="M2.5 12S6 5.6 12 5.6 21.5 12 21.5 12 18 18.4 12 18.4 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.7"/></svg>
+        <span id="presence-text">—</span>
+      </div>
+      <button id="btn-control" hidden data-i18n="room.take">Take control</button>
+    </div>
+    <div id="pres-mini" class="c-only">
+      <span id="pres-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19.5c.9-3.6 3.5-5.3 6.5-5.3s5.6 1.7 6.5 5.3"/></svg><span id="pres-n"></span></span>
+      <button id="btn-control-mini" data-i18n-title="room.take" title="Take control">
+        <svg viewBox="0 0 24 24"><path d="M5.5 3.5l13.5 8-6 1.6-3.4 5.4z"/></svg>
+      </button>
+    </div>
+
+    <div class="sd-sep"></div>
+    <div class="sd-group x-only" data-i18n="group.capture">Capture</div>
+    <div class="sd-rows">
+      <button id="btn-mic" class="row" aria-pressed="false" data-i18n-title="toolbar.mic" title="Send your microphone to the desktop — right-click to pick which one">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="10.5" rx="3"/><path d="M6.5 11.5a5.5 5.5 0 0 0 11 0"/><path d="M12 17v3.5M9 20.5h6"/></svg></span>
+        <span class="lb" data-i18n="label.mic"></span>
+        <span class="lb live-chip" id="mic-live" hidden data-i18n="chip.live">LIVE</span>
+      </button>
+      <button id="btn-shot" class="row" data-i18n-title="toolbar.shot" title="Save a picture of the screen to your machine">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7l1.6-2.5h3.8L15.5 7"/><circle cx="12" cy="13.2" r="3.4"/></svg></span>
+        <span class="lb" data-i18n="label.shot"></span>
+      </button>
+      <button id="btn-rec" class="row" aria-pressed="false" data-i18n-title="toolbar.rec" title="Record the screen to your machine">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle class="ring" cx="12" cy="12" r="7.5"/><circle class="dot-in" cx="12" cy="12" r="3"/><rect class="stop-in" x="8.8" y="8.8" width="6.4" height="6.4" rx="1"/></svg></span>
+        <span class="lb" data-i18n="label.rec"></span>
+        <span id="rec-mini">0:00</span>
+      </button>
+      <button id="btn-rtmp" class="row" aria-expanded="false" data-i18n-title="toolbar.rtmp" title="Send this desktop to YouTube, Twitch, Facebook, or a player of your own">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 8.5a2.5 2.5 0 0 1 2.5-2.5h7A2.5 2.5 0 0 1 16 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 4 15.5z"/><path d="M16 10.5l4-2.5v8l-4-2.5z"/></svg></span>
+        <span class="lb" data-i18n="label.rtmp"></span>
+        <span class="lb live-chip" id="rtmp-live" hidden data-i18n="chip.live">LIVE</span>
+      </button>
+    </div>
+
+    <div class="sd-sep"></div>
+    <div class="sd-group x-only" data-i18n="group.session">Session</div>
+    <div class="sd-rows">
+      <button id="btn-files" class="row" data-i18n-title="toolbar.files" title="Files — transfer to and from the desktop">
+        <span class="ic"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 9.5h2.5M6.5 12.5h2.5M15 9.5h2.5M15 12.5h2.5"/></svg></span>
+        <span class="lb" data-i18n="label.files"></span>
+      </button>
+      <button id="btn-audio" class="row" aria-pressed="true" data-i18n-title="toolbar.audio" title="Toggle audio">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 10v4h3l4.5 3.8V6.2L7 10z" style="fill:currentColor;stroke:none"/><g class="spk-on"><path d="M15 9.3a4 4 0 0 1 0 5.4"/><path d="M17.6 6.8a8 8 0 0 1 0 10.4"/></g><g class="spk-off"><path d="M15.5 9.5l5 5M20.5 9.5l-5 5"/></g></svg></span>
+        <span class="lb" data-i18n="label.audio"></span>
+      </button>
+      <button id="btn-stats" class="row" aria-expanded="false" data-i18n-title="toolbar.stats" title="Statistics">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4.5 19.5V13M9.5 19.5V7.5M14.5 19.5V11M19.5 19.5V4.5"/></svg></span>
+        <span class="lb" data-i18n="label.stats"></span>
+      </button>
+    </div>
+
+    <div class="sd-sep"></div>
+    <div class="sd-group x-only" data-i18n="group.viewer">Viewer</div>
+    <div class="sd-rows">
+      <button id="btn-fs" class="row" data-i18n-title="toolbar.fullscreen" title="Fullscreen">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></span>
+        <span class="lb" data-i18n="label.fullscreen"></span>
+      </button>
+      <button id="btn-lang" class="row" aria-expanded="false" data-i18n-title="toolbar.language" title="Language">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><ellipse cx="12" cy="12" rx="3.6" ry="8.2"/><path d="M4 12h16"/></svg></span>
+        <span class="lb" data-i18n="label.language"></span>
+        <span class="lb" id="lang-code">EN</span>
+      </button>
+      <button id="btn-help" class="row" data-i18n-title="toolbar.help" title="Documentation — opens in a new tab">
+        <span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.2 2.8c-.6.3-.8.8-.8 1.4v.5"/><path d="M12 17.1v.1" stroke-width="2.4"/></svg></span>
+        <span class="lb" data-i18n="label.help"></span>
+      </button>
+      <button id="btn-logout" class="row" data-i18n-title="toolbar.logout" title="Sign out">
+        <span class="ic"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></span>
+        <span class="lb" data-i18n="label.logout"></span>
+      </button>
+    </div>
+
+    <!-- Which build this is, from the server itself — not from a constant that
+         could disagree with it. Filled in when the config message arrives. -->
+    <div id="about" class="x-only" title="SentinelDesk"></div>
+
+    <div class="sd-sep"></div>
+    <div id="rail-foot">
+      <button id="toolbar-collapse" data-i18n-title="toolbar.collapse" title="Collapse to icons">
+        <svg class="chev-out" viewBox="0 0 24 24"><path d="M11.5 7l-5 5 5 5M17.5 7l-5 5 5 5"/></svg>
+        <svg class="chev-in" viewBox="0 0 24 24"><path d="M6.5 7l5 5-5 5M12.5 7l5 5-5 5"/></svg>
+      </button>
+      <button id="toolbar-hide" data-i18n-title="toolbar.hide" title="Hide the toolbar (º)">º</button>
+    </div>
+  </div>
+
+  <!-- The action lives inside the notice: reading why and acting on it are the
+       same gesture, instead of a message that points somewhere else. -->
+  <div id="watching" role="status">
+    <span class="stripe" aria-hidden="true"></span>
+    <svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.6 12 5.6 21.5 12 21.5 12 18 18.4 12 18.4 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.7"/></svg>
+    <span class="msg" data-i18n="room.watching"></span>
+    <button id="btn-take-watch" data-i18n="room.take">Take control</button>
+  </div>
+  <div id="flash" aria-hidden="true"></div>
+
+  <!-- The agent asking permission. Deliberately a decision, not a notice: an
+       agent can act faster than anyone can react, so somebody has to say yes. -->
+  <div id="ask-control" role="alertdialog" aria-live="assertive">
+    <div class="ac-card">
+      <div class="ac-head">
+        <svg viewBox="0 0 24 24"><rect x="4" y="7" width="16" height="12" rx="2"/><path d="M9 7V5a3 3 0 0 1 6 0v2"/><circle cx="9.5" cy="13" r="1.1"/><circle cx="14.5" cy="13" r="1.1"/></svg>
+        <span class="ac-who"></span>
+      </div>
+      <div class="ac-msg" data-i18n="ask.body"></div>
+      <div class="ac-actions">
+        <button id="ask-deny" data-i18n="ask.deny">Refuse</button>
+        <button id="ask-allow" data-i18n="ask.allow">Allow</button>
+      </div>
+      <div class="ac-timer"><i></i></div>
+    </div>
+  </div>
+
+  <div id="stats" role="status">
+    <div class="st-head">
+      <span>WEBRTC</span>
+      <span class="st-live"></span>
+      <button id="stats-close" data-i18n-title="stats.close" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="grid" id="stats-grid"></div>
+    <svg class="spark" width="184" height="30" viewBox="0 0 184 30"><polyline id="stats-spark" points=""/></svg>
+  </div>
+
+  <!-- Dropping files ANYWHERE on the page copies them to the desktop -->
+  <div id="dropzone" aria-hidden="true">
+    <div class="dz-card">
+      <svg class="dz-icon" viewBox="0 0 24 24">
+        <path d="M12 3v9"/>
+        <path d="M8.5 8.5L12 12l3.5-3.5"/>
+        <path d="M3.5 13.5v4a3 3 0 0 0 3 3h11a3 3 0 0 0 3-3v-4"/>
+        <path d="M3.5 15h5l1.5 2h4l1.5-2h5"/>
+      </svg>
+      <div class="dz-title" data-i18n="drop.title">Drop to copy to the desktop</div>
+      <div class="dz-sub" id="dz-target">~/Desktop</div>
+    </div>
+  </div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <div id="rec-badge" hidden><span class="dot"></span><span id="rec-time">0:00</span></div>
+
+  <!-- File manager: two panes, the remote desktop and your own machine -->
+  <div id="fm" aria-hidden="true">
+    <div id="fm-window" role="dialog" aria-label="File manager">
+      <div id="fm-title">
+        <span class="fm-tt" data-i18n="fm.title">File Manager</span>
+        <span class="fm-sub" data-i18n="fm.subtitle">remote desktop ↔ your machine</span>
+        <button id="fm-close" data-i18n-title="fm.close" title="Close (Esc)">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div id="fm-panes">
+        <!-- left: the remote desktop, carrying the phosphor accent -->
+        <section class="pane" id="pane-remote" tabindex="0">
+          <header>
+            <span class="side" data-i18n="fm.remote">Remote desktop</span>
+            <span class="cwd" id="remote-cwd">/</span>
+          </header>
+          <div class="colhead"><span data-i18n="fm.colName">Name</span><span data-i18n="fm.colSize">Size</span><span data-i18n="fm.colModified">Modified</span></div>
+          <ul class="list" id="remote-list"></ul>
+          <footer id="remote-foot">—</footer>
+        </section>
+
+        <!-- centre: which way the transfer goes -->
+        <div id="fm-mid">
+          <button id="btn-download" data-i18n-title="fm.download" title="Send to your machine">
+            <svg viewBox="0 0 24 24"><path d="M8 5l10 7-10 7z"/></svg>
+          </button>
+          <button id="btn-upload" data-i18n-title="fm.upload" title="Send to the desktop">
+            <svg viewBox="0 0 24 24"><path d="M16 5L6 12l10 7z"/></svg>
+          </button>
+        </div>
+
+        <!-- right: the machine of whoever is watching, in amber -->
+        <section class="pane" id="pane-local" tabindex="0">
+          <header>
+            <span class="side" data-i18n="fm.local">Your machine</span>
+            <span class="cwd" id="local-cwd" data-i18n="fm.downloadsFolder">Downloads folder</span>
+          </header>
+          <div class="colhead"><span data-i18n="fm.colName">Name</span><span data-i18n="fm.colSize">Size</span><span data-i18n="fm.colStatus">Status</span></div>
+          <ul class="list" id="local-list"></ul>
+          <div id="local-hint">
+            <p data-i18n-html="fm.dropHere"><b>Drop files here</b> to send them to the desktop.</p>
+            <p id="local-pick-wrap">
+              <button id="btn-pick" data-i18n="fm.pickFolder">Choose a local folder…</button>
+              <span class="muted" data-i18n="fm.pickFolderHint">to browse it side by side</span>
+            </p>
+          </div>
+          <footer id="local-foot">—</footer>
+        </section>
+      </div>
+
+      <div id="fm-progress"><div></div></div>
+
+      <div id="fm-keys">
+        <button data-key="F5" id="key-copy"><b>F5</b> <span data-i18n="fm.keyCopy">Copy</span></button>
+        <button data-key="F6" id="key-rename"><b>F6</b> <span data-i18n="fm.keyRename">Rename</span></button>
+        <button data-key="F7" id="key-mkdir"><b>F7</b> <span data-i18n="fm.keyMkdir">MkDir</span></button>
+        <button data-key="F8" id="key-delete"><b>F8</b> <span data-i18n="fm.keyDelete">Delete</span></button>
+        <button data-key="F2" id="key-refresh"><b>F2</b> <span data-i18n="fm.keyRefresh">Refresh</span></button>
+        <button data-key="Esc" id="key-quit"><b>Esc</b> <span data-i18n="fm.keyQuit">Quit</span></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Streaming out: the same picture the room is watching, sent somewhere else.
+       Same glass as the rail and the file manager, and the same rules — it stays
+       put while you use the toolbar, it moves, and only the X closes it. -->
+  <div id="rs" aria-hidden="true">
+    <div id="rs-window" role="dialog" aria-label="Live streaming">
+      <div id="rs-title">
+        <span class="rs-tt" data-i18n="rs.title">Live streaming</span>
+        <span class="rs-sub" data-i18n="rs.subtitle">this desktop, sent somewhere else</span>
+        <button id="rs-close" data-i18n-title="rs.close" title="Close (Esc)">
+          <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+
+      <div id="rs-body">
+        <!-- What you are streaming to. The choice changes what is asked for
+             next: a platform wants a key, anything else wants a full address. -->
+        <div class="rs-pick" role="radiogroup" aria-label="Destination">
+          <button class="rs-plat" data-plat="youtube" role="radio" aria-checked="false">
+            <span class="rs-logo"><svg viewBox="0 0 24 24"><path d="M22.5 7.2a3 3 0 0 0-2.1-2.1C18.6 4.6 12 4.6 12 4.6s-6.6 0-8.4.5A3 3 0 0 0 1.5 7.2 31 31 0 0 0 1 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23 12a31 31 0 0 0-.5-4.8z" style="fill:currentColor;stroke:none"/><path d="M9.9 15.2l5.5-3.2-5.5-3.2z" style="fill:var(--sd-panel);stroke:none"/></svg></span>
+            <span class="rs-name">YouTube</span>
+          </button>
+          <button class="rs-plat" data-plat="twitch" role="radio" aria-checked="false">
+            <span class="rs-logo"><svg viewBox="0 0 24 24"><path d="M4.3 2L2.5 6.4v13.1h4.8V22h2.6l2.6-2.5h3.9l5-4.9V2zm15.1 12L16.6 17H12l-2.5 2.4V17H5.6V3.6h13.8zM15.6 7.2v5h-1.9v-5zm-4.6 0v5H9.2v-5z" style="fill:currentColor;stroke:none"/></svg></span>
+            <span class="rs-name">Twitch</span>
+          </button>
+          <button class="rs-plat" data-plat="facebook" role="radio" aria-checked="false">
+            <span class="rs-logo"><svg viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z" style="fill:currentColor;stroke:none"/></svg></span>
+            <span class="rs-name">Facebook</span>
+          </button>
+          <button class="rs-plat" data-plat="custom" role="radio" aria-checked="true">
+            <span class="rs-logo"><svg viewBox="0 0 24 24"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 17.5v3"/><path d="M10 8.6l4.5 2.4L10 13.4z" style="fill:currentColor;stroke:none"/></svg></span>
+            <span class="rs-name" data-i18n="rs.custom">VLC / OBS</span>
+          </button>
+        </div>
+
+        <!-- One field, relabelled: a stream key for a platform, a whole URL for
+             your own receiver. Two fields would only ever have one filled in. -->
+        <label class="rs-field">
+          <span id="rs-label" data-i18n="rs.urlLabel">Address</span>
+          <input id="rs-url" type="text" spellcheck="false" autocomplete="off"
+                 placeholder="udp://host.docker.internal:5000">
+        </label>
+        <p id="rs-hint" class="rs-hint" data-i18n="rs.hintCustom">
+          Point VLC or OBS at this machine. From Docker the host is host.docker.internal. Use udp:// for VLC — it only speaks srt:// as a caller, so it cannot receive one. srt:// is for a receiver that listens.
+        </p>
+
+        <div class="rs-opts">
+          <label><input type="checkbox" id="rs-audio" checked> <span data-i18n="rs.audio">Include audio</span></label>
+          <label id="rs-kf-wrap"><input type="checkbox" id="rs-kf"> <span data-i18n="rs.keyframes">Viewers can join mid-stream</span></label>
+        </div>
+        <p id="rs-kf-note" class="rs-hint" data-i18n="rs.keyframesNote">
+          Off, the picture stays sharper: keyframes are large and the bits they take come out of the detail. Platforms always get them.
+        </p>
+
+        <div class="rs-actions">
+          <button id="rs-go" data-i18n="rs.go">Go live</button>
+          <span id="rs-msg" role="status"></span>
+          <!-- Straight to the section that explains it, in the reader's own
+               language. Written by the client, which knows which one that is. -->
+          <a id="rs-help" href="/docs/#capture-stream-out" target="_blank"
+             rel="noopener" data-i18n="rs.help">How do I watch this?</a>
+        </div>
+
+        <!-- Everyone in the room sees this list, because everyone in the room is
+             in the picture being sent. -->
+        <div id="rs-active" hidden>
+          <div class="rs-active-head" data-i18n="rs.streaming">Streaming to</div>
+          <ul id="rs-list"></ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="/client.js"></script>
+</body>
+</html>

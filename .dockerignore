@@ -1,0 +1,7 @@
+.git
+.DS_Store
+README.md
+deploy/certs
+dist
+version.txt
+recordings

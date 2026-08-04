@@ -1,0 +1,116 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Local development (macOS/Windows with Docker Desktop, or Linux unexposed).
+#
+#
+# ── TLS modes ────────────────────────────────────────────────────────────────
+# 1) No TLS (default, development only):
+#      docker compose up -d                          → http://localhost:8080
+#
+# 2) SELF-SIGNED, native to the backend (generated and persisted on its own):
+#      TLS_SELFSIGNED=1 docker compose up -d         → https://localhost:8080
+#    Extra SANs (a LAN IP, an internal name):
+#      TLS_SELFSIGNED=1 TLS_HOSTS=192.168.1.50,desktop.local docker compose up -d
+#    The browser warns "not trusted": Advanced → Continue.
+#
+# 3) YOUR OWN CERTIFICATE / a purchased SSL wildcard (no proxy):
+#    copy fullchain.pem and privkey.pem into ./certs/ and run:
+#      TLS_CERT=/certs/fullchain.pem TLS_KEY=/certs/privkey.pem docker compose up -d
+#
+# 4) PRODUCTION with Caddy (Let's Encrypt / LE wildcard / self-signed / custom):
+#    use docker-compose.cpu.yml | .nvidia.yml | .vaapi.yml with --profile tls and
+#    TLS_MODE=auto | selfsigned | custom | wildcard   (see README, TLS section)
+# ─────────────────────────────────────────────────────────────────────────────
+# Pinned so the stack does not depend on which directory holds this file.
+# Compose otherwise derives the project name from the parent directory, and both
+# container names and volume names carry that prefix — moving the file silently
+# orphans the running containers and hides the persistent home behind a fresh,
+# empty volume.
+name: sentineldesk
+
+services:
+  sentineldesk:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: sentineldesk:latest
+    container_name: sentineldesk
+    environment:
+      - FPS=${FPS:-30}
+      # Wallpaper: rotates through /wallpaper every N seconds. 0 turns it off,
+      # and setting WALLPAPER to one file pins it and stops the rotation.
+      - WALLPAPER_ROTATE_SECS=${WALLPAPER_ROTATE_SECS:-300}
+      - WALLPAPER=${WALLPAPER:-}
+      # auto detects NVENC → VA-API → software VP8; also: nvenc|vaapi|h264|vp8
+      - ENCODER=auto
+      - VIDEO_BITRATE_KBPS=8000
+      # Web client login (empty = no auth, development only)
+      - AUTH_USER=${AUTH_USER:-}
+      - AUTH_PASS=${AUTH_PASS:-}
+      # The ICE configuration handed to the browser
+      - CLIENT_STUN=stun:stun.l.google.com:19302
+      - CLIENT_TURN_URLS=turn:${TURN_HOST:-localhost}:3478?transport=udp,turn:${TURN_HOST:-localhost}:3478?transport=tcp
+      - TURN_USER=${TURN_USER:-webrtc}
+      - TURN_PASS=${TURN_PASS:-webrtc123}
+      # A fixed UDP range for the container's ICE (mapped below)
+      - WEBRTC_MIN_PORT=59000
+      - WEBRTC_MAX_PORT=59049
+      # Native TLS in the backend: TLS_SELFSIGNED=1 (self-signed) or TLS_CERT/TLS_KEY
+      - TLS_SELFSIGNED=${TLS_SELFSIGNED:-0}
+      - TLS_CERT=${TLS_CERT:-}
+      - TLS_KEY=${TLS_KEY:-}
+      - TLS_HOSTS=${TLS_HOSTS:-}
+    ports:
+      - "8080:8080"
+      - "59000-59049:59000-59049/udp"
+    volumes:
+      # A persistent home (browser profiles, the Steam library, and so on)
+      - sentineldesk-home:/home/sentineldesk
+      - ./certs:/certs:ro
+      # Wallpapers. The path is relative to THIS file, and this file lives in
+      # deploy/ while the images live at the repository root — hence the "..".
+      # Drop images in there and they rotate; see WALLPAPER_ROTATE_SECS below.
+      - ../wallpaper:/wallpaper:ro
+    # Steam's newer bootstrap needs user namespaces, which the default seccomp
+    # profile blocks. Without this Steam fails with "requires user namespaces".
+    security_opt:
+      - seccomp:unconfined
+    # The virtual gamepad (browser joystick -> desktop). If the host has no
+    # has /dev/uinput, comment this line out — everything else still works.
+    devices:
+      - /dev/uinput:/dev/uinput
+    shm_size: "2g"
+    restart: unless-stopped
+
+  # TURN: a relay for traversing NAT — required on macOS/Docker Desktop, and a
+  # recommended fallback in production for clients behind restrictive NAT.
+  coturn:
+    image: coturn/coturn:latest
+    container_name: sentineldesk-turn
+    command: >-
+      -n --log-file=stdout --fingerprint --lt-cred-mech
+      --user=${TURN_USER:-webrtc}:${TURN_PASS:-webrtc123}
+      --realm=sentineldesk --listening-port=3478
+      --min-port=49160 --max-port=49200 --no-cli
+    ports:
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "49160-49200:49160-49200/udp"
+    restart: unless-stopped
+
+volumes:
+  sentineldesk-home:
+    # Explicit, for the same reason: the home holds real state (browser
+    # profiles, installed applications) and must survive a reorganisation.
+    name: sentineldesk-home

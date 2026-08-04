@@ -1,0 +1,19 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# TLS_MODE=auto — Let's Encrypt, automatic (HTTP-01 / TLS-ALPN).
+# Needs: DOMAIN pointing at this server and ports 80/443 open.
+# ACME_EMAIL es opcional (avisos de vencimiento).
+{$DOMAIN} {
+	reverse_proxy 127.0.0.1:8080
+}
