@@ -42,6 +42,12 @@ mkdir -p /run/user/1000
 chown sentineldesk:sentineldesk /run/user/1000
 chmod 700 /run/user/1000
 
+# Where lxpanel's stderr lands instead of the container log — see the comment on
+# [program:lxpanel] in supervisord.conf for why it is the one exception. The
+# directory has to exist before supervisord opens the file, and supervisord
+# refuses to start a program whose logfile it cannot create.
+mkdir -p /var/log/sentineldesk
+
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 
