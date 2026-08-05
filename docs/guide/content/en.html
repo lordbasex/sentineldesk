@@ -183,11 +183,37 @@ make up</code></pre>
   -e WEBRTC_MIN_PORT=59000 -e WEBRTC_MAX_PORT=59049 \
   -v sentineldesk-home:/home/sentineldesk \
   --device /dev/uinput --shm-size 2g \
-  --security-opt seccomp=unconfined \
+  --cap-add NET_ADMIN --device /dev/net/tun \
   sentineldesk:latest</code></pre>
       <p>The UDP range is what WebRTC's media travels over. Publishing it and
       pinning it with the two variables is what makes the connection work
       without host networking.</p>
+
+      <p>The last two lines are what
+      <a href="#whats-installed-vpn">the VPN client</a> needs: a tunnel device,
+      and the capability to configure routes. Without both, OpenVPN installs
+      fine and then fails at the moment somebody actually needs it. Drop them on
+      a deployment that will never dial a VPN — <code>NET_ADMIN</code> lets the
+      container manage its own network stack, which is a real grant.</p>
+
+      <div class="note">
+        <b>Where <code>seccomp=unconfined</code> went</b>
+        <p>Earlier versions of this page passed
+        <code>--security-opt seccomp=unconfined</code>, and the compose files
+        set it too. Neither does any more. It was there for <b>Steam</b>, whose
+        bootstrap needs user namespaces that Docker's default profile blocks,
+        and Steam is only in the <a href="#whats-installed">full image on
+        amd64</a>. It
+        widens what the container may ask of the kernel, which is not a thing to
+        leave switched on for a feature most installations never start.</p>
+        <p>It has one other effect worth knowing, in the opposite direction:
+        <b>with</b> it, Chromium keeps its own sandbox. The container tests for
+        user namespaces at startup and adds <code>--no-sandbox</code> only when
+        they are missing, so the default is an unsandboxed browser — as it
+        always was. Neither the DevTools protocol nor the accessibility tree
+        changes either way, so the <code>browser_*</code> and <code>ui_*</code>
+        tools behave the same.</p>
+      </div>
     </div>
 
     <div class="tab" data-label="From source">

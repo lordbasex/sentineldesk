@@ -189,11 +189,38 @@ make up</code></pre>
   -e WEBRTC_MIN_PORT=59000 -e WEBRTC_MAX_PORT=59049 \
   -v sentineldesk-home:/home/sentineldesk \
   --device /dev/uinput --shm-size 2g \
-  --security-opt seccomp=unconfined \
+  --cap-add NET_ADMIN --device /dev/net/tun \
   sentineldesk:latest</code></pre>
       <p>Por essa faixa UDP viaja a mídia do WebRTC. Publicá-la e fixá-la com as
       duas variáveis é o que faz a conexão funcionar sem usar a rede do
       host.</p>
+
+      <p>As duas últimas linhas são o que
+      <a href="#whats-installed-vpn">o cliente de VPN</a> precisa: um dispositivo
+      de túnel e a capacidade de configurar rotas. Sem as duas, o OpenVPN instala
+      bem e só falha no momento em que alguém realmente precisa dele. Remova-as
+      num deploy que nunca vai discar uma VPN — <code>NET_ADMIN</code> deixa o
+      contêiner administrar a própria pilha de rede, o que é uma concessão
+      real.</p>
+
+      <div class="note">
+        <b>Onde foi parar <code>seccomp=unconfined</code></b>
+        <p>Versões anteriores desta página passavam
+        <code>--security-opt seccomp=unconfined</code>, e os arquivos compose
+        também o definiam. Nenhum dos dois faz mais isso. Existia por causa do
+        <b>Steam</b>, cujo bootstrap precisa de user namespaces que o perfil
+        padrão do Docker bloqueia, e o Steam só está na
+        <a href="#whats-installed">imagem full em amd64</a>. Ele amplia o que o
+        contêiner pode pedir ao kernel, e isso não se deixa ligado por um recurso
+        que a maioria das instalações nunca inicia.</p>
+        <p>Tem outro efeito que vale conhecer, na direção oposta: <b>com</b> ele,
+        o Chromium mantém o próprio sandbox. O contêiner testa os user namespaces
+        na inicialização e acrescenta <code>--no-sandbox</code> apenas quando
+        eles faltam, então o normal é um navegador sem sandbox — como sempre foi.
+        Nem o protocolo DevTools nem a árvore de acessibilidade mudam em qualquer
+        dos casos, então as ferramentas <code>browser_*</code> e
+        <code>ui_*</code> se comportam igual.</p>
+      </div>
     </div>
 
     <div class="tab" data-label="Do código">

@@ -187,11 +187,38 @@ make up</code></pre>
   -e WEBRTC_MIN_PORT=59000 -e WEBRTC_MAX_PORT=59049 \
   -v sentineldesk-home:/home/sentineldesk \
   --device /dev/uinput --shm-size 2g \
-  --security-opt seccomp=unconfined \
+  --cap-add NET_ADMIN --device /dev/net/tun \
   sentineldesk:latest</code></pre>
       <p>Por ese rango UDP viaja el medio de WebRTC. Publicarlo y fijarlo con
       las dos variables es lo que hace que la conexión funcione sin usar la red
       del host.</p>
+
+      <p>Las dos últimas líneas son las que necesita
+      <a href="#whats-installed-vpn">el cliente de VPN</a>: un dispositivo de
+      túnel y la capacidad de configurar rutas. Sin las dos, OpenVPN se instala
+      bien y recién falla en el momento en que alguien lo necesita de verdad.
+      Sacalas en un despliegue que nunca va a levantar una VPN —
+      <code>NET_ADMIN</code> le permite al contenedor manejar su propia pila de
+      red, que es una concesión real.</p>
+
+      <div class="note">
+        <b>Dónde quedó <code>seccomp=unconfined</code></b>
+        <p>Versiones anteriores de esta página pasaban
+        <code>--security-opt seccomp=unconfined</code>, y los archivos compose
+        también lo ponían. Ya ninguno lo hace. Estaba por <b>Steam</b>, cuyo
+        arranque necesita user namespaces que el perfil por defecto de Docker
+        bloquea, y Steam solo está en la
+        <a href="#whats-installed">imagen full en amd64</a>. Amplía lo que el
+        contenedor puede pedirle al kernel, y eso no se deja prendido por una
+        función que la mayoría de las instalaciones nunca arranca.</p>
+        <p>Tiene otro efecto que conviene conocer, en la dirección contraria:
+        <b>con</b> él, Chromium conserva su propio sandbox. El contenedor prueba
+        los user namespaces al arrancar y agrega <code>--no-sandbox</code> solo
+        cuando faltan, así que lo normal es un navegador sin sandbox — como
+        siempre fue. Ni el protocolo DevTools ni el árbol de accesibilidad
+        cambian en ningún caso, así que las herramientas
+        <code>browser_*</code> y <code>ui_*</code> se comportan igual.</p>
+      </div>
     </div>
 
     <div class="tab" data-label="Desde el código">
