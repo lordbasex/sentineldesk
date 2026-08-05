@@ -339,7 +339,7 @@ make down</code></pre>
   <h3 id="config-session">Sesión y acceso</h3>
   <table>
     <tr><th>Variable</th><th>Por defecto</th><th>Descripción</th></tr>
-    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Acceso. Vacío significa sin autenticación — sólo desarrollo</td></tr>
+    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Acceso. Los dos vacíos significa sin autenticación — sólo desarrollo. Poner <b>una sola se niega a arrancar</b>: medio login es un typo, y el escritorio que producía era uno abierto</td></tr>
     <tr><td><code>AUTH_SECRET</code></td><td>aleatorio</td><td>Clave HMAC de los tokens. Fijala o cada reinicio cierra la sesión de todos</td></tr>
     <tr><td><code>AUTH_TTL_HOURS</code></td><td>12</td><td>Cuánto dura una sesión</td></tr>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>Cuántas personas pueden compartir un escritorio</td></tr>

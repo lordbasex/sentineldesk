@@ -330,7 +330,7 @@ make down</code></pre>
   <h3 id="config-session">Session and access</h3>
   <table>
     <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
-    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Login. Empty means no authentication — development only</td></tr>
+    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Login. Both empty means no authentication — development only. Setting <b>only one refuses to start</b>: half a login is a typo, and the desktop it used to produce was an open one</td></tr>
     <tr><td><code>AUTH_SECRET</code></td><td>random</td><td>HMAC key for session tokens. Pin it or every restart signs everyone out</td></tr>
     <tr><td><code>AUTH_TTL_HOURS</code></td><td>12</td><td>How long a session lasts</td></tr>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>How many people may share one desktop</td></tr>

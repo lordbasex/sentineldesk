@@ -13,6 +13,31 @@
 # SPDX-License-Identifier: Apache-2.0
 set -e
 
+# --- Half a login is a typo, not a configuration -----------------------------
+#
+# AUTH_USER and AUTH_PASS are both required to switch the login on. Setting
+# exactly one of them says plainly that somebody MEANT to, and the classic way
+# to end up there is a missing letter — UTH_USER instead of AUTH_USER — which
+# used to leave the desktop open to anybody who could reach the port, with the
+# only notice a warning buried between XGB's complaints about .Xauthority.
+#
+# The check is here, and not only in the binary, because supervisord restarts
+# what it supervises. The server refusing to run just means it is started again
+# two seconds later, forever, while the container reports itself perfectly up.
+# Refusing BEFORE supervisord makes the container exit, which is what "it did
+# not start" is supposed to look like from the outside.
+#
+# Both unset stays legal. That is the documented development mode: a deliberate
+# choice rather than a slip.
+if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
+   || { [ -z "${AUTH_USER:-}" ] && [ -n "${AUTH_PASS:-}" ]; }; then
+    if [ -n "${AUTH_USER:-}" ]; then set_var=AUTH_USER; missing=AUTH_PASS
+    else set_var=AUTH_PASS; missing=AUTH_USER; fi
+    echo "sentineldesk: $set_var is set but $missing is empty: refusing to start with half a login." >&2
+    echo "sentineldesk: set both to require authentication, or neither for an open desktop (development only)." >&2
+    exit 1
+fi
+
 mkdir -p /run/user/1000
 chown sentineldesk:sentineldesk /run/user/1000
 chmod 700 /run/user/1000

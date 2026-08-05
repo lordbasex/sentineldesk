@@ -439,7 +439,7 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `AUDIO_BITRATE` | `96000` | Opus bitrate (bps) |
 | `REMOTE_CURSOR` | `0` | `1` = draw the pointer on the server (more perceived latency) |
 | `MAX_VIEWERS` | `4` | How many people may share one desktop |
-| `AUTH_USER` / `AUTH_PASS` | — | Login credentials (empty = no auth, development only) |
+| `AUTH_USER` / `AUTH_PASS` | — | Login credentials. Both empty = no auth, development only. **Setting only one refuses to start** — half a login is always a typo |
 | `AUTH_SECRET` | random | HMAC key for session tokens; pin it to survive restarts |
 | `AUTH_TTL_HOURS` | `12` | Session lifetime |
 | `FILES_ROOT` | `/home/sentineldesk` | What the file manager may reach |

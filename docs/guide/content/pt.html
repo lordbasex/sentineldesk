@@ -341,7 +341,7 @@ make down</code></pre>
   <h3 id="config-session">Sessão e acesso</h3>
   <table>
     <tr><th>Variável</th><th>Padrão</th><th>Descrição</th></tr>
-    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Acesso. Vazio significa sem autenticação — só desenvolvimento</td></tr>
+    <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td>Acesso. Os dois vazios significa sem autenticação — só desenvolvimento. Definir <b>apenas um se recusa a iniciar</b>: meio login é um typo, e a área de trabalho que isso produzia era aberta</td></tr>
     <tr><td><code>AUTH_SECRET</code></td><td>aleatório</td><td>Chave HMAC dos tokens. Fixe-a ou cada reinício desconecta todos</td></tr>
     <tr><td><code>AUTH_TTL_HOURS</code></td><td>12</td><td>Quanto dura uma sessão</td></tr>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>Quantas pessoas podem compartilhar uma área de trabalho</td></tr>
