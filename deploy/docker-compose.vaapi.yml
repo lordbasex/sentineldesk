@@ -21,6 +21,10 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      # The Dockerfile's last stage is `full`, so without this a bare `--build`
+      # builds full and tags it sentineldesk:latest — a name that means lite
+      # everywhere else. Reasoned out in deploy/docker-compose.yml.
+      target: desktop
     image: sentineldesk:latest
     container_name: sentineldesk
     network_mode: host

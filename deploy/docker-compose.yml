@@ -44,6 +44,18 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      # Pinned to the lite stage, and it has to be said out loud because the
+      # default is wrong here: the Dockerfile's LAST stage is `full`, so a bare
+      # `docker compose up -d --build` would build full — LibreOffice, Firefox,
+      # GIMP, Wireshark, and on amd64 Steam and Wine, some 2.5 GB of it — and
+      # then tag that as sentineldesk:latest.
+      #
+      # That name means lite everywhere else: the Makefile builds it with
+      # --target desktop, and the README documents :latest as an alias of
+      # :lite. Without this line, which image `sentineldesk:latest` refers to
+      # depends on whether somebody typed `make up` or `docker compose --build`,
+      # and nothing anywhere says so.
+      target: desktop
     image: sentineldesk:latest
     container_name: sentineldesk
     environment:

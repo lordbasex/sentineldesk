@@ -21,6 +21,18 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile
+      # The Dockerfile's last stage is `full`, so without this a bare `--build`
+      # builds full and tags it sentineldesk:latest — a name that means lite
+      # everywhere else. Reasoned out in deploy/docker-compose.yml.
+      #
+      # Worth knowing on THIS file in particular: Steam and Wine live in full,
+      # and this is the compose people reach for to play something. Lite is
+      # still the right default — an NVIDIA GPU is for encoding as often as it
+      # is for games — so a gaming host builds full and points at it:
+      #
+      #   make image-full
+      #   ...then change the image line below to sentineldesk:full
+      target: desktop
     image: sentineldesk:latest
     container_name: sentineldesk
     network_mode: host
