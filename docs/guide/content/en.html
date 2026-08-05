@@ -27,10 +27,11 @@
     <li><b>The agent is a participant</b>, not a background process. It has a
       name in the list and a pointer on screen in its own colour, so it is never
       ambiguous whether a colleague or the model just moved the mouse.</li>
-    <li><b>They take turns.</b> Exactly one participant holds control at a time.
-      While a person is connected the agent has to ask, and a prompt appears on
-      that person's screen. With an empty room it simply works — there is nobody
-      to take turns with.</li>
+    <li><b>They take turns.</b> Control is claimed, never assumed — by anybody,
+        agent included, and whether or not somebody is watching. Nobody holds the
+        controls until they ask, so joining to watch does not hand you a desktop
+        you did not want. When somebody is driving, asking puts a prompt on their
+        screen and no answer means no.</li>
     <li><b>They read the same state.</b> Every command run in a terminal reports
       its exit status, whoever ran it, so a person can hit an error and ask the
       agent to look at what actually happened.</li>
@@ -675,18 +676,37 @@ docker volume rm sentineldesk-home</code></pre>
   change immediately. There is no hierarchy, because everyone got in with the
   same credential.</p>
 
-  <p>Use <b>Release control</b> when you finish, so the next person does not
-  have to take it from you.</p>
+  <p><b>Joining does not give you the controls.</b> The desktop starts with
+  nobody driving and stays that way until somebody asks, so opening it to watch
+  a colleague work is a thing you can do without taking the machine out from
+  under them. Press <b>Take control</b> when you actually want it.</p>
+
+  <p><b>Releasing frees the controls; it does not hand them to the next
+  person.</b> "I have finished" and "you are up now" are different statements,
+  and only the first one is ever true. The same holds if the person driving
+  simply closes their tab: the controls go free rather than landing on whoever
+  happens to have been there longest.</p>
+
+  <div class="note">
+    <b>The floating bar</b>
+    <p>A bar at the bottom of the screen tells everyone which way things stand,
+    and it carries the button: <b>green</b> when the controls are free, amber
+    when somebody else is driving. It stays for as long as that is true instead
+    of flashing past — the moment the agent finishes a task is exactly when you
+    might be looking somewhere else.</p>
+  </div>
 
   <h3 id="sharing-agent">The AI agent's turn</h3>
   <p>The agent is a participant like any other: a name in the list and a pointer
   on screen in its own colour, so it is never ambiguous whether a colleague or
   the model just moved the mouse.</p>
 
-  <p>The rule is narrow on purpose: <b>the agent must ask only while a person is
-  connected.</b> With nobody watching there is nobody to take turns with, and
-  demanding permission from an empty room would break every unattended run. The
-  moment somebody opens a browser, the agent has to ask — a prompt appears on
+  <p>The rule is one line: <b>control is claimed, never assumed.</b> That holds
+  for the agent whether or not anybody is watching — an empty room used to be a
+  free pass, and it is not one any more. Asking costs the agent nothing when the
+  controls are free, because the answer comes back immediately; what it buys is
+  a room that always knows who has the desktop. When somebody IS driving, the
+  agent has to ask them — a prompt appears on
   your screen with a draining timer, and no answer means no.</p>
 
   <div class="note">
@@ -910,6 +930,58 @@ lsof -nP -iUDP:5000</code></pre>
   <p>A connection may restrict itself further, but never widen — which is what
   makes it safe to hand an agent a read-only endpoint without changing anyone
   else's.</p>
+</section>
+
+<section id="whats-installed" data-track="use">
+  <h2>What is installed, and the two images</h2>
+  <p>Two variants come out of one build. <b>Lite</b> is the default; <b>full</b>
+  adds what is too large or too specialised to hand everybody.</p>
+
+  <p>Lite here does not mean headless — on a Raspberry Pi that is what "Lite"
+  means, but here the desktop <em>is</em> the product. It means the smallest set
+  that leaves nobody reaching for a package manager on their first afternoon: a
+  browser, a text editor, image and document viewers, an archive manager, a
+  calculator and a task manager, plus the network toolbox this desktop mostly
+  exists to use — nmap, dig, iperf3, tcpdump, mtr, sngrep and an OpenVPN client.
+  Git and Go are there too, so the machine you work from can build the thing it
+  runs.</p>
+
+  <p><b>Full</b> adds LibreOffice, Firefox, GIMP, Wireshark and a compiler
+  toolchain, and on Intel machines also Steam and Wine.</p>
+
+  <div class="note">
+    <b>Full contains lite</b>
+    <p>Full is built on top of lite rather than beside it, so everything in one
+    is in the other. It also means the two share almost all their storage: a
+    machine that already has lite downloads only the difference.</p>
+  </div>
+
+  <h3 id="whats-installed-menu">Finding things</h3>
+  <p>The menu is grouped by what you want to do. Terminal, Web Browser, Files and
+  Text Editor sit at the top because they are what gets opened every session;
+  <b>Accessories</b>, <b>Network</b> and <b>System Tools</b> hold the rest, and
+  <b>All Applications</b> lists everything installed.</p>
+
+  <p>The command-line entries under Network open a terminal with the tool's usage
+  already printed, so you do not have to go and look up the flags first.</p>
+
+  <h3 id="whats-installed-vpn">Connecting to a VPN</h3>
+  <p><b>Network → VPN</b> asks for a <code>.ovpn</code> profile and connects.
+  Profiles kept in <code>~/.openvpn</code> are offered directly, and the home
+  survives restarts, so a connection you set up once stays set up.</p>
+  <p>This needs the container to have been started with a tunnel device and
+  network privileges. If it was not, the dialog says so and shows the two lines
+  to add rather than failing quietly.</p>
+
+  <h3 id="whats-installed-region">Clock and keyboard</h3>
+  <p>Both are set when the desktop starts, so one image serves every region. The
+  clock follows <code>TZ</code> — any standard name such as
+  <code>America/Argentina/Buenos_Aires</code> — and the keyboard follows
+  <code>KEYBOARD_LAYOUT</code>: <code>us</code>, <code>es</code> for Spain,
+  <code>latam</code> for Latin America, and so on.</p>
+  <p>If either is spelled wrong it is reported and ignored rather than
+  half-applied. A clock quietly running in UTC because of a typo is worse than
+  one that tells you.</p>
 </section>
 
 <section id="troubleshooting" data-track="use">

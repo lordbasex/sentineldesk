@@ -24,11 +24,15 @@
   prefix (/sentineldesk/), so an absolute "/docs/x.html" resolves against the
   domain root and 404s.
 
-  The prose lives in lang/*.json and is applied by i18n.js, the same mechanism
-  the desktop's own documentation uses. English is written into the markup as
-  well, deliberately: the page is readable before the script runs, and if the
-  script never runs at all a visitor still gets the whole site rather than a
-  skeleton of empty elements.
+  The prose lives in lang/*.json and is applied by i18n.js. English is written
+  into the markup as well, deliberately: the page is readable before the script
+  runs, and if the script never runs at all a visitor still gets the whole site
+  rather than a skeleton of empty elements.
+
+  The content follows the README's own argument, in its order: the idea (the
+  agent is a participant), the two doors, the single binary, what each side can
+  do, and the three properties that matter to whoever will run it (latency,
+  security, what ships inside).
 -->
 <html lang="en">
 <head>
@@ -113,29 +117,37 @@
       </div>
 
       <!-- The signature. The frame and the state bar are decorative in the
-           accessibility sense — an animation cannot be read aloud usefully, and
-           a screen reader hitting three chips that contradict each other over
-           sixteen seconds is worse than silence. The caption carries the whole
-           meaning in words instead, and it is translated like everything else. -->
+           accessibility sense — the caption carries the whole meaning in
+           words instead, and it is translated like everything else. -->
       <figure class="console">
         <div class="console-frame" aria-hidden="true">
           <div class="rail"></div>
           <div class="screen">
-            <div class="panel"><i></i><i></i><i></i><span class="spacer"></span><u></u></div>
+            <div class="panel">
+              <i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i>
+              <span class="spacer"></span><u class="tray"></u><b class="clock">00:31</b>
+            </div>
+            <div class="mrail" aria-hidden="true">
+              <i class="sig"></i>
+              <u class="chip"></u>
+              <u></u><u></u><u></u><u></u><u></u><u></u>
+            </div>
             <div class="win win-a">
-              <div class="win-bar"><i></i><i></i><i></i></div>
-              <div class="win-body">
-                <u class="on" style="width:62%"></u>
+              <div class="cbar"><span class="ctab"><i></i>SentinelDesk</span></div>
+              <div class="curl">lordbasex.github.io/sentineldesk/docs/</div>
+              <div class="cpage">
+                <u class="on" style="width:38%"></u>
                 <u style="width:88%"></u>
-                <u style="width:44%"></u>
-                <u class="on" style="width:71%"></u>
+                <u style="width:76%"></u>
+                <u style="width:52%"></u>
               </div>
             </div>
             <div class="win win-b">
-              <div class="win-bar"><i></i><i></i></div>
-              <div class="win-body">
-                <u style="width:78%"></u>
-                <u style="width:52%"></u>
+              <div class="tbar"><i></i><i></i><i></i></div>
+              <div class="tbody">
+                <span class="tl"><b>~$</b> echo "hello world" &gt; /tmp/sd.txt</span>
+                <span class="tl"><b>~$</b> cat /tmp/sd.txt</span>
+                <span class="tl">hello world</span>
               </div>
             </div>
             <span class="caret"></span>
@@ -170,11 +182,74 @@
     </div>
   </div>
 
+  <!-- ── the idea ────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker" data-i18n="home.idea.kicker">The idea</p>
+        <h2 data-i18n="home.idea.h2">Not a metaphor for an API</h2>
+        <p data-i18n="home.idea.p">
+          The agent is not handed a screenshot service or a headless browser. It joins the
+          same X display, the same session, the same room as the people — with a seat of
+          its own.
+        </p>
+      </div>
+
+      <div class="grid c2">
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 11a4 4 0 100-8 4 4 0 000 8z"/><path d="M4 21a8 8 0 0116 0"/></svg>
+          </div>
+          <h3 data-i18n="home.idea.c1.h3">The agent is a participant</h3>
+          <p data-i18n="home.idea.c1.p">
+            It has a name in the participant list and a pointer on screen in its own colour,
+            so it is never ambiguous whether a colleague or the model just moved the mouse.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 16V4"/><path d="M7 4L3 8"/><path d="M7 4l4 4"/><path d="M17 8v12"/><path d="M17 20l4-4"/><path d="M17 20l-4-4"/></svg>
+          </div>
+          <h3 data-i18n="home.idea.c2.h3">They take turns</h3>
+          <p data-i18n="home.idea.c2.p">
+            Exactly one participant holds control. While a person is connected the agent has
+            to ask — a prompt with a timer appears on their screen, and no answer means no.
+            With an empty room it simply works.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 17l6-6-6-6"/><path d="M12 19h8"/></svg>
+          </div>
+          <h3 data-i18n="home.idea.c3.h3">They read the same state</h3>
+          <p data-i18n="home.idea.c3.p">
+            Every command run in a terminal reports its exit status, whoever ran it. A person
+            can hit an error, ask the agent to look, and the agent reads what actually
+            happened instead of being told about it.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 010 8.49"/><path d="M7.76 16.24a6 6 0 010-8.49"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M4.93 19.07a10 10 0 010-14.14"/></svg>
+          </div>
+          <h3 data-i18n="home.idea.c4.h3">One capture, many observers</h3>
+          <p data-i18n="home.idea.c4.p">
+            The desktop is encoded once and fanned out — to every browser, to the recorder,
+            to a live stream. A second participant costs bandwidth, not CPU.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <!-- ── the two control planes ──────────────────────────────────────────── -->
   <section>
     <div class="wrap">
       <div class="sec-head">
-        <p class="kicker" data-i18n="home.planes.kicker">The idea</p>
+        <p class="kicker" data-i18n="home.planes.kicker">Two doors</p>
         <h2 data-i18n="home.planes.h2">Two independent control planes over one desktop</h2>
         <p data-i18n="home.planes.p">
           The second half is not a metaphor for an API. A person drives through a control
@@ -185,7 +260,7 @@
       </div>
 
       <div class="grid c2">
-        <div class="card">
+        <div class="card you">
           <div class="ic" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M12 11a4 4 0 100-8 4 4 0 000 8z"/><path d="M4 21a8 8 0 0116 0"/></svg>
           </div>
@@ -218,17 +293,19 @@
       <div class="split">
         <div>
           <p class="kicker" data-i18n="home.arch.kicker">Architecture</p>
-          <h2 data-i18n="home.arch.h2">One capture, many observers</h2>
+          <h2 data-i18n="home.arch.h2">A single Go binary</h2>
           <p style="margin-top:14px" data-i18n-html="home.arch.p1">
-            The screen is encoded <strong>once</strong> and fanned out: to every browser, to the
-            recorder, to a live stream. A second participant costs bandwidth, not CPU. GStreamer
-            runs inside the Go process, so every RTP packet goes from <code>appsink</code> straight
-            onto the WebRTC track and the encoder stays reachable at runtime.
+            Pion WebRTC and GStreamer live in one process: every RTP packet goes from
+            <code>appsink</code> straight onto the WebRTC track, and the encoder stays under
+            full control at runtime — bitrate changes, keyframes on demand, stream
+            destinations attached and detached without cutting anything.
           </p>
           <p style="margin-top:14px" data-i18n="home.arch.p2">
-            The encoder is picked at startup by running a real probe pipeline for each candidate —
-            NVENC, VA-API, x264, then software VP8 — so the choice reflects what actually works on
-            the host rather than what the drivers claim.
+            At startup it probes NVENC, VA-API, x264 and VP8 with a real pipeline and keeps
+            the first that works on that host. Congestion control over TWCC — the same
+            technique Google Meet uses — steers the bitrate, and the pointer is drawn on the
+            client, so perceived latency is about zero. Typical: 50–70 ms glass-to-glass on
+            a LAN.
           </p>
           <div class="cta">
             <a class="btn btn-ghost btn-sm" href="arquitectura.html" data-i18n="home.arch.link">See the full architecture →</a>
@@ -244,80 +321,328 @@
     </div>
   </section>
 
-  <!-- ── capabilities ────────────────────────────────────────────────────── -->
+  <!-- ── what each side can do ───────────────────────────────────────────── -->
   <section>
     <div class="wrap">
       <div class="sec-head">
-        <p class="kicker" data-i18n="home.cap.kicker">What it does</p>
-        <h2 data-i18n="home.cap.h2">A real desktop, not a screenshot service</h2>
+        <p class="kicker" data-i18n="home.sides.kicker">Hands on</p>
+        <h2 data-i18n="home.sides.h2">What each side can do</h2>
       </div>
 
+      <div class="grid c2">
+        <div class="card you">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 21v-7"/><path d="M4 10V3"/><path d="M12 21v-9"/><path d="M12 8V3"/><path d="M20 21v-5"/><path d="M20 12V3"/><path d="M1 14h6"/><path d="M9 8h6"/><path d="M17 16h6"/></svg>
+          </div>
+          <h3 data-i18n="home.side.you.h3">From the rail, a person can</h3>
+          <ul class="feats">
+            <li data-i18n="home.side.you.li1">Take and release control — handover is cooperative, and whoever arrives first drives</li>
+            <li data-i18n="home.side.you.li2">Send their microphone into the desktop, where it appears as a real capture device</li>
+            <li data-i18n="home.side.you.li3">Take screenshots and record to MP4, WebM or MKV</li>
+            <li data-i18n="home.side.you.li4">Stream the live session to YouTube, Twitch or their own VLC/OBS</li>
+            <li data-i18n="home.side.you.li5">Move files both ways with a two-pane manager, share the clipboard, plug in a gamepad</li>
+            <li data-i18n="home.side.you.li6">Watch live statistics and read the documentation in three languages</li>
+          </ul>
+        </div>
+
+        <div class="card watch">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M12 8V4"/><path d="M8 4h8"/><path d="M8.5 13h.01"/><path d="M15.5 13h.01"/><path d="M9 17h6"/></svg>
+          </div>
+          <h3 data-i18n="home.side.agent.h3">Through MCP, an agent can</h3>
+          <ul class="feats">
+            <li data-i18n="home.side.agent.li1">Move the mouse and type; manage windows, desktops and processes</li>
+            <li data-i18n="home.side.agent.li2">Open a terminal the person can watch — and read back what happened, exit codes included</li>
+            <li data-i18n="home.side.agent.li3">Read the screen as an accessibility tree or drive Chromium through DevTools: structure, not pixels</li>
+            <li data-i18n="home.side.agent.li4">Read and write files, install packages, open shells and SSH sessions with tunnels</li>
+            <li data-i18n="home.side.agent.li5">Take snapshots it can roll back to</li>
+            <li data-i18n="home.side.agent.li6">Ask the room for its turn — and accept no for an answer</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the rail, control by control — a working simulation ─────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker" data-i18n="home.rail.kicker">The rail</p>
+        <h2 data-i18n="home.rail.h2">One rail, every control</h2>
+        <p data-i18n="home.rail.p">
+          People drive the desktop through a single instrument rail floating over the
+          video. Its left edge always answers the first question — who is driving:
+          solid green means you, hatched amber means somebody else.
+        </p>
+      </div>
+
+      <div class="rlx-wrap">
+        <div>
+          <p class="rlx-demo-tag"><span class="rlx-dot"></span><span data-i18n="home.rail.demo">Interactive demo — click the controls</span></p>
+          <div class="rlx-scene" id="rlx-scene" data-p="you">
+            <div class="rlx-rail" id="rlx-rail" data-c="0" data-h="0" data-p="you">
+              <span class="rlx-strip rlx-strip-you"></span>
+              <span class="rlx-strip rlx-strip-other"></span>
+              <div class="rlx-head"><span class="rlx-hx">SENTINELDESK</span><span class="rlx-hc">SD</span></div>
+              <div class="rlx-mod" data-k="a1">
+                <div class="rlx-cap"><span data-i18n="home.rail.l.session">Session</span><span class="rlx-count" data-i18n="home.rail.count">4 connected</span></div>
+                <div class="rlx-only-you">
+                  <div class="rlx-you"><span class="rlx-ic"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M5.5 3.5l13.5 8-6 1.6-3.4 5.4z" fill="currentColor"/></svg></span><span data-i18n="home.rail.l.youHave">You have control</span></div>
+                  <button type="button" class="rlx-release" id="rlx-release" data-i18n="home.rail.l.release" data-i18n-title="home.rail.l.releaseHint" title="go back to watching">Stop controlling</button>
+                </div>
+                <div class="rlx-only-other">
+                  <div class="rlx-other"><span class="rlx-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.6 12 5.6 21.5 12 21.5 12 18 18.4 12 18.4 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.7"/></svg></span><span data-i18n="home.rail.l.otherHas">AI agent has control</span></div>
+                  <button type="button" class="rlx-take" id="rlx-take" data-i18n="home.rail.l.take">Take control</button>
+                </div>
+              </div>
+              <div class="rlx-div"></div>
+              <div class="rlx-g" data-i18n="home.rail.l.gcap">Capture</div>
+              <div class="rlx-rows">
+                <button type="button" class="rlx-row" id="rlx-mic" data-k="a2"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3.5" width="6" height="10.5" rx="3"/><path d="M6.5 11.5a5.5 5.5 0 0 0 11 0"/><path d="M12 17v3.5M9 20.5h6"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.mic">Microphone</span><span class="rlx-live" data-i18n="home.rail.l.live">LIVE</span></button>
+                <button type="button" class="rlx-row" id="rlx-shot" data-k="a3"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8.5 7l1.6-2.5h3.8L15.5 7"/><circle cx="12" cy="13.2" r="3.4"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.shot">Screenshot</span></button>
+                <button type="button" class="rlx-row" id="rlx-rec" data-k="a4"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle class="ring" cx="12" cy="12" r="7.5"/><circle class="dot-in" cx="12" cy="12" r="3" fill="#FF5D55" stroke="none"/><rect class="stop-in" x="8.8" y="8.8" width="6.4" height="6.4" rx="1"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.rec">Record</span><span class="rlx-rectime" id="rlx-rectime">0:00</span></button>
+                <button type="button" class="rlx-row" id="rlx-rtmp" data-k="a12"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5a2.5 2.5 0 0 1 2.5-2.5h7A2.5 2.5 0 0 1 16 8.5v7a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 4 15.5z"/><path d="M16 10.5l4-2.5v8l-4-2.5z"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.stream">Stream out</span><span class="rlx-live" id="rlx-rtmp-live" data-i18n="home.rail.l.live">LIVE</span></button>
+              </div>
+              <div class="rlx-div"></div>
+              <div class="rlx-g" data-i18n="home.rail.l.gses">Session</div>
+              <div class="rlx-rows">
+                <button type="button" class="rlx-row" id="rlx-files" data-k="a5"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M12 5v14"/><path d="M6.5 9.5h2.5M6.5 12.5h2.5M15 9.5h2.5M15 12.5h2.5"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.files">Files</span></button>
+                <button type="button" class="rlx-row" id="rlx-audio" data-k="a6"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l4.5 3.8V6.2L7 10z" fill="currentColor" stroke="none"/><path d="M15 9.3a4 4 0 0 1 0 5.4"/><path d="M17.6 6.8a8 8 0 0 1 0 10.4"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.audio">Audio</span></button>
+                <button type="button" class="rlx-row" id="rlx-stats" data-k="a7"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4.5 19.5V13M9.5 19.5V7.5M14.5 19.5V11M19.5 19.5V4.5"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.stats">Statistics</span></button>
+              </div>
+              <div class="rlx-div"></div>
+              <div class="rlx-g" data-i18n="home.rail.l.gview">Viewer</div>
+              <div class="rlx-rows">
+                <button type="button" class="rlx-row" id="rlx-full" data-k="a8"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.full">Fullscreen</span></button>
+                <button type="button" class="rlx-row" id="rlx-lang" data-k="a9"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="8.2"/><ellipse cx="12" cy="12" rx="3.6" ry="8.2"/><path d="M4 12h16"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.lang">Language</span><span class="rlx-chip" id="rlx-langchip">EN</span></button>
+                <button type="button" class="rlx-row" id="rlx-help" data-k="a13">
+                  <span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.2 2.8c-.6.3-.8.8-.8 1.4v.5"/><path d="M12 17.1v.1" stroke-width="2.4"/></svg></span>
+                  <span class="rlx-lab" data-i18n="home.rail.l.docs">Documentation</span>
+                </button>
+                <button type="button" class="rlx-row" id="rlx-out" data-k="a10"><span class="rlx-ic"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></span><span class="rlx-lab" data-i18n="home.rail.l.out">Sign out</span></button>
+              </div>
+              <div class="rlx-about">SentinelDesk v1.0.1 (dd25509)</div>
+              <div class="rlx-foot" data-k="a11">
+                <button type="button" class="rlx-fbtn" id="rlx-collapse" data-k="a11" aria-label="Collapse">
+                  <span class="rlx-cvl"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11.5 7l-5 5 5 5M17.5 7l-5 5 5 5"/></svg></span>
+                  <span class="rlx-cvr"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 7l5 5-5 5M12.5 7l5 5-5 5"/></svg></span>
+                </button>
+                <button type="button" class="rlx-fbtn" id="rlx-hide" data-k="a11" aria-label="Hide (º)">º</button>
+              </div>
+            </div>
+            <button type="button" class="rlx-handle" id="rlx-handle" hidden><span>º</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+            <div class="rlx-recpill" id="rlx-recpill" hidden><span class="rlx-dot rec"></span>REC <span id="rlx-rectime2">0:00</span></div>
+            <div class="rlx-desk" id="rlx-desk" hidden>
+              <div class="dk-panel">
+                <button type="button" class="dk-app" id="dk-app-pc" aria-label="Desktop"><svg width="15" height="15" viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" fill="#7fb2e5"/><rect x="13" y="3" width="8" height="8" fill="#4a7cb5"/><rect x="3" y="13" width="8" height="8" fill="#4a7cb5"/><rect x="13" y="13" width="8" height="8" fill="#7fb2e5"/></svg></button>
+                <button type="button" class="dk-app" id="dk-app-chrome" aria-label="Chromium"><svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#4a90e2"/><circle cx="12" cy="12" r="4.5" fill="#fff"/><circle cx="12" cy="12" r="3" fill="#4a90e2"/></svg></button>
+                <button type="button" class="dk-app" id="dk-app-fm" aria-label="Files"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M3 5h7l2 3h9v11H3z" fill="#a8a8a0"/><path d="M3 9h18v10H3z" fill="#c9c9c0"/><path d="M14 4h4v3h-4z" fill="#e8d44d"/></svg></button>
+                <button type="button" class="dk-app" id="dk-app-term" aria-label="Terminal"><svg width="15" height="15" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="2" fill="#2d323b"/><path d="M5 8l4 4-4 4" stroke="#8be28b" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/><path d="M11 16h7" stroke="#e7edea" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+                <span class="dk-spacer"></span>
+                <span class="dk-tray"><svg width="22" height="13" viewBox="0 0 22 13"><rect width="22" height="13" rx="1.5" fill="#111"/><rect x="2" y="2" width="18" height="9" fill="#1e2b1e"/><rect x="0" y="4" width="2" height="5" fill="#3FD68C"/></svg></span>
+                <span class="dk-clock" id="dk-clock">00:00</span>
+                <button type="button" class="dk-exit" id="dk-exit" title="Exit (Esc)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+              </div>
+              <div class="dk-area" id="dk-area">
+                <div class="dk-ptr dk-ptr-nicolas" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
+                  <span>Nicolas</span>
+                </div>
+                <div class="dk-ptr dk-ptr-federico" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
+                  <span>Federico</span>
+                </div>
+                <div class="dk-ptr dk-ptr-agent" aria-hidden="true">
+                  <svg width="16" height="16" viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
+                  <span data-i18n="home.demo.agent">AI agent</span>
+                </div>
+                <div class="dk-win dk-chrome" id="dk-chrome" style="left:6%;top:7%;width:66%;height:78%">
+                  <div class="dk-cbar" data-dkdrag="dk-chrome">
+                    <span class="dk-tab"><svg width="11" height="11" viewBox="0 0 64 64"><rect x="4" y="8" width="56" height="38" rx="6" fill="#3FD68C"/><rect x="10" y="14" width="44" height="26" rx="2" fill="#0C0E0D"/></svg>SentinelDesk</span>
+                    <span class="dk-cbtns"><button type="button" class="dk-wbtn" data-dkmin="dk-chrome">─</button><button type="button" class="dk-wbtn">▢</button><button type="button" class="dk-wbtn" data-dkclose="dk-chrome">✕</button></span>
+                  </div>
+                  <div class="dk-url"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#5f6368" stroke-width="2.4" stroke-linecap="round"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><span>lordbasex.github.io/sentineldesk/docs/</span></div>
+                  <iframe class="dk-page" id="dk-frame" title="SentinelDesk site"></iframe>
+                </div>
+                <div class="dk-win dk-term" id="dk-term" style="left:46%;top:30%;width:48%;height:52%">
+                  <div class="dk-tbar" data-dkdrag="dk-term">
+                    <span>sentineldesk@desktop: ~</span>
+                    <span class="dk-cbtns"><button type="button" class="dk-wbtn" data-dkmin="dk-term">─</button><button type="button" class="dk-wbtn">▢</button><button type="button" class="dk-wbtn" data-dkclose="dk-term">✕</button></span>
+                  </div>
+                  <div class="dk-tbody" id="dk-tbody"></div>
+                </div>
+              </div>
+            </div>
+            <div class="rlx-toast" id="rlx-toast" hidden></div>
+            <div class="rlx-flash" id="rlx-flash" hidden></div>
+          </div>
+          <p class="rlx-capn" data-i18n="home.rail.cap">The rail as it ships: 240 px expanded, 58 px collapsed to icons, hidden entirely with the º key.</p>
+        </div>
+
+        <div class="rlx-notes" id="rlx-notes">
+          <div class="rlx-note on" data-note="a1"><p class="rlx-note-g" data-i18n="home.rail.l.session">Session</p><h3 data-i18n="home.rail.a1.h"></h3><p data-i18n="home.rail.a1.p"></p></div>
+          <div class="rlx-banner" id="rlx-banner" hidden>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12S6 5.6 12 5.6 21.5 12 21.5 12 18 18.4 12 18.4 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.7"/></svg>
+            <span data-i18n-html="home.rail.l.watchHtml">You are <b>watching</b> — press “Take control” to interact</span>
+            <button type="button" id="rlx-take2" data-i18n="home.rail.l.take">Take control</button>
+          </div>
+          <div class="rlx-note" data-note="a2"><p class="rlx-note-g" data-i18n="home.rail.l.gcap">Capture</p><h3 data-i18n="home.rail.a2.h"></h3><p data-i18n="home.rail.a2.p"></p></div>
+          <div class="rlx-note" data-note="a3"><p class="rlx-note-g" data-i18n="home.rail.l.gcap">Capture</p><h3 data-i18n="home.rail.a3.h"></h3><p data-i18n="home.rail.a3.p"></p></div>
+          <div class="rlx-note" data-note="a4"><p class="rlx-note-g" data-i18n="home.rail.l.gcap">Capture</p><h3 data-i18n="home.rail.a4.h"></h3><p data-i18n="home.rail.a4.p"></p></div>
+          <div class="rlx-note" data-note="a12"><p class="rlx-note-g" data-i18n="home.rail.l.gcap">Capture</p><h3 data-i18n="home.rail.a12.h"></h3><p data-i18n="home.rail.a12.p"></p></div>
+          <div class="rlx-note" data-note="a5"><p class="rlx-note-g" data-i18n="home.rail.l.gses">Session</p><h3 data-i18n="home.rail.a5.h"></h3><p data-i18n="home.rail.a5.p"></p></div>
+          <div class="rlx-note" data-note="a6"><p class="rlx-note-g" data-i18n="home.rail.l.gses">Session</p><h3 data-i18n="home.rail.a6.h"></h3><p data-i18n="home.rail.a6.p"></p></div>
+          <div class="rlx-note" data-note="a7"><p class="rlx-note-g" data-i18n="home.rail.l.gses">Session</p><h3 data-i18n="home.rail.a7.h"></h3><p data-i18n="home.rail.a7.p"></p></div>
+          <div class="rlx-note" data-note="a8"><p class="rlx-note-g" data-i18n="home.rail.l.gview">Viewer</p><h3 data-i18n="home.rail.a8.h"></h3><p data-i18n="home.rail.a8.p"></p></div>
+          <div class="rlx-note" data-note="a9"><p class="rlx-note-g" data-i18n="home.rail.l.gview">Viewer</p><h3 data-i18n="home.rail.a9.h"></h3><p data-i18n="home.rail.a9.p"></p></div>
+          <div class="rlx-note" data-note="a13"><p class="rlx-note-g" data-i18n="home.rail.l.gview">Viewer</p><h3 data-i18n="home.rail.a13.h"></h3><p data-i18n="home.rail.a13.p"></p></div>
+          <div class="rlx-note" data-note="a10"><p class="rlx-note-g" data-i18n="home.rail.l.gview">Viewer</p><h3 data-i18n="home.rail.a10.h"></h3><p data-i18n="home.rail.a10.p"></p></div>
+          <div class="rlx-note" data-note="a11"><p class="rlx-note-g" data-i18n="home.rail.l.gfoot">The rail itself</p><h3 data-i18n="home.rail.a11.h"></h3><p data-i18n="home.rail.a11.p"></p></div>
+          <div class="rlx-pop" id="rlx-pop" hidden>
+            <div class="rlx-st-head"><span>WEBRTC</span><span class="rlx-st-live"></span><button type="button" id="rlx-pop-close" aria-label="Close"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+            <div class="rlx-pop-grid">
+              <span class="k">CLOCK</span><span id="rlx-st-clk">—</span>
+              <span class="k">BEHIND LIVE</span><span><i id="rlx-st-bh">298</i> ms</span>
+              <span class="k">BITRATE</span><span><i id="rlx-st-b">5.5</i> Mbps</span>
+              <span class="k">FPS</span><span id="rlx-st-f">29</span>
+              <span class="k">LATENCY</span><span><i id="rlx-st-l">1</i> ms</span>
+              <span class="k">LOSS</span><span><i id="rlx-st-p">0.0</i> %</span>
+              <span class="k">PACKETS</span><span id="rlx-st-pk">52387</span>
+              <span class="k">FRAMES</span><span id="rlx-st-fr">2180</span>
+            </div>
+            <svg width="100%" height="38" viewBox="0 0 184 30" preserveAspectRatio="none" style="display:block;margin-top:12px"><polyline id="rlx-spark" points="" style="fill:none;stroke:#3FD68C;stroke-width:1.5;stroke-linejoin:round" vector-effect="non-scaling-stroke"></polyline></svg>
+          </div>
+          <div class="rlx-rs" id="rlx-rs" hidden>
+            <div class="rlx-fm-h"><span data-i18n="home.rail.rs.title">Live streaming</span><span class="rlx-rs-sub" data-i18n="home.rail.rs.sub">this desktop, sent somewhere else</span><button type="button" id="rlx-rs-close" aria-label="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+            <div class="rlx-rs-body">
+              <div class="rlx-rs-pick" role="radiogroup">
+                <button type="button" class="rlx-rs-plat" data-plat="youtube" aria-checked="false"><svg width="21" height="21" viewBox="0 0 24 24"><path d="M22.5 7.2a3 3 0 0 0-2.1-2.1C18.6 4.6 12 4.6 12 4.6s-6.6 0-8.4.5A3 3 0 0 0 1.5 7.2 31 31 0 0 0 1 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.8.5 8.4.5 8.4.5s6.6 0 8.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 23 12a31 31 0 0 0-.5-4.8z" fill="currentColor"/><path d="M9.9 15.2l5.5-3.2-5.5-3.2z" fill="rgba(16,22,20,.96)"/></svg><span>YouTube</span></button>
+                <button type="button" class="rlx-rs-plat" data-plat="twitch" aria-checked="false"><svg width="21" height="21" viewBox="0 0 24 24"><path d="M4.3 2L2.5 6.4v13.1h4.8V22h2.6l2.6-2.5h3.9l5-4.9V2zm15.1 12L16.6 17H12l-2.5 2.4V17H5.6V3.6h13.8zM15.6 7.2v5h-1.9v-5zm-4.6 0v5H9.2v-5z" fill="currentColor"/></svg><span>Twitch</span></button>
+                <button type="button" class="rlx-rs-plat" data-plat="facebook" aria-checked="false"><svg width="21" height="21" viewBox="0 0 24 24"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.3c-1.2 0-1.6.8-1.6 1.6V12h2.8l-.4 2.9h-2.4v7A10 10 0 0 0 22 12z" fill="currentColor"/></svg><span>Facebook</span></button>
+                <button type="button" class="rlx-rs-plat" data-plat="custom" aria-checked="true"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="13" rx="2"/><path d="M8 20.5h8M12 17.5v3"/><path d="M10 8.6l4.5 2.4L10 13.4z" fill="currentColor" stroke="none"/></svg><span data-i18n="home.rail.rs.custom">VLC / OBS</span></button>
+              </div>
+              <label class="rlx-rs-field">
+                <span id="rlx-rs-label" data-i18n="home.rail.rs.addr">Address</span>
+                <input id="rlx-rs-url" type="text" spellcheck="false" autocomplete="off" placeholder="udp://host.docker.internal:5000">
+              </label>
+              <p id="rlx-rs-hint" class="rlx-rs-hint" data-i18n="home.rail.rs.hintCustom">Point VLC or OBS at this machine. From Docker the host is host.docker.internal. Use udp:// for VLC — it only speaks srt:// as a caller, so it cannot receive one. srt:// is for a receiver that listens.</p>
+              <div class="rlx-rs-opts">
+                <label><input type="checkbox" id="rlx-rs-audio" checked> <span data-i18n="home.rail.rs.audio">Include audio</span></label>
+                <label id="rlx-rs-kf-wrap"><input type="checkbox" id="rlx-rs-kf"> <span data-i18n="home.rail.rs.kf">Viewers can join mid-stream</span></label>
+              </div>
+              <p id="rlx-rs-kf-note" class="rlx-rs-hint" data-i18n="home.rail.rs.kfNote">Off, the picture stays sharper: keyframes are large and the bits they take come out of the detail. Platforms always get them.</p>
+              <div class="rlx-rs-actions">
+                <button type="button" id="rlx-rs-go" data-i18n="home.rail.rs.go">Go live</button>
+                <span id="rlx-rs-msg" role="status"></span>
+                <a id="rlx-rs-help" href="guide/index.html#capture-stream-out" target="_blank" rel="noopener" data-i18n="home.rail.rs.help">How do I watch this?</a>
+              </div>
+              <div id="rlx-rs-active" hidden>
+                <div class="rlx-rs-ahead" data-i18n="home.rail.rs.streaming">Streaming to</div>
+                <ul id="rlx-rs-list"></ul>
+              </div>
+            </div>
+          </div>
+          <div class="rlx-fm" id="rlx-fm" hidden>
+            <div class="rlx-fm-h"><span>File Manager</span><button type="button" id="rlx-fm-close" aria-label="Close"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+            <div class="rlx-fm-body">
+              <div class="rlx-fm-pane">
+                <div class="rlx-fm-ph g" data-i18n="home.rail.fm.remote">REMOTE DESKTOP</div>
+                <div class="rlx-fm-rows"><span>Desktop/</span><span>Documents/</span><span>notas.md</span><span>captura.png</span></div>
+              </div>
+              <div class="rlx-fm-pane">
+                <div class="rlx-fm-ph a" data-i18n="home.rail.fm.local">YOUR MACHINE</div>
+                <div class="rlx-fm-drop" data-i18n="home.rail.fm.drop">Drop files here to send them to the desktop</div>
+              </div>
+            </div>
+            <div class="rlx-fm-keys">
+              <span><b>F5</b><span data-i18n="home.rail.fm.k1">Copy</span></span>
+              <span><b>F6</b><span data-i18n="home.rail.fm.k2">Rename</span></span>
+              <span><b>F7</b><span data-i18n="home.rail.fm.k3">MkDir</span></span>
+              <span><b>F8</b><span data-i18n="home.rail.fm.k4">Delete</span></span>
+              <span><b>F2</b><span data-i18n="home.rail.fm.k5">Refresh</span></span>
+              <button type="button" id="rlx-fm-esc"><b>Esc</b><span data-i18n="home.rail.fm.k6">Quit</span></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── screenshots ───────────────────────────────────────────────────────
+       The images live in shots/shot-N.webp — replace them with real captures
+       (1920×1080) keeping the same filenames; nothing else needs to change. -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker" data-i18n="home.shots.kicker">In pictures</p>
+        <h2 data-i18n="home.shots.h2">The desktop, as you will see it</h2>
+      </div>
+
+      <div class="shots-wrap">
+        <div class="shots" tabindex="0">
+          <figure class="shot">
+            <img src="shots/shot-1.webp" width="1600" height="900" loading="lazy" alt="" data-i18n-alt="home.shots.s1">
+            <figcaption data-i18n="home.shots.s1">Watching mode: a video playing in Chromium with sound in your browser, one press away from taking the controls</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="shots/shot-2.webp" width="1600" height="900" loading="lazy" alt="" data-i18n-alt="home.shots.s2">
+            <figcaption data-i18n="home.shots.s2">The AI agent asking for control — Allow or Refuse, with the timer draining; silence refuses</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="shots/shot-3.webp" width="1600" height="900" loading="lazy" alt="" data-i18n-alt="home.shots.s3">
+            <figcaption data-i18n="home.shots.s3">The two-pane file manager over the desktop — remote on the left, your machine on the right — with the live WebRTC readout in the corner</figcaption>
+          </figure>
+          <figure class="shot">
+            <img src="shots/shot-4.webp" width="1600" height="900" loading="lazy" alt="" data-i18n-alt="home.shots.s4">
+            <figcaption data-i18n="home.shots.s4">The controls are free: htop watching the desktop's own processes, and whoever presses “Take control” drives</figcaption>
+          </figure>
+        </div>
+        <button class="shots-btn shots-prev" type="button" aria-label="Previous">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <button class="shots-btn shots-next" type="button" aria-label="Next">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── the three properties that matter to whoever runs it ─────────────── -->
+  <section>
+    <div class="wrap">
       <div class="grid c3">
         <div class="card">
           <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
           </div>
-          <h3 data-i18n="home.f1.h3">They take turns</h3>
-          <p data-i18n="home.f1.p">
-            Exactly one participant holds control. While a person is connected the agent has to
-            ask, and a prompt appears on that person's screen with a timer; no answer means no.
+          <h3 data-i18n="home.t1.h3">Built for latency</h3>
+          <p data-i18n="home.t1.p">
+            Hardware encoding picked by a real probe, keyframes on demand when a frame is
+            lost, adaptive bitrate that follows what the network actually gives, and a
+            minimal jitter buffer. Latency over smoothness, on purpose.
           </p>
         </div>
 
         <div class="card">
           <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 7v5l3 2"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </div>
-          <h3 data-i18n="home.f2.h3">Adaptive by design</h3>
-          <p data-i18n="home.f2.p">
-            Congestion estimation over TWCC steers the bitrate, a lost reference frame is answered
-            with an immediate keyframe, and the shared encoder follows the slowest link so the
-            worst connection is never dropped.
+          <h3 data-i18n="home.t2.h3">One door, watched</h3>
+          <p data-i18n="home.t2.p">
+            Authentication happens on the WebSocket: until it validates there is no WebRTC
+            handshake at all. No HTTP endpoint holds secrets, repeated failures feed an
+            escalating ban ledger, and sessions ride an HMAC-signed token.
           </p>
         </div>
 
         <div class="card">
           <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.27 6.96L12 12.01l8.73-5.05"/><path d="M12 22.08V12"/></svg>
           </div>
-          <h3 data-i18n="home.f3.h3">Structure, not pixels</h3>
-          <p data-i18n="home.f3.p">
-            An agent reads the screen as an accessibility tree or drives the real DOM through
-            DevTools, so it clicks a button by name instead of guessing at coordinates.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/><path d="M19 11a7 7 0 01-14 0M12 18v3"/></svg>
-          </div>
-          <h3 data-i18n="home.f4.h3">Audio both ways</h3>
-          <p data-i18n="home.f4.p">
-            The desktop's sound reaches the browser, and the browser's microphone comes back as an
-            ordinary capture device inside the desktop — a real input, not a monitor a page will
-            refuse to list.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M12 11v5M9.5 13.5L12 11l2.5 2.5"/></svg>
-          </div>
-          <h3 data-i18n="home.f5.h3">Files, clipboard, gamepad</h3>
-          <p data-i18n="home.f5.p">
-            A two-pane manager with Midnight Commander keys, drag-and-drop onto the page, a two-way
-            clipboard, and a browser gamepad that appears inside as a virtual Xbox 360 pad.
-          </p>
-        </div>
-
-        <div class="card">
-          <div class="ic" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
-          </div>
-          <h3 data-i18n="home.f6.h3">Record and stream out</h3>
-          <p data-i18n="home.f6.p">
-            Record to MP4, WebM or MKV, or send the live session to YouTube, Twitch or your own
-            VLC — reusing the encode the room is already producing rather than capturing twice.
+          <h3 data-i18n="home.t3.h3">It ships loaded</h3>
+          <p data-i18n="home.t3.p">
+            Chromium, VLC, a terminal, a file manager, TigerVNC, FreeRDP and Steam on
+            Debian 13 — amd64 and arm64, from a bare VPS to a Raspberry Pi 5.
           </p>
         </div>
       </div>
@@ -416,5 +741,334 @@ make up   <span class="c"># → http://localhost:8080</span></code></pre>
 </footer>
 
 <script type="module" src="i18n.js"></script>
+<script>
+// The screenshot slider: native scroll-snap does the work; the buttons just
+// nudge it one viewport at a time. Without JS the strip still scrolls by hand.
+for (const w of document.querySelectorAll('.shots-wrap')) {
+  const strip = w.querySelector('.shots');
+  w.querySelector('.shots-prev').addEventListener('click', function () {
+    strip.scrollBy({ left: -strip.clientWidth, behavior: 'smooth' });
+  });
+  w.querySelector('.shots-next').addEventListener('click', function () {
+    strip.scrollBy({ left: strip.clientWidth, behavior: 'smooth' });
+  });
+}
+</script>
+
+<script>
+// The rail demo: a faithful simulation of the control layer. Vanilla JS so it
+// runs anywhere Pages serves it; i18n.js supplies the translated strings.
+(function () {
+  var scene = document.getElementById('rlx-scene');
+  if (!scene) return;
+  var rail = document.getElementById('rlx-rail');
+  var $ = function (id) { return document.getElementById(id); };
+  var T = function (k) { return k; };
+  var setLang = null, curLang = 'en';
+  import('./i18n.js').then(function (m) {
+    T = m.t; setLang = m.setLanguage;
+    curLang = m.currentLanguage() || 'en';
+    $('rlx-langchip').textContent = curLang.toUpperCase();
+  }).catch(function () {});
+
+  // The notes panel: hovering or clicking a control loads its explanation.
+  // The demo dialogs (files, stats) live there too and only stay open while
+  // their own control is the selected one.
+  var notes = document.querySelectorAll('#rlx-notes .rlx-note');
+  function note(k) {
+    notes.forEach(function (n) { n.classList.toggle('on', n.dataset.note === k); });
+    if (k !== 'a5') $('rlx-fm').hidden = true;
+    if (k !== 'a7') closeStats();
+    if (k !== 'a12') $('rlx-rs').hidden = true;
+    $('rlx-banner').hidden = !(k === 'a1' && scene.dataset.p === 'other');
+  }
+  document.querySelectorAll('#rlx-scene [data-k]').forEach(function (el) {
+    var show = function () { note(el.dataset.k); };
+    el.addEventListener('pointerenter', show);
+    el.addEventListener('focus', show);
+    el.addEventListener('click', show);
+  });
+
+  var toastT;
+  function toast(msg) {
+    var t = $('rlx-toast');
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { t.hidden = true; }, 2400);
+  }
+
+  // Presence: exactly one side drives, and the strip repeats the answer.
+  function setP(p) {
+    scene.dataset.p = p;
+    rail.dataset.p = p;
+    if (p === 'other') $('rlx-mic').classList.remove('on');
+    note('a1');
+  }
+  $('rlx-release').addEventListener('click', function () { setP('other'); });
+  $('rlx-take').addEventListener('click', function () { setP('you'); });
+  $('rlx-take2').addEventListener('click', function () { setP('you'); });
+
+  // Microphone: only whoever holds control can publish.
+  $('rlx-mic').addEventListener('click', function () {
+    if (scene.dataset.p === 'other') return;
+    this.classList.toggle('on');
+  });
+
+  // Screenshot: the flash is the feedback.
+  var flashT;
+  $('rlx-shot').addEventListener('click', function () {
+    var f = $('rlx-flash');
+    f.hidden = false;
+    clearTimeout(flashT);
+    flashT = setTimeout(function () { f.hidden = true; }, 160);
+    toast(T('home.rail.t.shot'));
+  });
+
+  // Record: a running timer everyone can see.
+  var recIv = null, recStart = 0;
+  function recTick() {
+    var t = Math.max(0, Math.floor((Date.now() - recStart) / 1000));
+    var s = Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+    $('rlx-rectime').textContent = s;
+    $('rlx-rectime2').textContent = s;
+  }
+  $('rlx-rec').addEventListener('click', function () {
+    var on = !this.classList.contains('on');
+    this.classList.toggle('on', on);
+    $('rlx-recpill').hidden = !on;
+    if (on) { recStart = Date.now(); recTick(); recIv = setInterval(recTick, 500); }
+    else { clearInterval(recIv); $('rlx-rectime').textContent = '0:00'; }
+  });
+
+  // Files: the two-pane manager opens full-size in the notes panel, beside
+  // its own explanation. Esc to leave — like the real one.
+  $('rlx-files').addEventListener('click', function () { note('a5'); $('rlx-fm').hidden = false; });
+  $('rlx-fm-close').addEventListener('click', function () { $('rlx-fm').hidden = true; });
+  $('rlx-fm-esc').addEventListener('click', function () { $('rlx-fm').hidden = true; });
+
+  // Live streaming: pick a destination, go live, and the rail's LIVE chip
+  // stays on while anything is being sent — like the real one.
+  var rsPlat = 'custom';
+  var RS_META = {
+    youtube:  { key: true,  ph: 'rtmp://a.rtmp.youtube.com/live2 + key' },
+    twitch:   { key: true,  ph: 'rtmp://live.twitch.tv/app + key' },
+    facebook: { key: true,  ph: 'rtmps://live-api-s.facebook.com + key' },
+    custom:   { key: false, ph: 'udp://host.docker.internal:5000' }
+  };
+  $('rlx-files').addEventListener('click', function () { $('rlx-rs').hidden = true; });
+  $('rlx-rtmp').addEventListener('click', function () { note('a12'); $('rlx-rs').hidden = false; });
+  $('rlx-rs-close').addEventListener('click', function () { $('rlx-rs').hidden = true; });
+  document.querySelectorAll('.rlx-rs-plat').forEach(function (b) {
+    b.addEventListener('click', function () {
+      rsPlat = b.dataset.plat;
+      document.querySelectorAll('.rlx-rs-plat').forEach(function (x) {
+        x.setAttribute('aria-checked', String(x === b));
+      });
+      var m = RS_META[rsPlat];
+      $('rlx-rs-label').textContent = T(m.key ? 'home.rail.rs.key' : 'home.rail.rs.addr');
+      $('rlx-rs-url').placeholder = m.ph;
+      $('rlx-rs-hint').hidden = m.key;
+      $('rlx-rs-kf-wrap').hidden = m.key;
+      $('rlx-rs-kf-note').hidden = m.key;
+    });
+  });
+  function rsSync() {
+    var n = $('rlx-rs-list').children.length;
+    $('rlx-rs-active').hidden = n === 0;
+    $('rlx-rtmp').classList.toggle('on', n > 0);
+  }
+  $('rlx-rs-go').addEventListener('click', function () {
+    var url = $('rlx-rs-url').value.trim() || $('rlx-rs-url').placeholder;
+    var li = document.createElement('li');
+    var name = rsPlat === 'custom' ? 'VLC/OBS' : rsPlat.charAt(0).toUpperCase() + rsPlat.slice(1);
+    li.innerHTML = '<span class="plat">' + name + '</span><span class="url"></span>';
+    li.querySelector('.url').textContent = url.length > 26 ? url.slice(0, 26) + '…' : url;
+    var stop = document.createElement('button');
+    stop.type = 'button'; stop.textContent = T('home.rail.rs.stop');
+    stop.addEventListener('click', function () { li.remove(); rsSync(); });
+    li.appendChild(stop);
+    $('rlx-rs-list').appendChild(li);
+    $('rlx-rs-url').value = '';
+    rsSync();
+  });
+
+  // Documentation: the real link, in the reader's language.
+  $('rlx-help').addEventListener('click', function () {
+    window.open('guide/index.html?lang=' + curLang, '_blank');
+  });
+
+  // Audio: one click mutes.
+  $('rlx-audio').addEventListener('click', function () { this.classList.toggle('off'); });
+
+  // Statistics: a live WebRTC readout in the notes panel while it is open.
+  var stIv = null, bitrate = 5.5, loss = 0, spark = [], stPk = 52387, stFr = 2180;
+  for (var i = 0; i < 21; i++) spark.push(5.5 + Math.sin(i / 3) * 1.2);
+  function stTick() {
+    bitrate = Math.min(9.5, Math.max(4.2, bitrate + (Math.random() - 0.5) * 0.9));
+    loss = Math.max(0, Math.min(0.4, loss + (Math.random() - 0.5) * 0.08));
+    stPk += 1650 + Math.round(Math.random() * 250);
+    stFr += 29 + Math.round(Math.random() * 2);
+    spark.push(bitrate); spark.shift();
+    var d = new Date();
+    $('rlx-st-clk').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0') + '.' + String(d.getMilliseconds()).padStart(3, '0');
+    $('rlx-st-bh').textContent = String(Math.round(260 + Math.random() * 80));
+    $('rlx-st-b').textContent = bitrate.toFixed(1);
+    $('rlx-st-f').textContent = String(Math.round(29 + Math.random() * 1.4));
+    $('rlx-st-l').textContent = String(Math.round(1 + Math.random() * 3));
+    $('rlx-st-p').textContent = loss.toFixed(1);
+    $('rlx-st-pk').textContent = String(stPk);
+    $('rlx-st-fr').textContent = String(stFr);
+    var pts = spark.map(function (v, i) {
+      return (i * (184 / 20)).toFixed(1) + ',' + (28 - ((v - 3.5) / 7) * 26).toFixed(1);
+    }).join(' ');
+    $('rlx-spark').setAttribute('points', pts);
+  }
+  function closeStats() {
+    $('rlx-pop').hidden = true;
+    clearInterval(stIv); stIv = null;
+  }
+  $('rlx-pop-close').addEventListener('click', closeStats);
+  $('rlx-stats').addEventListener('click', function () {
+    var p = $('rlx-pop');
+    if (!p.hidden) { closeStats(); return; }
+    note('a7');
+    p.hidden = false;
+    stTick(); stIv = setInterval(stTick, 1000);
+  });
+
+  // Fullscreen: a simulated desktop — Openbox panel, Chromium on the project
+  // page, and a terminal typing by itself. Windows drag like a real WM.
+  var desk = $('rlx-desk'), dkClockIv = null, dkT = [];
+  document.body.appendChild(desk);
+  function dkClock() {
+    var d = new Date();
+    $('dk-clock').textContent = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+  function dkType(el, text, done) {
+    var i = 0;
+    (function step() {
+      el.textContent = text.slice(0, i);
+      if (i <= text.length) { i++; dkT.push(setTimeout(step, 38 + Math.random() * 55)); }
+      else if (done) done();
+    })();
+  }
+  function dkTerm() {
+    var body = $('dk-tbody'); body.innerHTML = '';
+    function prompt() {
+      var l = document.createElement('div'); l.className = 'dk-tline';
+      l.innerHTML = '<span class="dk-ps1">sentineldesk@desktop:~$ </span><span class="dk-cmd"></span><span class="dk-caret"></span>';
+      body.appendChild(l); return l.querySelector('.dk-cmd');
+    }
+    function rmCaret() { body.querySelectorAll('.dk-caret').forEach(function (x) { x.remove(); }); }
+    var c1 = prompt();
+    dkT.push(setTimeout(function () {
+      dkType(c1, 'echo "hello world" > /tmp/sentinel-desk.txt', function () {
+        rmCaret(); var c2 = prompt();
+        dkT.push(setTimeout(function () {
+          dkType(c2, 'cat /tmp/sentinel-desk.txt', function () {
+            rmCaret();
+            var out = document.createElement('div'); out.className = 'dk-tline'; out.textContent = 'hello world';
+            body.appendChild(out); prompt();
+            dkT.push(setTimeout(dkTerm, 9000));
+          });
+        }, 700));
+      });
+    }, 900));
+  }
+  function dkStop() { dkT.forEach(clearTimeout); dkT = []; clearInterval(dkClockIv); }
+  // The rail travels into the desk and back: the same element, so every
+  // control (collapse, hide with º, streaming, stats…) keeps working there.
+  function dkRail(inDesk) {
+    var handle = $('rlx-handle');
+    var wins = [$('rlx-pop'), $('rlx-rs'), $('rlx-fm')];
+    if (inDesk) {
+      $('dk-area').appendChild(rail); $('dk-area').appendChild(handle);
+      wins.forEach(function (w) { $('dk-area').appendChild(w); });
+    } else {
+      var pin = $('rlx-recpill');
+      scene.insertBefore(rail, pin); scene.insertBefore(handle, pin);
+      var notes = $('rlx-notes');
+      wins.forEach(function (w) { notes.appendChild(w); });
+    }
+  }
+  function openDesk() {
+    desk.hidden = false;
+    dkRail(true);
+    if (!$('dk-frame').src) $('dk-frame').src = 'index.html';
+    dkClock(); dkClockIv = setInterval(dkClock, 15000);
+    dkStop.armed = true; dkTerm();
+    $('dk-chrome').hidden = false; $('dk-term').hidden = false;
+    if (desk.requestFullscreen) desk.requestFullscreen().catch(function () {});
+  }
+  function closeDesk() {
+    desk.hidden = true; dkStop(); dkRail(false);
+    if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+  }
+  document.addEventListener('fullscreenchange', function () {
+    if (!document.fullscreenElement && !desk.hidden) { desk.hidden = true; dkStop(); dkRail(false); }
+  });
+  $('rlx-full').addEventListener('click', function () {
+    if (desk.hidden) openDesk(); else closeDesk();
+  });
+  // Window management: drag by the title bar, raise on press, close/minimise.
+  function dkRaise(win) { win.parentNode.appendChild(win); }
+  document.querySelectorAll('#rlx-desk .dk-win').forEach(function (win) {
+    win.addEventListener('pointerdown', function () { dkRaise(win); });
+  });
+  document.querySelectorAll('#rlx-desk [data-dkdrag]').forEach(function (bar) {
+    var win = $(bar.dataset.dkdrag);
+    bar.addEventListener('pointerdown', function (e) {
+      if (e.target.closest('button')) return;
+      dkRaise(win);
+      var r = win.getBoundingClientRect(), pr = $('dk-area').getBoundingClientRect();
+      var ox = e.clientX - r.left, oy = e.clientY - r.top;
+      function mv(ev) {
+        win.style.left = Math.max(0, Math.min(pr.width - 60, ev.clientX - pr.left - ox)) + 'px';
+        win.style.top = Math.max(0, Math.min(pr.height - 40, ev.clientY - pr.top - oy)) + 'px';
+      }
+      function up() { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); }
+      document.addEventListener('pointermove', mv); document.addEventListener('pointerup', up);
+      e.preventDefault();
+    });
+  });
+  document.querySelectorAll('#rlx-desk [data-dkclose]').forEach(function (b) {
+    b.addEventListener('click', function () { $(b.dataset.dkclose).hidden = true; });
+  });
+  document.querySelectorAll('#rlx-desk [data-dkmin]').forEach(function (b) {
+    b.addEventListener('click', function () { $(b.dataset.dkmin).hidden = true; });
+  });
+  $('dk-exit').addEventListener('click', closeDesk);
+  $('dk-app-chrome').addEventListener('click', function () { var w = $('dk-chrome'); w.hidden = false; dkRaise(w); });
+  $('dk-app-term').addEventListener('click', function () { var w = $('dk-term'); w.hidden = false; dkRaise(w); });
+
+  // Language: cycles EN → ES → PT and switches the WHOLE site, like the rail
+  // switches the desktop's docs.
+  $('rlx-lang').addEventListener('click', function () {
+    var codes = ['en', 'es', 'pt'];
+    curLang = codes[(codes.indexOf(curLang) + 1) % codes.length];
+    $('rlx-langchip').textContent = curLang.toUpperCase();
+    if (setLang) setLang(curLang);
+  });
+
+  $('rlx-out').addEventListener('click', function () { toast(T('home.rail.t.out')); });
+
+  // Collapse to icons / hide entirely (º), with the edge handle to return.
+  $('rlx-collapse').addEventListener('click', function () {
+    rail.dataset.c = rail.dataset.c === '1' ? '0' : '1';
+  });
+  function setHidden(h) {
+    rail.dataset.h = h ? '1' : '0';
+    $('rlx-handle').hidden = !h;
+    if (h) toast(T('home.rail.t.hidden'));
+  }
+  $('rlx-hide').addEventListener('click', function () { setHidden(true); });
+  $('rlx-handle').addEventListener('click', function () { setHidden(false); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !desk.hidden && !document.fullscreenElement) { desk.hidden = true; dkStop(); dkRail(false); return; }
+    if (e.key === 'Escape' && !$('rlx-fm').hidden) { $('rlx-fm').hidden = true; return; }
+    if (e.key === 'º' || e.key === '\u0060' || e.key === '~') setHidden(rail.dataset.h !== '1');
+  });
+})();
+</script>
 </body>
 </html>

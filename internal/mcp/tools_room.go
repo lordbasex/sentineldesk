@@ -24,13 +24,19 @@ package mcp
 // participant — a name in the list, a marker on screen, a turn in the control
 // rotation — and can read the room before acting.
 //
-// The rule that makes it work is narrow on purpose:
+// The rule that makes it work is one line:
 //
-//	Control is required only when a human is present.
+//	Control is claimed, never assumed.
 //
-// With an empty room there is nobody to take turns with, and demanding that the
-// agent ask permission from nobody would break every headless run for no gain.
-// The moment somebody opens a browser, the agent has to ask.
+// That holds whether or not anybody is watching. An empty room used to be a
+// free pass, on the reasoning that asking permission from nobody is theatre —
+// but it left the room unable to say who had the desktop, and it meant the
+// agent behaved differently depending on who happened to be connected.
+// request_control answers instantly when the controls are free, so asking costs
+// one call, and the room always knows the answer.
+//
+// Releasing hands the controls to nobody. Control goes FREE and stays there
+// until somebody claims it, so "I have finished" never reads as "you are up".
 
 import (
 	"fmt"
@@ -80,8 +86,9 @@ func (s *Server) roomTools() []toolDef {
 			Name: "request_control",
 			Description: "Ask the people watching for control of the desktop so you " +
 				"can move the mouse and type. THEY DECIDE: a prompt appears on their " +
-				"screen and this waits for the answer. No answer means no. With an " +
-				"empty room you simply take it, since there is nobody to ask.",
+				"screen and this waits for the answer. No answer means no. With the " +
+				"controls free — nobody driving, or nobody here at all — it is " +
+				"granted immediately. Ask every time: control is never automatic.",
 			InputSchema: schema(map[string]any{
 				"timeout_ms": pInt("how long to wait for an answer (default 45000)"),
 			}),
@@ -123,9 +130,10 @@ func (s *Server) callRoom(name string, args map[string]any) (any, bool, bool) {
 			"you_have_control": s.room.IsController(AgentID),
 			// Spelled out rather than left for the model to infer: the whole
 			// point is that it should not have to guess whether it may act.
-			"may_inject": !humans || s.room.IsController(AgentID),
-			"note": "Input is arbitrated only while a human is connected. " +
-				"With humans present, call request_control first.",
+			"may_inject": s.room.IsController(AgentID),
+			"note": "Control is always claimed, never assumed — even with nobody " +
+				"else here. call request_control (immediate when the controls " +
+				"are free) and release_control when the task is done.",
 		}, false, true
 
 	case "request_control":
@@ -158,11 +166,8 @@ func (s *Server) callRoom(name string, args map[string]any) (any, bool, bool) {
 			return textContent("you did not hold control"), false, true
 		}
 		s.room.ReleaseControl(AgentID)
-		_, ctlName := s.room.Controller()
-		if ctlName == "" {
-			return textContent("control released; nobody is driving"), false, true
-		}
-		return textContent("control released to %s", ctlName), false, true
+		return textContent("control released — the controls are free for whoever " +
+			"claims them next"), false, true
 	}
 	return nil, false, false
 }
@@ -187,12 +192,29 @@ func (s *Server) mayInject() error {
 	if s.room == nil {
 		return nil // no room: nothing to arbitrate with
 	}
-	if !s.room.HumansPresent() {
-		return nil // nobody watching: the desktop is yours
-	}
 	s.room.JoinAgent(s.agentName)
 	if s.room.IsController(AgentID) {
 		return nil
+	}
+	// An empty room used to be a free pass. It is not one any more: control is
+	// held or it is not, and whether anybody happens to be watching does not
+	// change that. The agent alone still asks — request_control answers
+	// immediately when nothing is driving, so it costs one call and buys a room
+	// whose state always says who has the desktop.
+
+	// Never taken implicitly, not even when the controls are free. An input
+	// tool that quietly seizes control makes the acquisition invisible: the
+	// agent ends up holding the desktop without ever having said it wanted it,
+	// and keeps holding it, because nothing gives back what nothing asked for.
+	//
+	// request_control is the one door, and it is cheap — it grants at once when
+	// nothing is driving. What it buys is that every handover is deliberate and
+	// visible in the room.
+	if id, _ := s.room.Controller(); id == "" {
+		return fmt.Errorf(
+			"nobody is driving, but control is not taken automatically — " +
+				"call request_control (it is granted immediately when the " +
+				"controls are free), and release_control when you are done")
 	}
 	_, who := s.room.Controller()
 	if who == "" {

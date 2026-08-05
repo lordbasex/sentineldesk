@@ -41,6 +41,12 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
+// ControlFree is the controller id when nobody is driving. Named rather than a
+// bare empty string: "free" is a state the room can be in for as long as it
+// likes — everybody watching, nobody at the controls — and code that compares
+// against a literal "" reads like it is handling a missing value instead.
+const ControlFree = ""
+
 // roomMember is one participant together with their outbound tracks.
 type roomMember struct {
 	id       string
@@ -127,16 +133,15 @@ func (r *Room) Join(s *Session, video, audio *webrtc.TrackLocalStaticRTP) (strin
 				}
 			}
 			if r.controller == id {
-				r.controller = ""
+				r.controller = ControlFree
 			}
 			if r.pointers != nil {
 				r.pointers.Remove(id)
 			}
 		}
 	}
-	if r.controller == "" && len(r.order) > 0 {
-		r.controller = r.order[0]
-	}
+	// Nothing is promoted into the empty seat: free is a state the room is
+	// allowed to sit in, for as long as nobody wants the controls.
 
 	if len(r.members) >= r.cfg.MaxViewers {
 		r.mu.Unlock()
@@ -178,13 +183,15 @@ func (r *Room) Join(s *Session, video, audio *webrtc.TrackLocalStaticRTP) (strin
 	// opens the new connection BEFORE the old one's close is detected — the
 	// keepalive can take 90 seconds — so without this you end up watching your
 	// own ghost: the clicks do nothing and there is no way to tell why.
-	// A failed, closed or disconnected peer does not get to hold the mando.
-	if r.controller == "" || !r.memberAlive(r.controller) {
-		if r.controller != "" {
-			log.Printf("room: %s held control on a dead connection; it passes to %s",
-				r.controller, id)
-		}
-		r.controller = id
+	//
+	// A dead connection does not get to keep the controls — but they go FREE
+	// rather than to whoever happened to walk in next. Arriving is not the same
+	// as asking, and somebody opening the desktop to watch a colleague work
+	// should not find themselves holding it.
+	if r.controller != ControlFree && !r.memberAlive(r.controller) {
+		log.Printf("room: %s held control on a dead connection; the controls are free",
+			r.controller)
+		r.controller = ControlFree
 	}
 	// Whether capture has to start is about the PIPELINE, not the head count.
 	// The agent is a member with no video track, so counting members would
@@ -235,12 +242,11 @@ func (r *Room) JoinAgent(name string) string {
 		id: agentID, name: name, agent: true, joinedAt: time.Now(),
 	}
 	r.order = append(r.order, agentID)
-	// Deliberately NOT made controller on arrival. A human already working
-	// should not have the desktop taken from under them because an agent
-	// connected; the agent asks for control when it needs it.
-	if r.controller == "" && len(r.members) == 1 {
-		r.controller = agentID
-	}
+	// Never made controller on arrival, not even alone in the room. The agent
+	// asks for control every time it needs it — request_control grants it at
+	// once when nothing is driving, so the cost is one call, and in exchange
+	// there is no state in which the agent holds the desktop without having
+	// said so.
 	r.mu.Unlock()
 	log.Printf("room: %s joined (agent)", name)
 	r.broadcastPresence()
@@ -262,10 +268,7 @@ func (r *Room) LeaveAgent() {
 		}
 	}
 	if r.controller == agentID {
-		r.controller = ""
-		if len(r.order) > 0 {
-			r.controller = r.order[0]
-		}
+		r.controller = ControlFree
 	}
 	r.mu.Unlock()
 	if r.pointers != nil {
@@ -450,12 +453,11 @@ func (r *Room) Leave(id string) {
 			break
 		}
 	}
-	// Control must not be orphaned: it passes to the longest-present member.
+	// The controller left, so the controls are free. They used to pass to the
+	// longest-present member, which handed the desktop to somebody who never
+	// asked for it; FREE is a state anyone can claim when they actually want it.
 	if r.controller == id {
-		r.controller = ""
-		if len(r.order) > 0 {
-			r.controller = r.order[0]
-		}
+		r.controller = ControlFree
 	}
 	// Likewise on the way out: the agent alone in the room is nobody to encode
 	// for, so capture stops when the last member holding a video track leaves.
@@ -701,13 +703,13 @@ func (r *Room) ReleaseControl(id string) {
 		r.mu.Unlock()
 		return
 	}
-	r.controller = ""
-	for _, v := range r.order {
-		if v != id {
-			r.controller = v
-			break
-		}
-	}
+	// Released means FREE, not handed on. Passing it to the next member made
+	// "I am done with this" indistinguishable from "you are up now", and put
+	// the desktop in the hands of somebody who might only have been watching.
+	// Whoever wants it next asks for it — including the agent, which is the
+	// whole point: it releases when it finishes a task and asks again for the
+	// next one, instead of holding the controls between errands.
+	r.controller = ControlFree
 	r.mu.Unlock()
 	r.broadcastPresence()
 }

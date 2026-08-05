@@ -127,6 +127,12 @@ persistent root terminal.
 This is for interactive programs `run_command` cannot handle: `sudo`, `vim`,
 `top`, installers that ask yes/no.
 
+`terminal_run` waits for the shell prompt to come back, so it reports what the
+command printed AND its exit status. When the command ends the shell instead —
+`exit`, `logout`, anything that closes the emulator — there is no prompt coming
+back; it notices the window went away and answers `terminal_closed: true` in a
+couple of seconds rather than waiting out the timeout and then guessing.
+
 **🔐 SSH** — connections, transfers and tunnels
 
 | Tool | What it does |
@@ -201,11 +207,18 @@ once and **one of them drives**. That changes how it is worth working with the
 MCP: the agent and the person can be on the same desktop, seeing the same thing,
 and hand control back and forth without restarting anything.
 
-Mind one deliberate asymmetry: **MCP tools do not go through the room's control
-arbitration**. They inject straight into X, because the MCP arrives over the
-daemon's local socket rather than over the web. Room control arbitrates between
-*browsers*. If you want the agent to touch nothing while you watch, the tool for
-that is the policy (`-mcp-policy readonly`), not room control.
+**The agent is arbitrated like everybody else.** Every tool that reaches XTEST —
+mouse, keyboard, gamepad, `ui_click`, `fill_form`, `terminal_run` — goes through
+the same gate the browsers do, so the agent must hold the controls before it can
+act. It never takes them implicitly, not even with the room empty: call
+`request_control` (granted at once when nothing is driving) and `release_control`
+when the task ends. Releasing leaves the controls free rather than handing them
+to anybody.
+
+Room control and the policy answer different questions, and only one of them is
+about right now. `-mcp-policy readonly` is what stops an agent from touching
+anything at all — a read-only connection cannot act even while holding the
+controls.
 
 ## Security
 

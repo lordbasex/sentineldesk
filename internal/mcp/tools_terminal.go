@@ -98,11 +98,15 @@ func (s *Server) terminalTools() []toolDef {
 	}
 }
 
-// findTerminal locates a terminal in the accessibility tree and returns its ref.
-func (s *Server) findTerminal() (string, error) {
+// terminalRefs lists every terminal in the accessibility tree, most recently
+// mapped last. The count matters as much as the refs: a ref is a positional
+// path, so when a window closes the path does not break — it starts resolving
+// to whatever moved into its place. Watching how many terminals exist is the
+// way to notice one going away.
+func (s *Server) terminalRefs() ([]string, error) {
 	out, err := s.a11yRaw("find", "--role", "terminal")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var found struct {
 		Elements []struct {
@@ -110,14 +114,26 @@ func (s *Server) findTerminal() (string, error) {
 		} `json:"elements"`
 	}
 	if err := json.Unmarshal([]byte(out), &found); err != nil {
-		return "", fmt.Errorf("accessibility bridge returned non-JSON")
+		return nil, fmt.Errorf("accessibility bridge returned non-JSON")
 	}
-	if len(found.Elements) == 0 {
+	refs := make([]string, 0, len(found.Elements))
+	for _, e := range found.Elements {
+		refs = append(refs, e.Ref)
+	}
+	return refs, nil
+}
+
+func (s *Server) findTerminal() (string, error) {
+	refs, err := s.terminalRefs()
+	if err != nil {
+		return "", err
+	}
+	if len(refs) == 0 {
 		return "", fmt.Errorf("no terminal window is open — launch one first " +
 			"(open_app_and_wait with lxterminal)")
 	}
 	// The last one is the most recently mapped, which is the one just opened.
-	return found.Elements[len(found.Elements)-1].Ref, nil
+	return refs[len(refs)-1], nil
 }
 
 // readTerminal returns the terminal's current contents, trailing blank lines
@@ -312,6 +328,26 @@ func (s *Server) callTerminal(name string, args map[string]any) (any, bool, bool
 		}
 		started := time.Now()
 
+		// How many terminals exist before the command is sent. Some commands end
+		// the shell — `exit`, `logout`, anything that takes the emulator down
+		// with it — and those leave no prompt to wait for; without noticing, the
+		// loop below spends the whole timeout waiting for one that is never
+		// coming and then reports "it may still be running" about a command that
+		// finished long ago.
+		//
+		// Counted BEFORE typing, deliberately. `echo x; exit` closes the window
+		// faster than one query to the accessibility bridge takes, so counting
+		// afterwards read zero and quietly disabled the check it was meant to arm.
+		//
+		// Counting rather than watching for a read error, because the read does
+		// not fail: refs are positional paths, so when the window closes the path
+		// starts resolving to whatever took its place and returns somebody
+		// else's text forever.
+		terminalsBefore := 0
+		if refs, err := s.terminalRefs(); err == nil {
+			terminalsBefore = len(refs)
+		}
+
 		// xdotool rather than raw XTEST: it remaps keycodes on the fly for
 		// characters the active layout has no key for, which command lines are
 		// full of (pipes, braces, quotes).
@@ -333,8 +369,21 @@ func (s *Server) callTerminal(name string, args map[string]any) (any, bool, bool
 		var last string
 		stable := 0
 		settled := false
+		closed := false
+		tick := 0
 		for time.Now().Before(deadline) {
 			time.Sleep(250 * time.Millisecond)
+			tick++
+
+			// Once a second: cheap next to the poll it guards, and a second of
+			// extra waiting is invisible beside the two minutes it replaces.
+			if terminalsBefore > 0 && tick%4 == 0 {
+				if refs, err := s.terminalRefs(); err == nil && len(refs) < terminalsBefore {
+					closed = true
+					break
+				}
+			}
+
 			now, err := s.readTerminal(ref)
 			if err != nil {
 				continue
@@ -364,7 +413,18 @@ func (s *Server) callTerminal(name string, args map[string]any) (any, bool, bool
 			res["exit_code"] = code
 			res["succeeded"] = code == 0
 		}
-		if !settled {
+		switch {
+		case closed:
+			// Not a timeout, and not a failure either: the command did what it
+			// was asked and the shell it was asked in no longer exists. Saying
+			// which of the two happened is the whole point — "may still be
+			// running" would be false, and silence would be worse.
+			res["terminal_closed"] = true
+			res["note"] = "the terminal closed while the command ran, which is what " +
+				"`exit`, `logout` and anything that ends the shell do. What it " +
+				"printed before the window went away is in `output`; there is no " +
+				"prompt left to confirm against, so `finished` stays false."
+		case !settled:
 			res["note"] = "timed out waiting for the prompt; the command may still " +
 				"be running. Call terminal_read to check on it."
 		}

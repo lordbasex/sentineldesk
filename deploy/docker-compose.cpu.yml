@@ -39,11 +39,28 @@ services:
       - TLS_CERT=${TLS_CERT:-}
       - TLS_KEY=${TLS_KEY:-}
       - TLS_HOSTS=${TLS_HOSTS:-}
+      # Clock and keyboard, read at start so one image serves every region.
+      # TZ: a tzdata name (America/Argentina/Buenos_Aires, Europe/Madrid…).
+      # KEYBOARD_LAYOUT: an X layout code — us, es (Spain), latam, pt, fr, de…
+      - TZ=${TZ:-UTC}
+      - KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT:-us}
+      - KEYBOARD_VARIANT=${KEYBOARD_VARIANT:-}
     volumes:
       - sentineldesk-home:/home/sentineldesk
       - ./certs:/certs:ro
       # Put your background images in ./wallpaper/ (see wallpaper/README.md)
       - ./wallpaper:/wallpaper:ro
+    # A VPN client needs a tunnel device and the capability to configure
+    # routes. Without both, openvpn and wg install fine and then fail at the
+    # moment somebody actually needs them.
+    #
+    # NET_ADMIN is a real grant, worth naming: it lets the container manage its
+    # own network stack — interfaces, routes, iptables. Drop both lines on a
+    # deployment that never dials a VPN.
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
     shm_size: "1g"
     restart: unless-stopped
 

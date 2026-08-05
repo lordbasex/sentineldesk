@@ -131,7 +131,9 @@ RUN usermod -aG sudo sentineldesk \
 # answer — this desktop has no authentication agent.
 COPY deploy/config/polkit.rules /etc/polkit-1/rules.d/49-sentineldesk.rules
 
-COPY --from=build /sentineldesk /usr/local/bin/sentineldesk
+# NOTE: the sentineldesk binary is NOT copied here. See the end of the desktop
+# stage — it changes on every commit, and anything below it in the file would be
+# rebuilt with it.
 COPY deploy/config/pulse-daemon.pa /etc/pulse/sentineldesk.pa
 COPY deploy/config/pulse-client.conf /etc/pulse/client.conf.d/sentineldesk.conf
 COPY deploy/config/entrypoint.sh \
@@ -148,41 +150,27 @@ FROM engine AS desktop
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# contrib + non-free (needed by Steam) and the i386 architecture (amd64 only)
-RUN sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmware/' \
-        /etc/apt/sources.list.d/debian.sources \
-    && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-         dpkg --add-architecture i386; \
-       fi \
-    && apt-get update && apt-get install -y --no-install-recommends \
-    # Raspberry Pi OS style shell
-    lxpanel pcmanfm feh librsvg2-bin \
-    # Light flat theme, icons and fonts
-    adwaita-icon-theme papirus-icon-theme fonts-roboto fonts-noto-core \
-    # Applications
-    chromium lxterminal zenity dbus-x11 \
-    # Media player. Doubles as a way to test the upstream audio path: VLC can
-    # record from the virtual microphone the browser publishes.
-    vlc \
-    # Remote access clients
-    tigervnc-viewer freerdp3-x11 \
-    # Software OpenGL/Vulkan for Chromium, apps and games
-    libgl1-mesa-dri mesa-vulkan-drivers vulkan-tools \
-    # Steam + Steam Play (Proton) — amd64 only, Steam has no ARM build
-    && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
-         echo "steam steam/question select I AGREE" | debconf-set-selections \
-         && echo "steam steam/license note ''" | debconf-set-selections \
-         && apt-get install -y --no-install-recommends \
-              steam-installer \
-              libgl1:i386 libgl1-mesa-dri:i386 mesa-vulkan-drivers:i386; \
-       fi \
+# The desktop and the tools that make it worth sitting at.
+#
+# WHAT gets installed lives in deploy/packages/, not here. Dockerfile has no
+# include, and a forty-line RUN with the reasoning wedged into shell comments is
+# a list nobody edits twice. A plain text file per variant, one package per
+# line, comments where the choice needs defending — and this instruction only
+# has to know how to read one.
+#
+# "Lite" does not mean headless. The desktop IS the product; lite means the
+# smallest set that leaves nobody reaching for apt on their first afternoon.
+COPY deploy/packages/desktop.txt /tmp/packages/desktop.txt
+RUN apt-get update \
+    && sed -e 's/#.*//' -e '/^[[:space:]]*$/d' /tmp/packages/desktop.txt \
+       | xargs apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY deploy/desktop/openbox-themerc /usr/share/themes/SentinelDesk/openbox-3/themerc
 COPY deploy/config/supervisord.conf /etc/supervisor/supervisord.conf
 COPY deploy/desktop/desktop-init.sh /usr/local/bin/desktop-init.sh
 COPY deploy/desktop/wallpaper-rotate.sh /usr/local/bin/wallpaper-rotate.sh
-COPY deploy/desktop/vnc-connect deploy/desktop/rdp-connect deploy/desktop/run-steam /usr/local/bin/
+COPY deploy/desktop/vnc-connect deploy/desktop/rdp-connect deploy/desktop/sentineldesk-hint deploy/desktop/openvpn-connect /usr/local/bin/
 COPY deploy/desktop/chromium-flags.conf /etc/chromium.d/90-sentineldesk
 # GTK3/4 read system settings from the XDG paths (/etc/xdg/gtk-*), not /etc/gtk-*
 COPY deploy/desktop/gtk-settings.ini /etc/xdg/gtk-3.0/settings.ini
@@ -202,9 +190,23 @@ COPY deploy/desktop/lxterminal.conf /etc/skel.sentineldesk/.config/lxterminal/lx
 COPY deploy/desktop/gtk-settings.ini /etc/skel.sentineldesk/.config/gtk-3.0/settings.ini
 COPY deploy/desktop/gtkrc-2.0 /etc/skel.sentineldesk/.gtkrc-2.0
 
+# --- our own binary, last ----------------------------------------------------
+#
+# Deliberately the final layer of this stage, and it is worth saying why: the
+# operating system underneath changes about once a month, and this changes on
+# every commit. Docker invalidates a layer and everything after it, so putting
+# the binary early — where it used to be, up in the engine stage — meant that
+# editing one line of Go threw away a gigabyte of installed packages and
+# reinstalled them.
+#
+# Same reasoning, opposite direction, as the package lists sitting in their own
+# files: the slow, stable thing goes underneath; the fast, volatile thing goes
+# on top.
+COPY --from=build /sentineldesk /usr/local/bin/sentineldesk
+
 RUN chmod +x /usr/local/bin/desktop-init.sh /usr/local/bin/wallpaper-rotate.sh \
     /usr/local/bin/vnc-connect \
-             /usr/local/bin/rdp-connect /usr/local/bin/run-steam \
+             /usr/local/bin/rdp-connect /usr/local/bin/sentineldesk-hint /usr/local/bin/openvpn-connect \
     # Fallback wallpaper: rendered SVG -> PNG at build time, no external downloads
     && mkdir -p /usr/share/backgrounds /wallpaper \
     && rsvg-convert -w 1920 -h 1080 -o /usr/share/backgrounds/sentineldesk.png /tmp/wallpaper.svg \
@@ -233,3 +235,37 @@ ENV DISPLAY=:0 \
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+
+# ---------- runtime: full ----------
+#
+# Everything lite has, plus what is too large or too niche to hand somebody who
+# only wanted a desktop. Built FROM desktop rather than beside it, so the two
+# images share every layer up to this point: a registry holding both stores the
+# difference once, and a machine that has pulled lite pulls only the extra.
+#
+# Steam is what forces the awkward part — contrib/non-free components, i386
+# multiarch and a licence accepted in advance — so that setup lives here rather
+# than in the base everybody pays for.
+FROM desktop AS full
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY deploy/packages/full.txt deploy/packages/full-amd64.txt /tmp/packages/
+
+RUN sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmware/' \
+        /etc/apt/sources.list.d/debian.sources \
+    && lists="/tmp/packages/full.txt" \
+    && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+         dpkg --add-architecture i386 \
+         && echo "steam steam/question select I AGREE" | debconf-set-selections \
+         && echo "steam steam/license note ''" | debconf-set-selections \
+         && lists="$lists /tmp/packages/full-amd64.txt"; \
+       fi \
+    && apt-get update \
+    && sed -e 's/#.*//' -e '/^[[:space:]]*$/d' $lists \
+       | xargs apt-get install -y --no-install-recommends \
+    && if [ "$(dpkg --print-architecture)" = "amd64" ]; then \
+         apt-get install -y --no-install-recommends \
+           libgl1:i386 libgl1-mesa-dri:i386 mesa-vulkan-drivers:i386; \
+       fi \
+    && rm -rf /var/lib/apt/lists/*

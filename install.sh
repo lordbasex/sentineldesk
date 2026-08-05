@@ -18,6 +18,12 @@
 #   sudo ./install.sh docker     # container + TURN, via docker compose
 #   sudo ./install.sh native     # systemd + supervisor on the host itself
 #
+# Variant — lite unless you say otherwise:
+#   sudo ./install.sh docker lite   # the desktop plus the tools to work in it
+#   sudo ./install.sh docker full   # adds LibreOffice, Firefox, GIMP,
+#                                   # Wireshark, a compiler, and on amd64
+#                                   # Steam and Wine. Roughly twice the size.
+#
 # Options:
 #   --version vX.Y.Z   install that release instead of the latest
 #   --binary PATH      use a local binary instead of downloading one
@@ -36,6 +42,11 @@ OPT=/opt/sentineldesk
 MODE=""
 WANT_VERSION=""
 LOCAL_BINARY=""
+# lite is the default on purpose: it is the desktop plus the tools somebody
+# needs in it, and it is what most installations want. full adds LibreOffice,
+# Firefox, GIMP, Wireshark, a compiler and — on amd64 — Steam and Wine, at
+# roughly twice the download.
+VARIANT="lite"
 
 say()  { printf '\033[32m▶\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m!\033[0m %s\n' "$*"; }
@@ -45,6 +56,7 @@ die()  { printf '\033[31m✗\033[0m %s\n' "$*" >&2; exit 1; }
 while [ $# -gt 0 ]; do
   case "$1" in
     auto|docker|native) MODE="$1" ;;
+    lite|full)          VARIANT="$1" ;;
     --install|install)  MODE="${MODE:-auto}" ;;
     --version) WANT_VERSION="$2"; shift ;;
     --binary)  LOCAL_BINARY="$2"; shift ;;
@@ -133,6 +145,12 @@ extract_deploy() {
 # Docker
 # =============================================================================
 install_docker_mode() {
+  # lite ships as :latest as well, so the common case pulls the tag people
+  # already have cached; full has a tag of its own.
+  IMAGE_TAG="latest"
+  [ "$VARIANT" = full ] && IMAGE_TAG="full"
+  say "variant: $VARIANT ($IMAGE:$IMAGE_TAG)"
+
   if ! command -v docker >/dev/null 2>&1; then
     say "installing Docker (get.docker.com)…"
     curl -fsSL https://get.docker.com | sh
@@ -159,7 +177,7 @@ EOF
 name: sentineldesk
 services:
   sentineldesk:
-    image: $IMAGE:latest
+    image: $IMAGE:$IMAGE_TAG
     container_name: sentineldesk
     environment:
       - AUTH_USER=\${AUTH_USER}
@@ -169,12 +187,20 @@ services:
       - WEBRTC_MIN_PORT=59000
       - WEBRTC_MAX_PORT=59049
       - CLIENT_STUN=stun:stun.l.google.com:19302
+      # Read at start, so this one image serves every region. Edit and restart.
+      - TZ=\${TZ:-UTC}
+      - KEYBOARD_LAYOUT=\${KEYBOARD_LAYOUT:-us}
     ports:
       - "8080:8080"
       - "59000-59049:59000-59049/udp"
     volumes:
       - sentineldesk-home:/home/sentineldesk
-    security_opt: [ "seccomp:unconfined" ]
+    # A VPN client needs a tunnel device and the right to configure routes.
+    # Without both, openvpn installs cleanly and fails when somebody needs it.
+    # Remove both on a machine that never dials one — NET_ADMIN lets the
+    # container manage its own interfaces, routes and firewall.
+    cap_add: [ "NET_ADMIN" ]
+    devices: [ "/dev/net/tun" ]
     shm_size: "2g"
     restart: unless-stopped
 volumes:
@@ -198,9 +224,9 @@ install_native_mode() {
   say "installing packages (this is the long part)…"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
-  # The engine set mirrors the image's runtime stage; the desktop set skips
-  # Steam, which needs i386 multiarch and belongs to a deliberate decision, not
-  # an installer's default.
+  # The engine: X, audio, GStreamer and the accessibility bridge. This half
+  # stays here because it is what the BINARY needs to run at all, and it has to
+  # be installed before the deploy tree is even extracted.
   apt-get install -y -qq --no-install-recommends \
     xvfb x11-utils x11-xserver-utils xdotool wmctrl xfonts-base \
     openbox xterm fonts-dejavu-core \
@@ -211,9 +237,31 @@ install_native_mode() {
     libva2 mesa-va-drivers \
     openssh-client xclip librsvg2-common dbus dbus-x11 \
     at-spi2-core libatk-adaptor python3-pyatspi gir1.2-atspi-2.0 \
-    supervisor procps ca-certificates sudo \
-    lxpanel pcmanfm feh adwaita-icon-theme papirus-icon-theme \
-    fonts-roboto fonts-noto-core chromium lxterminal zenity vlc curl
+    supervisor procps ca-certificates sudo tzdata xkb-data
+
+  # The deploy tree comes out of the binary now rather than further down,
+  # because the package lists live in it and the next step reads them.
+  extract_deploy
+
+  # The desktop itself comes from the same lists the container image is built
+  # from. Duplicating them here is what would let a native install and a
+  # container install drift apart — silently, and only visible to whoever hits
+  # the missing tool.
+  local lists="$OPT/deploy/packages/desktop.txt"
+  [ "$VARIANT" = full ] && lists="$lists $OPT/deploy/packages/full.txt"
+  if [ "$VARIANT" = full ] && [ "$(dpkg --print-architecture)" = amd64 ]; then
+    lists="$lists $OPT/deploy/packages/full-amd64.txt"
+    sed -i 's/^Components: .*/Components: main contrib non-free non-free-firmware/' \
+        /etc/apt/sources.list.d/debian.sources 2>/dev/null || true
+    dpkg --add-architecture i386
+    echo "steam steam/question select I AGREE" | debconf-set-selections
+    echo "steam steam/license note ''" | debconf-set-selections
+    apt-get update -qq
+  fi
+  say "installing the $VARIANT desktop…"
+  # shellcheck disable=SC2046
+  apt-get install -y -qq --no-install-recommends \
+    $(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' $lists)
 
   # uid 1000 is load-bearing: the supervisor config and the MCP socket path
   # both say /run/user/1000. If 1000 is somebody else, stop rather than run
@@ -227,7 +275,6 @@ install_native_mode() {
   usermod -aG video sentineldesk 2>/dev/null || true
   usermod -aG render sentineldesk 2>/dev/null || true
 
-  extract_deploy
   local D="$OPT/deploy"
 
   # Helper scripts land where the supervisor config already points.

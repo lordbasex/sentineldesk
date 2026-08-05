@@ -28,10 +28,11 @@
       Tiene un nombre en la lista y un puntero en pantalla con su propio color,
       para que nunca sea ambiguo si el mouse lo movió un colega o el
       modelo.</li>
-    <li><b>Se turnan.</b> Exactamente un participante tiene el control a la vez.
-      Mientras haya una persona conectada el agente tiene que pedirlo, y aparece
-      un cartel en la pantalla de esa persona. Con la sala vacía simplemente
-      funciona: no hay con quién turnarse.</li>
+    <li><b>Se turnan.</b> El control se reclama, nunca se asume — por cualquiera,
+        agente incluido, haya o no alguien mirando. Nadie tiene los controles
+        hasta que los pide, así que entrar para mirar no te deja encima un
+        escritorio que no querías. Cuando alguien está manejando, pedirlo le pone
+        un cartel en su pantalla y no contestar es que no.</li>
     <li><b>Leen el mismo estado.</b> Todo comando ejecutado en una terminal
       informa su código de salida, lo haya corrido quien lo haya corrido, así
       que una persona puede toparse con un error y pedirle al agente que mire lo
@@ -684,19 +685,36 @@ docker volume rm sentineldesk-home</code></pre>
   tenía ve el cambio al instante. No hay jerarquía, porque todos entraron con la
   misma credencial.</p>
 
-  <p>Usá <b>Dejar de controlar</b> cuando terminás, así el que sigue no tiene
-  que sacártelo.</p>
+  <p><b>Entrar no te da el control.</b> El escritorio arranca sin nadie
+  manejando y sigue así hasta que alguien lo pida, así que abrirlo para mirar
+  cómo trabaja un colega es algo que podés hacer sin sacarle la máquina de
+  abajo. Tocá <b>Tomar control</b> cuando de verdad lo quieras.</p>
+
+  <p><b>Soltar deja los controles libres; no se los pasa al siguiente.</b>
+  «Terminé» y «te toca» son dos frases distintas, y sólo la primera es cierta
+  alguna vez. Lo mismo vale si quien maneja cierra la pestaña: los controles
+  quedan libres en vez de caerle encima al que lleva más tiempo conectado.</p>
+
+  <div class="note">
+    <b>La barra flotante</b>
+    <p>Una barra abajo de la pantalla le dice a todos cómo está la cosa, y trae
+    el botón: <b>verde</b> cuando los controles están libres, ámbar cuando
+    maneja otro. Se queda mientras eso sea cierto en vez de pasar de largo — el
+    momento en que el agente termina una tarea es justo cuando podés estar
+    mirando para otro lado.</p>
+  </div>
 
   <h3 id="sharing-agent">El turno del agente de IA</h3>
   <p>El agente es un participante como cualquier otro: un nombre en la lista y
   un puntero en pantalla con su propio color, para que nunca sea ambiguo si el
   mouse lo movió un colega o el modelo.</p>
 
-  <p>La regla es angosta a propósito: <b>el agente tiene que pedir permiso sólo
-  mientras haya una persona conectada.</b> Sin nadie mirando no hay con quién
-  turnarse, y exigirle permiso a una sala vacía rompería toda ejecución
-  desatendida. En el momento en que alguien abre un navegador, el agente tiene
-  que pedirlo — aparece un cartel en tu pantalla con un temporizador que se
+  <p>La regla es una línea: <b>el control se reclama, nunca se asume.</b> Eso
+  vale para el agente haya o no alguien mirando — una sala vacía era un pase
+  libre y dejó de serlo. Pedirlo no le cuesta nada cuando los controles están
+  libres, porque la respuesta vuelve al instante; lo que se gana es una sala que
+  siempre sabe quién tiene el escritorio. Cuando alguien SÍ está manejando, el
+  agente tiene que pedírselo — aparece un cartel en tu pantalla con un temporizador que se
   vacía, y no contestar es no.</p>
 
   <div class="note">
@@ -922,6 +940,62 @@ lsof -nP -iUDP:5000</code></pre>
   <p>Una conexión puede restringirse más a sí misma, pero nunca ampliarse — y
   eso es lo que hace seguro darle a un agente un extremo de sólo lectura sin
   cambiarle nada a nadie más.</p>
+</section>
+
+<section id="whats-installed" data-track="use">
+  <h2>Qué viene instalado, y las dos imágenes</h2>
+  <p>De una misma construcción salen dos variantes. <b>Lite</b> es la de por
+  defecto; <b>full</b> agrega lo que es demasiado grande o demasiado específico
+  como para dárselo a todo el mundo.</p>
+
+  <p>Acá «lite» no significa sin escritorio — en una Raspberry Pi eso es
+  justamente lo que significa, pero acá el escritorio <em>es</em> el producto.
+  Significa el conjunto más chico que no te deja buscando un gestor de paquetes
+  la primera tarde: un navegador, un editor de texto, visores de imágenes y
+  documentos, gestor de archivos comprimidos, calculadora y monitor de procesos,
+  más las herramientas de red para las que este escritorio suele existir — nmap,
+  dig, iperf3, tcpdump, mtr, sngrep y un cliente OpenVPN. También están Git y Go,
+  así la máquina desde la que trabajás puede compilar lo que ella misma
+  ejecuta.</p>
+
+  <p><b>Full</b> suma LibreOffice, Firefox, GIMP, Wireshark y un entorno de
+  compilación, y en máquinas Intel también Steam y Wine.</p>
+
+  <div class="note">
+    <b>Full contiene a lite</b>
+    <p>Full se construye encima de lite y no al lado, así que todo lo que está en
+    una está en la otra. Además comparten casi todo su almacenamiento: una
+    máquina que ya tiene lite se descarga sólo la diferencia.</p>
+  </div>
+
+  <h3 id="whats-installed-menu">Encontrar las cosas</h3>
+  <p>El menú está agrupado por lo que querés hacer. Terminal, Navegador,
+  Archivos y Editor de texto están arriba porque son los que se abren todas las
+  sesiones; <b>Accesorios</b>, <b>Red</b> y <b>Herramientas del sistema</b>
+  tienen el resto, y <b>Todas las aplicaciones</b> lista todo lo instalado.</p>
+
+  <p>Las entradas de línea de comandos dentro de Red abren una terminal con la
+  sintaxis de la herramienta ya impresa, así no tenés que ir a buscar los
+  parámetros primero.</p>
+
+  <h3 id="whats-installed-vpn">Conectarse a una VPN</h3>
+  <p><b>Red → VPN</b> te pide un perfil <code>.ovpn</code> y conecta. Los
+  perfiles guardados en <code>~/.openvpn</code> se ofrecen directamente, y el
+  home sobrevive a los reinicios: una conexión que configurás una vez queda
+  configurada.</p>
+  <p>Esto necesita que el contenedor se haya levantado con dispositivo de túnel y
+  privilegios de red. Si no los tiene, el cuadro de diálogo lo dice y muestra las
+  dos líneas que hay que agregar, en vez de fallar en silencio.</p>
+
+  <h3 id="whats-installed-region">Reloj y teclado</h3>
+  <p>Los dos se fijan cuando arranca el escritorio, así una sola imagen sirve
+  para cualquier región. El reloj sigue a <code>TZ</code> — cualquier nombre
+  estándar, por ejemplo <code>America/Argentina/Buenos_Aires</code> — y el
+  teclado a <code>KEYBOARD_LAYOUT</code>: <code>us</code>, <code>es</code> para
+  España, <code>latam</code> para Latinoamérica, y así.</p>
+  <p>Si alguno está mal escrito se avisa y se ignora, en lugar de quedar aplicado
+  a medias. Un reloj corriendo en UTC en silencio por un tipeo es peor que uno
+  que te lo dice.</p>
 </section>
 
 <section id="troubleshooting" data-track="use">

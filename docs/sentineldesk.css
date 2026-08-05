@@ -16,30 +16,25 @@
 
 /* Project site — shared styling for the landing page and its two sub-pages.
  *
- * The tokens below are lifted verbatim from internal/webui/assets/docs/docs.css
- * rather than re-picked by eye. A visitor moves from this page to the desktop's
- * own documentation in one click, and two greens that are almost the same read
- * as a mistake, not as a family.
+ * Cyberpunk over the product's own palette. The ground is a blue-black night,
+ * the chrome is neon cyan and violet — the same violet the control rail uses
+ * for the agent — and the phosphor green stays what it has always meant:
+ * "you are driving". The wallpaper (wallpaper/sentineldesk-wallpaper-6.png,
+ * resized to 1400px and re-encoded as WebP) runs behind the hero and inside
+ * the console's screen, in full colour: it IS the pitch — homínido, developer
+ * and AI in one scene.
  *
- * ONE webfont, self-hosted, in one role. The in-container documentation loads
- * none — it has to render on a machine with no route to the internet — but this
- * site is published, so that constraint does not carry over; what does carry
- * over is the refusal to depend on a third party, so the file sits in fonts/
- * rather than on a CDN. Everything else is the system stack.
- *
- * Archivo at its expanded widths is the choice, and it is a deliberate one: an
- * expanded grotesque is the lettering of instrument panels and equipment
- * labelling, which is what this product is — a rack of controls over a live
- * machine — and it sets the landing page apart from the desktop's own
- * documentation without abandoning the palette they share.
+ * ONE webfont, self-hosted, in one role: Archivo at its expanded widths, the
+ * lettering of instrument panels — a rack of controls over a live machine.
  *
  * Dark only, deliberately. The product is a control layer floating over live
- * video, and it has exactly one appearance; a light landing page would promise
- * something the desktop never shows.
+ * video, and it has exactly one appearance.
+ *
+ * Regenerate the wallpaper derivative with:
+ *   sips -Z 1400 wallpaper/sentineldesk-wallpaper-6.png --out /tmp/w.png
+ *   cwebp -q 72 /tmp/w.png -o docs/desktop-wallpaper.webp
  */
 
-/* font-display: swap — the page renders immediately in the fallback and
-   reflows once. On a landing page a visible headline late beats no headline. */
 @font-face {
   font-family: 'Archivo';
   font-style: normal;
@@ -47,7 +42,6 @@
   font-stretch: 62% 125%;
   font-display: swap;
   src: url('fonts/archivo-variable-latin.woff2') format('woff2');
-  /* Latin-1 covers every accent the three languages need. */
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2191,
                  U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
@@ -55,34 +49,40 @@
 :root {
   color-scheme: dark;
 
-  --bg:         #0C0E0D;
-  --raise:      #141817;
-  --line:       rgba(255,255,255,.09);
-  --line-soft:  rgba(255,255,255,.055);
+  --bg:         #05070D;
+  --raise:      #0B101B;
+  --raise-2:    #101625;
+  --line:       rgba(130,170,255,.16);
+  --line-soft:  rgba(130,170,255,.09);
 
-  --head:       #DEDEDE;   /* headings, and anything being emphasised */
-  --ink:        #9E9E9E;   /* body text */
-  --faint:      #6E7573;
+  --head:       #E6ECF7;   /* headings, and anything being emphasised */
+  --ink:        #97A1B8;   /* body text */
+  --faint:      #626D88;
 
-  --drive:      #3FD68C;   /* the accent, used sparingly */
+  --drive:      #3FD68C;   /* the accent that means "you are driving" */
   --drive-ink:  #052B17;
   --watch:      #F2B33D;
   --rec:        #FF6B63;
 
-  /* The agent's own colour, taken from the control rail. Amber already means
-     "somebody else is driving"; violet says that somebody is not a person, and
-     a pointer moving on its own stops reading as a fault. */
+  /* The agent's own colour, taken from the control rail — and the site's
+     second neon, next to the interface cyan. */
   --agent:      #B08CF7;
   --agent-ink:  #1B0E33;
+  --cyan:       #4CC8FF;
 
   --display: 'Archivo', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --sans:  system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --sans:  'Archivo', system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
            "Liberation Mono", monospace;
 
-  --wrap: 1060px;
+  --wrap: 1080px;
   --measure: 72ch;
-  --radius: 10px;
+  --radius: 2px;
+
+  /* The cyberpunk corner: one notch, top-right, on anything that is a panel. */
+  --notch: 14px;
+  --clip: polygon(0 0, calc(100% - var(--notch)) 0, 100% var(--notch),
+                  100% 100%, 0 100%);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -92,43 +92,40 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 
 body {
   min-height: 100vh;
-  background: var(--bg);
+  background:
+    radial-gradient(1200px 500px at 80% -100px,
+      rgba(176,140,247,.07), transparent 70%),
+    radial-gradient(900px 420px at 12% 0,
+      rgba(76,200,255,.06), transparent 70%),
+    var(--bg);
   color: var(--ink);
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
-  /* The page must never scroll sideways, whatever a code block contains. */
   overflow-x: hidden;
 }
 
 img { max-width: 100%; height: auto; }
 
-::selection { background: color-mix(in srgb, var(--drive) 30%, transparent); color: #fff; }
+::selection { background: color-mix(in srgb, var(--cyan) 30%, transparent); color: #fff; }
 
-/* A visible focus ring everywhere. Keyboard users are navigating a page whose
-   links are mostly low-contrast on purpose; losing the caret would strand them. */
 a:focus-visible, button:focus-visible, .btn:focus-visible {
-  outline: 2px solid var(--drive);
+  outline: 2px solid var(--cyan);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: var(--radius);
 }
 
 .skip {
   position: absolute; left: -9999px; top: 8px; z-index: 100;
   padding: 8px 14px; background: var(--drive); color: var(--drive-ink);
-  border-radius: 6px; font-weight: 600; text-decoration: none;
+  border-radius: var(--radius); font-weight: 600; text-decoration: none;
 }
 .skip:focus { left: 8px; }
 
 .wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
 
-/* --- brand mark -----------------------------------------------------------
- *
- * The favicon's monitor, redrawn in the accent rather than the client's blue.
- * The blue belongs to the loading overlay, which is the one surface a visitor
- * never sees; the green is what the control layer actually wears.
- */
+/* --- brand mark ----------------------------------------------------------- */
 
 .brand {
   display: inline-flex; align-items: center; gap: 10px;
@@ -136,23 +133,23 @@ a:focus-visible, button:focus-visible, .btn:focus-visible {
   font-family: var(--display); font-size: 17px; letter-spacing: -.005em;
   font-weight: 700; font-stretch: 112%;
 }
-.brand svg { width: 22px; height: 22px; flex: none; }
+.brand svg { width: 22px; height: 22px; flex: none;
+             filter: drop-shadow(0 0 6px color-mix(in srgb, var(--drive) 55%, transparent)); }
 .brand .scr { fill: var(--drive); }
 .brand .gls { fill: var(--bg); }
 .brand .std { fill: color-mix(in srgb, var(--drive) 62%, #000); }
 
-/* --- header ---------------------------------------------------------------
- *
- * Sticky, and translucent over whatever scrolls beneath it. It carries the
- * primary action at every scroll position: the page is long enough that a
- * visitor who decides halfway down should not have to travel back to the hero.
+/* --- header ----------------------------------------------------------------
+ * Sticky and translucent over whatever scrolls beneath, closed by a neon
+ * hairline. It carries the primary action at every scroll position.
  */
 
 header {
   position: sticky; top: 0; z-index: 50;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--line-soft);
+  box-shadow: 0 1px 0 rgba(76,200,255,.06);
 }
 header .wrap {
   display: flex; align-items: center; gap: 20px;
@@ -161,16 +158,16 @@ header .wrap {
 header nav { display: flex; align-items: center; gap: 22px; margin-left: auto; }
 header nav a {
   color: var(--ink); text-decoration: none; font-size: 14.5px;
-  transition: color .15s ease;
+  transition: color .15s ease, text-shadow .15s ease;
 }
-header nav a:hover, header nav a[aria-current="page"] { color: var(--head); }
-header nav a[aria-current="page"] { color: var(--drive); }
+header nav a:hover { color: var(--head); }
+header nav a[aria-current="page"] {
+  color: var(--cyan);
+  text-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 55%, transparent);
+}
 
 @media (max-width: 720px) {
   header nav .hide-sm { display: none; }
-  /* Two rows rather than one that overflows. The button is the page's primary
-     action; letting it slide off the right edge — where `overflow-x: hidden`
-     then quietly clips it — is worse than spending 40px of height. */
   header .wrap {
     flex-wrap: wrap; height: auto; gap: 10px 14px; padding-block: 10px;
   }
@@ -180,117 +177,108 @@ header nav a[aria-current="page"] { color: var(--drive); }
   header nav a { font-size: 13.5px; }
 }
 
-/* --- language switcher ----------------------------------------------------
- *
- * Three codes in a segmented control rather than a dropdown. With exactly three
- * options a select hides two of them behind a click and tells a visitor nothing
- * about what is on offer; laid out flat, the choice is legible at a glance and
- * costs one interaction instead of two.
- *
- * The active one is marked by BOTH weight and colour, and carries
- * aria-pressed — colour alone would leave the state invisible to anyone who
- * cannot rely on it.
- */
+/* --- language switcher ------------------------------------------------------ */
 
 .langs {
   display: flex; align-items: center; gap: 2px;
-  padding: 2px; border: 1px solid var(--line-soft); border-radius: 7px;
+  padding: 2px; border: 1px solid var(--line); border-radius: var(--radius);
   background: var(--raise);
 }
 .langs button {
   appearance: none; border: 0; background: transparent; cursor: pointer;
-  font-family: var(--sans); font-size: 12px; font-weight: 600;
-  letter-spacing: .03em; color: var(--faint);
-  padding: 4px 8px; border-radius: 5px; line-height: 1.4;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600;
+  letter-spacing: .04em; color: var(--faint);
+  padding: 4px 8px; border-radius: var(--radius); line-height: 1.4;
   transition: color .15s ease, background .15s ease;
 }
-.langs button:hover { color: var(--head); background: rgba(255,255,255,.05); }
+.langs button:hover { color: var(--head); background: rgba(130,170,255,.08); }
 .langs button.on {
   color: var(--drive-ink); background: var(--drive); font-weight: 700;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--drive) 45%, transparent);
 }
-.langs button:focus-visible { outline: 2px solid var(--drive); outline-offset: 2px; }
+.langs button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 
-/* In the footer it sits on the page background, not on a raised header. */
 footer .langs { background: transparent; }
 
-/* --- buttons --------------------------------------------------------------
- *
- * Two weights only. The filled one is the accent and there is at most one of it
- * in view at a time; a page with two primary actions has none.
+/* --- buttons ------------------------------------------------------------------
+ * Two weights. The filled one is the accent, glows, and wears the notch;
+ * there is at most one of it in view at a time.
  */
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 11px 20px; border-radius: 8px; border: 1px solid transparent;
-  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  padding: 12px 22px; border: 1px solid transparent; border-radius: var(--radius);
+  font-family: var(--display); font-size: 15px; font-weight: 700;
+  font-stretch: 105%; letter-spacing: .01em;
   text-decoration: none; cursor: pointer; white-space: nowrap;
   transition: filter .15s ease, background .15s ease, border-color .15s ease,
-              transform .06s ease;
+              box-shadow .15s ease, transform .06s ease;
 }
 .btn:active { transform: translateY(1px); }
 .btn svg { width: 16px; height: 16px; flex: none; }
 
-.btn-primary { background: var(--drive); color: var(--drive-ink); }
-.btn-primary:hover { filter: brightness(1.1); }
+.btn-primary {
+  background: var(--drive); color: var(--drive-ink);
+  clip-path: var(--clip);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--drive) 35%, transparent);
+}
+.btn-primary:hover { filter: brightness(1.12); }
 
 .btn-ghost {
-  background: transparent; color: var(--head); border-color: var(--line);
+  background: color-mix(in srgb, var(--cyan) 4%, transparent);
+  color: var(--head); border-color: var(--line);
 }
 .btn-ghost:hover {
-  background: rgba(255,255,255,.05);
-  border-color: rgba(255,255,255,.2);
+  border-color: color-mix(in srgb, var(--cyan) 55%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--cyan) 18%, transparent),
+              inset 0 0 12px color-mix(in srgb, var(--cyan) 7%, transparent);
 }
 
 .btn-sm { padding: 8px 15px; font-size: 14px; }
 
-/* --- hero -----------------------------------------------------------------
- *
- * The glow and the grid are one element each, both painted with CSS rather than
- * an image: a hero that ships as a 400 KB PNG is the slowest thing on a page
- * whose entire pitch is latency.
+/* --- hero -----------------------------------------------------------------------
+ * The wallpaper runs behind the whole hero — the scene the product is about —
+ * under a heavy veil so the interface stays the most legible thing on it.
+ * The grid and the scanlines are one element each, painted with CSS.
  */
 
-.hero { position: relative; overflow: hidden; padding: 96px 0 80px; }
+.hero { position: relative; overflow: hidden; padding: 96px 0 84px; }
 
 .hero::before {
-  /* The phosphor glow, sitting behind the headline and fading out well before
-     the edges so it never draws a visible ellipse. */
-  content: ""; position: absolute; inset: -40% 0 auto 50%;
-  width: 1100px; height: 700px; transform: translateX(-50%);
-  background: radial-gradient(closest-side,
-    color-mix(in srgb, var(--drive) 15%, transparent), transparent 75%);
-  pointer-events: none;
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--bg) 86%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 62%, transparent) 45%,
+      var(--bg) 96%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--bg) 88%, transparent) 0%,
+      color-mix(in srgb, var(--bg) 40%, transparent) 60%,
+      color-mix(in srgb, var(--bg) 20%, transparent) 100%),
+    url('desktop-wallpaper.webp') center 30% / cover no-repeat;
 }
 .hero::after {
-  /* A faint engineering grid, masked to nothing at the bottom so the section
-     below it starts on flat background instead of on a hard cut. */
+  /* The engineering grid + scanlines, fading out before the section below. */
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background-image:
+    repeating-linear-gradient(180deg, rgba(230,240,255,.028) 0 1px, transparent 1px 3px),
     linear-gradient(var(--line-soft) 1px, transparent 1px),
     linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
-  background-size: 56px 56px;
+  background-size: auto, 56px 56px, 56px 56px;
   -webkit-mask-image: radial-gradient(closest-side at 50% 30%, #000, transparent);
   mask-image: radial-gradient(closest-side at 50% 30%, #000, transparent);
-  opacity: .7;
+  opacity: .8;
 }
 .hero .wrap { position: relative; z-index: 1; }
 
-/* Two columns: the claim on the left, the evidence on the right. Stacked below
-   980px, copy first — on a phone the argument has to arrive before the demo. */
 .hero-grid {
   display: grid; grid-template-columns: 1fr; gap: 44px; align-items: center;
 }
-/* min-width: 0 is load-bearing. A grid track sized in fr still refuses to go
-   below its content's min-content width, and a 60px expanded headline has a
-   very wide longest word — without this the left column quietly eats the
-   right one and the console ends up half the size it was given. */
 .hero-grid > * { min-width: 0; }
 
 @media (min-width: 980px) {
   .hero-grid { grid-template-columns: 1.02fr 1fr; gap: 52px; }
-  .hero { padding: 84px 0 76px; }
-  /* Half the width means half the headline. At the full-bleed size the column
-     fits two or three words a line and the first line is a lone article. */
+  .hero { padding: 88px 0 80px; }
   .hero-grid h1 { font-size: clamp(32px, 3.5vw, 45px); max-width: none; }
   .hero-grid .lede { font-size: 17px; }
 }
@@ -298,13 +286,15 @@ footer .langs { background: transparent; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 5px 13px 5px 9px; margin-bottom: 26px;
-  border: 1px solid var(--line); border-radius: 999px;
-  background: var(--raise);
-  font-size: 13px; color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--raise) 80%, transparent);
+  clip-path: polygon(0 0, calc(100% - 9px) 0, 100% 9px, 100% 100%, 0 100%);
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink);
 }
 .eyebrow .dot {
-  width: 7px; height: 7px; border-radius: 2px; background: var(--drive);
-  box-shadow: 0 0 10px color-mix(in srgb, var(--drive) 60%, transparent);
+  width: 7px; height: 7px; background: var(--drive);
+  box-shadow: 0 0 10px var(--drive);
   flex: none;
 }
 
@@ -314,7 +304,11 @@ h1 {
   font-size: clamp(36px, 5.6vw, 60px); line-height: 1.02;
   letter-spacing: -.035em; max-width: 14ch;
 }
-h1 .accent { color: var(--drive); }
+h1 .accent {
+  background: linear-gradient(92deg, var(--cyan) 0%, var(--agent) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 18px color-mix(in srgb, var(--agent) 40%, transparent));
+}
 
 .lede {
   margin-top: 22px; max-width: 60ch;
@@ -325,30 +319,23 @@ h1 .accent { color: var(--drive); }
 .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
 
 .hero-note { margin-top: 18px; font-size: 13.5px; color: var(--faint); }
+.hero-note strong { color: var(--head); }
 .hero-note code {
   font-family: var(--mono); font-size: 12.5px; color: var(--ink);
   background: var(--raise); border: 1px solid var(--line-soft);
-  padding: 2px 6px; border-radius: 4px;
+  padding: 2px 6px; border-radius: var(--radius);
 }
 
-/* --- the shared console: this page's one signature ------------------------
+/* --- the shared console: this page's one signature --------------------------
  *
- * The hero's job is to show the thing the product actually is — a person and an
- * agent on the same screen, taking turns — rather than assert it in a headline
- * and prove it with four big numbers.
+ * The hero shows the thing the product actually is — a person and an agent on
+ * the same screen, taking turns. Every device is borrowed from the product's
+ * own control rail: the signature strip down the left edge, the SOLID chip for
+ * "you are driving" against the HATCHED one for "somebody else is", and the
+ * violet that means the somebody else is not a person.
  *
- * Every device here is borrowed from the product's own control rail rather than
- * invented for the web: the 3px signature strip down the left edge, the SOLID
- * chip for "you are driving" against the diagonally HATCHED one for "somebody
- * else is", and the violet that means the somebody else is not a person. Anyone
- * who has used the desktop recognises the vocabulary; anyone who has not learns
- * it here, before they install anything.
- *
- * It is a loop, not a live session, and the caption says so. A fake live demo
- * would be the one dishonest thing on the page.
- *
- * Control state is carried by SHAPE and TEXT, never by colour alone — the same
- * rule the client follows, for the same reason.
+ * It is a loop, not a live session, and the caption says so. Control state is
+ * carried by SHAPE and TEXT, never by colour alone.
  */
 
 .console { --loop: 16s; background: none; border: 0; padding: 0; overflow: visible; }
@@ -356,9 +343,14 @@ h1 .accent { color: var(--drive); }
 
 .console-frame {
   position: relative; display: flex;
-  border: 1px solid var(--line); border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+  border-radius: var(--radius);
   background: var(--raise); overflow: hidden;
-  box-shadow: 0 26px 64px -34px rgba(0,0,0,.95);
+  clip-path: var(--clip);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5),
+    0 0 34px color-mix(in srgb, var(--cyan) 14%, transparent),
+    0 26px 64px -34px rgba(0,0,0,.95);
 }
 
 /* The control signature: 3px, the full height of the frame. */
@@ -378,97 +370,122 @@ h1 .accent { color: var(--drive); }
 
 .screen {
   position: relative; flex: 1; aspect-ratio: 16 / 9; overflow: hidden;
-  background: #090C0B;
+  background: #070A12;
 }
 
-/* The desktop's actual wallpaper, so the miniature is showing the real thing
-   rather than a stand-in. wallpaper/sentineldesk-wallpaper-1.png resized to
-   1000px and re-encoded as WebP: the original is 2.8 MB, which is ten times the
-   weight of this entire site, and the frame never renders wider than ~475 CSS
-   pixels.
-   
-   Dimmed and desaturated on purpose, not to be subtle. The artwork runs to
-   saturated violet on its right side, which is exactly the colour that means
-   "the agent is driving" — at full strength the agent's pointer disappears into
-   the sky behind it. The control vocabulary has to stay the most legible thing
-   in the frame; the wallpaper is context, not content. */
+/* The desktop's actual wallpaper, in full colour: the scene is the argument.
+   Dimmed toward the edges so the control vocabulary stays the most legible
+   thing in the frame. */
 .screen::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
   background:
     radial-gradient(125% 105% at 50% 6%,
-      rgba(9,12,11,.34) 0%, rgba(9,12,11,.90) 84%),
-    url('desktop-wallpaper.webp') center / cover no-repeat;
-  filter: saturate(.6);
+      rgba(7,10,18,.12) 0%, rgba(7,10,18,.6) 90%),
+    url('menu-wallpaper.webp') left center / cover no-repeat;
+}
+/* Scanlines over the miniature: it is a streamed screen, and reads as one. */
+.screen::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(180deg,
+              rgba(230,240,255,.03) 0 1px, transparent 1px 3px);
 }
 
-/* Schematic windows, not a screenshot. A real capture would date instantly and
-   weigh more than everything else on the page put together. */
+/* A miniature of the real desktop — the same scene the fullscreen demo opens:
+   the LXPanel bar, Chromium on the project page, a terminal that just ran. */
 .panel {
-  position: absolute; left: 0; right: 0; top: 0; height: 8.5%;
-  background: #121716; border-bottom: 1px solid var(--line-soft);
+  position: absolute; left: 0; right: 0; top: 0; height: 9%; z-index: 1;
+  background: #d5dae3; border-bottom: 1px solid #b7bdc9;
   display: flex; align-items: center; gap: 5px; padding: 0 7px;
 }
-.panel i { width: 13px; height: 5px; border-radius: 2px; background: rgba(255,255,255,.13); }
-.panel i:first-child { width: 5px; background: color-mix(in srgb, var(--drive) 60%, transparent); }
+.panel i { width: 8px; height: 8px; border-radius: 2px; }
+.panel .a1 { background: #7fb2e5; }
+.panel .a2 { background: #4a90e2; border-radius: 50%; }
+.panel .a3 { background: #b9b9b0; }
+.panel .a4 { background: #2d323b; }
 .panel .spacer { flex: 1; }
-.panel u {
-  display: block; width: 22px; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,.10); text-decoration: none;
-}
+.panel .tray { display: block; width: 14px; height: 8px; border-radius: 1px;
+               background: #111; text-decoration: none; }
+.panel .clock { font-family: var(--mono); font-size: 7.5px; font-weight: 700;
+                color: #1c2128; letter-spacing: .02em; }
 
 .win {
-  position: absolute; border: 1px solid var(--line);
-  border-radius: 5px; background: #0E1211; overflow: hidden;
+  position: absolute; z-index: 1; border-radius: 3px; overflow: hidden;
+  box-shadow: 0 8px 22px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.35);
 }
-.win-bar {
-  height: 15px; background: #171C1A; border-bottom: 1px solid var(--line-soft);
-  display: flex; align-items: center; gap: 3px; padding: 0 6px;
+/* mini rail, floating left like the real toolbar */
+.mrail {
+  position: absolute; left: 2.5%; top: 16%; bottom: 13%; width: 11%; z-index: 2;
+  background: rgba(13,17,16,.62); border: 1px solid rgba(255,255,255,.18);
+  border-radius: 5px; backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  display: flex; flex-direction: column; align-items: center; gap: 7.5%;
+  padding: 9% 0; box-shadow: 0 6px 18px rgba(0,0,0,.4);
 }
-.win-bar i { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
-.win-body { padding: 8px; display: flex; flex-direction: column; gap: 5px; }
-.win-body u {
-  display: block; height: 4px; border-radius: 2px;
-  background: rgba(255,255,255,.10); text-decoration: none;
+.mrail .sig {
+  position: absolute; left: 0; top: 7%; bottom: 7%; width: 2px;
+  border-radius: 0 1px 1px 0; background: var(--drive); box-shadow: 0 0 5px var(--drive);
 }
-.win-body u.on { background: color-mix(in srgb, var(--drive) 45%, transparent); }
+.mrail .chip { display: block; width: 64%; height: 7.5%; border-radius: 2px;
+               background: #3FD68C; box-shadow: 0 0 6px rgba(63,214,140,.5);
+               text-decoration: none; }
+.mrail u { display: block; width: 38%; height: 4%; border-radius: 1px;
+           background: rgba(231,237,234,.35); text-decoration: none; }
 
-.win-a { left: 5%;  top: 17%; width: 54%; }
-.win-b { left: 41%; top: 50%; width: 52%; }
+/* mini Chromium, on the docs — stretched, the main window of the scene */
+.win-a { left: 16%; top: 14%; width: 66%; background: #fff; }
+.cbar { display: flex; align-items: flex-end; height: 14px; padding: 3px 4px 0; background: #dee1e6; }
+.ctab {
+  display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px;
+  border-radius: 4px 4px 0 0; background: #fff;
+  font-family: var(--sans); font-size: 6.5px; color: #202124; line-height: 1.4;
+}
+.ctab i { width: 5px; height: 5px; border-radius: 1px; background: var(--drive); }
+.curl {
+  display: flex; align-items: center; margin: 3px 5px; padding: 2.5px 7px; border-radius: 999px;
+  background: #f1f3f4; font-family: var(--sans); font-size: 6px; color: #5f6368;
+  white-space: nowrap; overflow: hidden;
+}
+.cpage { padding: 7px 8px 12px; display: flex; flex-direction: column; gap: 5px; background: #fff; }
+.cpage u { display: block; height: 3.5px; border-radius: 1px; background: rgba(32,33,36,.14); text-decoration: none; }
+.cpage u.on { background: color-mix(in srgb, var(--drive) 60%, transparent); }
+/* mini terminal */
+.win-b { left: 50%; top: 54%; width: 45%; background: rgba(24,27,33,.97); }
+.tbar { display: flex; align-items: center; gap: 3px; height: 10px; padding: 0 5px; background: #3a3f47; }
+.tbar i { width: 3.5px; height: 3.5px; border-radius: 50%; background: #9aa3ad; }
+.tbody { padding: 5px 7px 7px; font-family: var(--mono); font-size: 6.5px; line-height: 1.75; color: #e7edea; }
+.tbody .tl { display: block; white-space: nowrap; overflow: hidden; }
+.tbody b { color: var(--drive); font-weight: 700; }
 
-/* The caret only blinks while the agent is at the controls: it is the visible
-   consequence of the turn having changed, not ambient decoration. */
+/* The caret only blinks while the agent is at the controls. */
 .caret {
-  position: absolute; left: 46%; top: 72%; width: 6px; height: 9px;
+  position: absolute; z-index: 1; left: 57%; top: 64%; width: 6px; height: 9px;
   background: var(--agent); opacity: 0;
+  box-shadow: 0 0 8px var(--agent);
   animation: caret-window var(--loop) infinite;
 }
 
 /* --- pointers ---
- * Named, in their owner's colour. In the product these are real X windows, so
- * they show up in recordings and in everyone else's stream; here they are the
- * cheapest honest way to show that two parties share one surface. */
+ * Named, in their owner's colour, with a dark ring so they hold over any
+ * wallpaper — in the product the background rotates every five minutes. */
 .ptr {
-  position: absolute; display: flex; align-items: flex-start; gap: 5px;
+  position: absolute; z-index: 2; display: flex; align-items: flex-start; gap: 5px;
   pointer-events: none; will-change: left, top;
 }
-/* A dark ring under both the arrow and the label. In the real product the
-   wallpaper rotates every five minutes, so a pointer that is only legible
-   against one particular background is a pointer that disappears on the next
-   one. This holds over anything. */
 .ptr svg { width: 16px; height: 16px; flex: none;
            filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.85)); }
 .ptr span {
   font-family: var(--display); font-size: 9.5px; font-weight: 700;
   font-stretch: 105%; letter-spacing: .07em; text-transform: uppercase;
-  padding: 2px 6px; border-radius: 4px; white-space: nowrap; line-height: 1.5;
+  padding: 2px 6px; border-radius: var(--radius); white-space: nowrap; line-height: 1.5;
   box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.5);
 }
 .ptr-you { left: 30%; top: 74%; animation: ptr-you var(--loop) infinite; }
 .ptr-you svg { fill: var(--drive); }
-.ptr-you span { background: var(--drive); color: var(--drive-ink); }
+.ptr-you span { background: var(--drive); color: var(--drive-ink);
+                box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 0 14px color-mix(in srgb, var(--drive) 50%, transparent); }
 .ptr-agent { left: 72%; top: 30%; animation: ptr-agent var(--loop) infinite; }
 .ptr-agent svg { fill: var(--agent); }
-.ptr-agent span { background: var(--agent); color: var(--agent-ink); }
+.ptr-agent span { background: var(--agent); color: var(--agent-ink);
+                  box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 0 14px color-mix(in srgb, var(--agent) 50%, transparent); }
 
 /* --- the state bar under the frame --- */
 
@@ -480,17 +497,17 @@ h1 .accent { color: var(--drive); }
 .chip-stack { position: relative; height: 28px; align-self: stretch; }
 .chip {
   position: absolute; left: 0; top: 0; display: inline-flex; align-items: center;
-  gap: 7px; height: 28px; padding: 0 11px; border-radius: 6px;
+  gap: 7px; height: 28px; padding: 0 11px; border-radius: var(--radius);
   font-family: var(--display); font-size: 10.5px; font-weight: 700;
   font-stretch: 105%; letter-spacing: .08em; text-transform: uppercase;
   white-space: nowrap; opacity: 0;
 }
-.chip b { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+.chip b { width: 7px; height: 7px; border-radius: 1px; flex: none; }
 
 /* Solid: you are driving. */
 .chip-you {
   background: var(--drive); color: var(--drive-ink); opacity: 1;
-  box-shadow: 0 0 18px color-mix(in srgb, var(--drive) 32%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--drive) 38%, transparent);
   animation: chip-you var(--loop) infinite;
 }
 .chip-you b { background: var(--drive-ink); }
@@ -511,18 +528,17 @@ h1 .accent { color: var(--drive); }
   background: repeating-linear-gradient(135deg,
               color-mix(in srgb, var(--agent) 15%, transparent) 0 5px,
               transparent 5px 11px);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--agent) 22%, transparent);
   animation: chip-agent var(--loop) infinite;
 }
 .chip-agent b { background: var(--agent); }
 
-/* The readout: the numbers that survived, as instrument labelling rather than
-   as four big figures. "1 encode → 4 viewers" says what a pair of numbers
-   sitting side by side could not. */
 .readout {
   font-family: var(--mono); font-size: 11.5px; letter-spacing: .03em;
   color: var(--faint); line-height: 1.7;
 }
-.readout em { font-style: normal; color: var(--ink); }
+.readout em { font-style: normal; color: var(--cyan);
+              text-shadow: 0 0 10px color-mix(in srgb, var(--cyan) 45%, transparent); }
 
 .console figcaption {
   margin-top: 12px; font-size: 12.5px; color: var(--faint); max-width: 62ch;
@@ -535,15 +551,8 @@ h1 .accent { color: var(--drive); }
 
 /* --- the loop ---
  * One timeline, four beats: you drive · the agent asks · the agent drives ·
- * control comes back. Percentages are shared across every animation below, so
- * the rail, the chips, the caret and both pointers stay in step. */
-
-/* Hard cuts, not cross-fades. Two reasons, and the second is the real one:
-   the chips are stacked at the same origin and are different widths, so a fade
-   lets the wider one show its tail from behind the narrower one — it reads as a
-   glitch. And a change of control is discrete. You either hold it or you do
-   not; there is no frame in which you half-hold it, so there should be no frame
-   in which the page says you do. */
+ * control comes back. Hard cuts, not cross-fades: a change of control is
+ * discrete. */
 @keyframes rail-you   { 0%,52.9% { opacity: 1 } 53%,89.9% { opacity: 0 } 90%,100% { opacity: 1 } }
 @keyframes rail-agent { 0%,52.9% { opacity: 0 } 53%,89.9% { opacity: 1 } 90%,100% { opacity: 0 } }
 
@@ -574,9 +583,8 @@ h1 .accent { color: var(--drive); }
   89%, 100% { left: 72%; top: 30% }
 }
 
-/* Reduced motion: the loop stops and the frame settles into its opening beat —
- * both pointers present, control with the person. Every base rule above already
- * describes that state, so switching the animations off is the whole fix. */
+/* Reduced motion: the loop stops in its opening beat — both pointers present,
+ * control with the person. */
 @media (prefers-reduced-motion: reduce) {
   .rail::before, .rail::after, .caret,
   .chip, .ptr { animation: none; }
@@ -591,10 +599,12 @@ section + section { border-top: 1px solid var(--line-soft); }
 
 .sec-head { max-width: var(--measure); margin-bottom: 38px; }
 .kicker {
-  font-family: var(--display); font-size: 11.5px; letter-spacing: .16em;
-  text-transform: uppercase; color: var(--drive); font-weight: 700;
-  font-stretch: 105%; margin-bottom: 13px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--cyan); font-weight: 600;
+  margin-bottom: 13px;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 40%, transparent);
 }
+.kicker::before { content: "// "; color: var(--faint); text-shadow: none; }
 h2 {
   font-family: var(--display); font-weight: 700; color: var(--head);
   font-stretch: 115%;
@@ -607,7 +617,10 @@ h3 {
 }
 .sec-head p { margin-top: 14px; }
 
-/* --- cards ---------------------------------------------------------------- */
+/* --- cards -------------------------------------------------------------------
+ * HUD panels: raised a step off the night, notched at the top-right corner,
+ * with a corner bracket at the top-left. Hover lifts the neon, not the card.
+ */
 
 .grid { display: grid; gap: 16px; }
 .grid.c2 { grid-template-columns: repeat(2, 1fr); }
@@ -618,36 +631,83 @@ h3 {
 }
 
 .card {
-  background: var(--raise); border: 1px solid var(--line-soft);
+  position: relative;
+  background: linear-gradient(160deg, var(--raise-2), var(--raise) 55%);
+  border: 1px solid var(--line-soft);
   border-radius: var(--radius); padding: 24px;
-  transition: border-color .15s ease, transform .15s ease;
+  clip-path: var(--clip);
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.card:hover { border-color: var(--line); }
-@media (prefers-reduced-motion: no-preference) {
-  .card:hover { transform: translateY(-2px); }
+.card::before {
+  /* The corner bracket. */
+  content: ""; position: absolute; left: 0; top: 0; width: 14px; height: 14px;
+  border-left: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--cyan) 55%, transparent);
+  pointer-events: none;
+}
+.card:hover {
+  border-color: color-mix(in srgb, var(--cyan) 35%, transparent);
+  box-shadow: inset 0 0 26px color-mix(in srgb, var(--cyan) 6%, transparent);
 }
 .card .ic {
-  width: 34px; height: 34px; border-radius: 8px; margin-bottom: 16px;
+  width: 34px; height: 34px; border-radius: var(--radius); margin-bottom: 16px;
   display: grid; place-items: center;
-  background: color-mix(in srgb, var(--drive) 12%, transparent);
-  border: 1px solid color-mix(in srgb, var(--drive) 22%, transparent);
+  background: color-mix(in srgb, var(--cyan) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--cyan) 12%, transparent);
 }
 .card .ic svg {
-  width: 17px; height: 17px; fill: none; stroke: var(--drive);
+  width: 17px; height: 17px; fill: none; stroke: var(--cyan);
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
 .card h3 { margin-bottom: 9px; }
 .card p { font-size: 14.7px; }
 
-/* A card that carries a different meaning gets a different accent, so the two
-   are told apart by hue as well as by wording. */
-.card.watch .ic {
-  background: color-mix(in srgb, var(--watch) 12%, transparent);
-  border-color: color-mix(in srgb, var(--watch) 22%, transparent);
+/* Feature lists inside cards: quiet rows behind a neon tick. */
+.feats { list-style: none; margin-top: 4px; }
+.feats li {
+  position: relative; padding: 7px 0 7px 20px; font-size: 14.5px;
 }
-.card.watch .ic svg { stroke: var(--watch); }
+.feats li + li { border-top: 1px solid var(--line-soft); }
+.feats li::before {
+  content: "\25B8"; position: absolute; left: 2px; top: 6px;
+  color: var(--cyan); font-size: 12px;
+}
+.card.you .feats li::before { color: var(--drive); }
+.card.watch .feats li::before { color: var(--agent); }
 
-/* --- split (text beside a figure) ----------------------------------------- */
+/* The person's card carries the drive green… */
+.card.you::before {
+  border-color: color-mix(in srgb, var(--drive) 60%, transparent);
+}
+.card.you .ic {
+  background: color-mix(in srgb, var(--drive) 10%, transparent);
+  border-color: color-mix(in srgb, var(--drive) 32%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--drive) 14%, transparent);
+}
+.card.you .ic svg { stroke: var(--drive); }
+.card.you:hover {
+  border-color: color-mix(in srgb, var(--drive) 38%, transparent);
+  box-shadow: inset 0 0 26px color-mix(in srgb, var(--drive) 7%, transparent);
+}
+
+/* …and the agent's card the agent's violet, so the two planes are told
+   apart by hue as well as by wording. */
+.card.watch::before {
+  border-color: color-mix(in srgb, var(--agent) 60%, transparent);
+}
+.card.watch .ic {
+  background: color-mix(in srgb, var(--agent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--agent) 32%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--agent) 14%, transparent);
+}
+.card.watch .ic svg { stroke: var(--agent); }
+.card.watch:hover {
+  border-color: color-mix(in srgb, var(--agent) 38%, transparent);
+  box-shadow: inset 0 0 26px color-mix(in srgb, var(--agent) 7%, transparent);
+}
+
+/* --- split (text beside a figure) --- */
 
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
 .split > *, .grid > * { min-width: 0; }
@@ -655,77 +715,84 @@ h3 {
 @media (max-width: 880px) { .split { grid-template-columns: 1fr; gap: 30px; } }
 
 figure {
-  background: var(--raise); border: 1px solid var(--line-soft);
+  background: var(--raise); border: 1px solid var(--line);
   border-radius: var(--radius); padding: 12px; overflow: hidden;
+  clip-path: var(--clip);
 }
-figure img { display: block; border-radius: 6px; }
+figure img { display: block; border-radius: 1px; }
 figcaption { margin-top: 12px; font-size: 13px; color: var(--faint); padding: 0 4px 4px; }
 
-/* --- prose ---------------------------------------------------------------- */
+/* --- prose --- */
 
 .prose { max-width: var(--measure); }
 .prose > * + * { margin-top: 18px; }
 .prose h2 { margin-top: 46px; }
 .prose h3 { margin-top: 34px; }
 .prose strong { color: var(--head); font-weight: 600; }
-.prose a { color: var(--drive); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--drive) 35%, transparent); }
-.prose a:hover { border-bottom-color: var(--drive); }
+.prose a { color: var(--cyan); text-decoration: none;
+           border-bottom: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent); }
+.prose a:hover { border-bottom-color: var(--cyan);
+                 text-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 45%, transparent); }
 .prose ul, .prose ol { padding-left: 22px; }
 .prose li + li { margin-top: 8px; }
-.prose li::marker { color: var(--faint); }
+.prose li::marker { color: var(--cyan); }
 
-/* --- code ----------------------------------------------------------------- */
+/* --- code ----------------------------------------------------------------------
+ * Terminals. A neon hairline on top, phosphor text inside.
+ */
 
 code { font-family: var(--mono); font-size: .89em; }
 
 p code, li code, td code {
   background: var(--raise); border: 1px solid var(--line-soft);
-  padding: 1.5px 5px; border-radius: 4px; color: var(--head);
+  padding: 1.5px 5px; border-radius: var(--radius); color: var(--head);
   white-space: nowrap;
 }
 
-/* nowrap is right on a wide screen — it stops a flag like -mcp-stdio being
-   split across two lines. On a narrow one it is what pushes a long run such as
-   a full version string past the edge of the viewport, so below this width
-   breaking inside the token wins over overflowing the page. */
 @media (max-width: 700px) {
   p code, li code, td code { white-space: normal; overflow-wrap: anywhere; }
 }
 
 pre {
-  background: var(--raise); border: 1px solid var(--line-soft);
+  position: relative;
+  background: #060910; border: 1px solid var(--line);
+  border-top: 2px solid color-mix(in srgb, var(--drive) 55%, transparent);
   border-radius: var(--radius); padding: 16px 18px;
-  /* The one place sideways scrolling is allowed: inside the block, never on
-     the page. A wrapped shell command is a command that cannot be copied. */
   overflow-x: auto;
   font-size: 13.5px; line-height: 1.6;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.5);
 }
-pre code { color: var(--head); white-space: pre; }
+pre code { color: #C9D8E8; white-space: pre; }
 pre .c { color: var(--faint); }      /* comment */
 pre .p { color: var(--drive); }      /* prompt / emphasis */
 
-/* --- tables --------------------------------------------------------------- */
+/* --- tables --- */
 
-.table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: var(--radius); }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius);
+              clip-path: var(--clip); background: var(--raise); }
 table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
 th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line-soft); }
-th { color: var(--head); font-weight: 600; background: var(--raise); white-space: nowrap; }
+th { color: var(--cyan); font-weight: 600; background: var(--raise-2); white-space: nowrap;
+     font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
 tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover td { background: rgba(130,170,255,.03); }
 
-/* --- callout -------------------------------------------------------------- */
+/* --- callout --- */
 
 .note {
+  border: 1px solid color-mix(in srgb, var(--drive) 30%, transparent);
   border-left: 2px solid var(--drive);
-  background: color-mix(in srgb, var(--drive) 6%, transparent);
-  padding: 15px 18px; border-radius: 0 8px 8px 0; font-size: 14.7px;
+  background: color-mix(in srgb, var(--drive) 5%, transparent);
+  padding: 15px 18px; border-radius: var(--radius); font-size: 14.7px;
 }
 .note.warn {
+  border-color: color-mix(in srgb, var(--watch) 30%, transparent);
   border-left-color: var(--watch);
-  background: color-mix(in srgb, var(--watch) 7%, transparent);
+  background: color-mix(in srgb, var(--watch) 6%, transparent);
 }
 .note b { color: var(--head); }
 
-/* --- steps ---------------------------------------------------------------- */
+/* --- steps --- */
 
 .steps { list-style: none; counter-reset: step; padding: 0; }
 .steps > li {
@@ -733,29 +800,607 @@ tbody tr:last-child td { border-bottom: 0; }
   padding-left: 46px; padding-bottom: 30px;
 }
 .steps > li::before {
-  content: counter(step);
+  content: counter(step, decimal-leading-zero);
   position: absolute; left: 0; top: 0;
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 28px; height: 28px;
   display: grid; place-items: center;
-  background: var(--raise); border: 1px solid var(--line);
-  color: var(--drive); font-size: 13px; font-weight: 700; font-family: var(--sans);
+  background: var(--raise); border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  border-radius: var(--radius);
+  color: var(--cyan); font-size: 11px; font-weight: 700; font-family: var(--mono);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--cyan) 15%, transparent);
 }
-/* The connecting rail, stopping at the last item so it does not dangle. */
 .steps > li:not(:last-child)::after {
   content: ""; position: absolute; left: 13.5px; top: 32px; bottom: 6px;
-  width: 1px; background: var(--line-soft);
+  width: 1px; background: linear-gradient(180deg,
+    color-mix(in srgb, var(--cyan) 35%, transparent), var(--line-soft));
 }
 .steps > li > * + * { margin-top: 12px; }
 .steps h3 { margin: 0; }
 
-/* --- final call ----------------------------------------------------------- */
+/* --- final call ------------------------------------------------------------------
+ * The neon poster: the night sky concentrated, both accents glowing behind
+ * display-grade type.
+ */
 
-.final { text-align: center; padding: 84px 0; }
-.final h2 { margin: 0 auto; max-width: 20ch; }
+.final {
+  position: relative; text-align: center; padding: 96px 0; overflow: hidden;
+  border-top: 1px solid var(--line-soft);
+  background:
+    radial-gradient(700px 340px at 30% 115%,
+      color-mix(in srgb, var(--agent) 14%, transparent), transparent 70%),
+    radial-gradient(700px 340px at 72% -15%,
+      color-mix(in srgb, var(--cyan) 12%, transparent), transparent 70%),
+    var(--bg);
+}
+.final::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(closest-side at 50% 50%, #000, transparent);
+  mask-image: radial-gradient(closest-side at 50% 50%, #000, transparent);
+  opacity: .5;
+}
+.final .wrap { position: relative; }
+.final h2 {
+  margin: 0 auto; max-width: 20ch;
+  font-size: clamp(28px, 4vw, 42px);
+  text-shadow: 0 0 30px color-mix(in srgb, var(--cyan) 25%, transparent);
+}
 .final p { margin: 16px auto 0; max-width: 54ch; }
 .final .cta { justify-content: center; }
 
-/* --- footer --------------------------------------------------------------- */
+/* --- the rail, annotated ------------------------------------------------------
+ * A faithful, static recreation of the product's control rail (its own tokens,
+ * radius and type — it is the product, not the site), with numbered markers
+ * keyed to the notes beside it.
+ */
+
+.rlx-wrap { display: grid; grid-template-columns: 340px 1fr; gap: 44px; align-items: start; }
+@media (max-width: 920px) { .rlx-wrap { grid-template-columns: 1fr; } }
+
+.rlx-scene {
+  display: flex; justify-content: flex-start; padding: 24px 20px 24px 14px;
+  background: url('menu-wallpaper.webp') left center / cover no-repeat;
+  border: 1px solid var(--line); clip-path: var(--clip);
+}
+.rlx-capn { margin-top: 12px; font-size: 12.5px; color: var(--faint); }
+
+.rlx-rail {
+  position: relative; width: 240px; padding-bottom: 2px;
+  font-family: var(--mono); color: #E7EDEA;
+  background: rgba(13,17,16,.55);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+  border: 1px solid rgba(255,255,255,.16); border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,.42);
+}
+.rlx-strip {
+  position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px;
+  border-radius: 0 2px 2px 0; background: #3FD68C; box-shadow: 0 0 12px #3FD68C;
+}
+.rlx-head { padding: 10px 12px 0; font-size: 9px; letter-spacing: .24em; color: #93A09A; }
+.rlx-mod { padding: 9px 12px 12px; }
+.rlx-cap {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #93A09A;
+}
+.rlx-count { margin-left: auto; white-space: nowrap; }
+.rlx-you {
+  display: flex; align-items: center; gap: 8px; margin-top: 9px; padding: 8px 10px;
+  border-radius: 6px; background: #3FD68C; color: #052B17;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  box-shadow: 0 0 16px rgba(63,214,140,.35);
+}
+.rlx-you svg { flex: none; }
+.rlx-release {
+  display: block; width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.16); background: none; color: #E7EDEA;
+  font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase;
+  font-weight: 700; text-align: center; cursor: pointer;
+}
+.rlx-release:active { transform: translateY(1px); }
+.rlx-release:hover { background: rgba(255,255,255,.07); }
+.rlx-div { height: 1px; background: rgba(255,255,255,.08); margin: 0 10px; }
+.rlx-g { padding: 9px 12px 2px; font-size: 9.5px; letter-spacing: .16em; text-transform: uppercase; color: #93A09A; }
+.rlx-rows { padding: 2px 6px 4px; }
+.rlx-row { display: flex; align-items: center; padding: 7px 10px; border-radius: 7px; font-size: 12px; }
+.rlx-row svg { flex: none; opacity: .92; }
+.rlx-lab { margin-left: 10px; white-space: nowrap; overflow: hidden; }
+.rlx-chip {
+  margin-left: 8px; font-size: 9px; padding: 1px 4px;
+  border: 1px solid rgba(255,255,255,.16); border-radius: 4px; color: #93A09A;
+}
+.rlx-about {
+  padding: 8px 12px 9px; font-size: 9px; letter-spacing: .08em;
+  color: #93A09A; opacity: .75; border-top: 1px solid rgba(255,255,255,.08); margin-top: 4px;
+}
+.rlx-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px 8px; }
+.rlx-foot .rlx-fbtn:last-child { border: 1px solid rgba(255,255,255,.08); }
+.rlx-fbtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 26px; border-radius: 6px; color: #93A09A;
+  border: 1px solid rgba(255,255,255,.08); font-size: 12px; line-height: 1;
+}
+
+.rlx-num {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 17px; height: 17px; margin-left: auto; border-radius: 50%;
+  background: var(--cyan); color: #03222f;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 700; line-height: 1;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--cyan) 45%, transparent);
+}
+.rlx-cap .rlx-num { margin-left: 8px; }
+
+.rlx-notes-g {
+  font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--cyan); margin: 26px 0 4px;
+}
+.rlx-notes-g:first-child { margin-top: 0; }
+.rlx-note { display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line-soft); }
+.rlx-note .rlx-num { margin-left: 0; margin-top: 3px; }
+.rlx-note h3 { font-size: 15px; margin-bottom: 4px; }
+.rlx-note p { font-size: 14px; }
+
+/* --- the screenshot slider ------------------------------------------------------
+ * Native scroll-snap; the buttons only nudge it. One slide per viewport.
+ */
+
+.shots-wrap { position: relative; }
+.shots {
+  display: flex; gap: 16px;
+  overflow-x: auto; scroll-snap-type: x mandatory;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+.shots::-webkit-scrollbar { display: none; }
+.shots:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.shot { flex: 0 0 100%; scroll-snap-align: center; margin: 0; }
+.shot img { width: 100%; }
+
+.shots-btn {
+  position: absolute; top: 50%; transform: translateY(-50%); z-index: 2;
+  display: flex; align-items: center; justify-content: center;
+  width: 42px; height: 42px; cursor: pointer;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid color-mix(in srgb, var(--cyan) 40%, transparent);
+  border-radius: var(--radius); color: var(--cyan);
+  transition: box-shadow .15s ease, background .15s ease;
+}
+.shots-btn:hover {
+  background: color-mix(in srgb, var(--cyan) 14%, var(--bg));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--cyan) 30%, transparent);
+}
+.shots-btn:active { transform: translateY(calc(-50% + 1px)); }
+.shots-prev { left: 14px; }
+.shots-next { right: 14px; }
+@media (max-width: 640px) {
+  .shots-btn { width: 36px; height: 36px; }
+  .shots-prev { left: 8px; }
+  .shots-next { right: 8px; }
+}
+
+/* --- the rail, interactive states ------------------------------------------------
+ * The demo is the product's own behavior: presence switches the strip and the
+ * hero module, the mic goes LIVE, REC runs a timer, the popovers float over
+ * the scene, and the rail collapses or hides like the real one.
+ */
+
+.rlx-scene { position: relative; min-height: 540px; align-items: center; }
+.rlx-demo-tag {
+  display: inline-flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  padding: 5px 11px; border: 1px dashed color-mix(in srgb, var(--cyan) 45%, transparent);
+  font-family: var(--mono); font-size: 11px; letter-spacing: .08em; color: var(--cyan);
+}
+.rlx-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--drive); animation: rlx-pulse 1.6s infinite; flex: none; }
+.rlx-dot.rec { background: #FF5D55; animation: rlx-pulse 1.2s infinite; }
+@keyframes rlx-pulse { 0%,100% { opacity: 1 } 50% { opacity: .3 } }
+@keyframes rlx-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rlx-rise { from { opacity: 0; transform: translate(-50%, 10px) } to { opacity: 1; transform: translate(-50%, 0) } }
+.rlx-scene [hidden], .rlx-notes [hidden] { display: none !important; }
+
+.rlx-rail { transition: width .26s ease, transform .3s ease, opacity .25s ease; z-index: 2; }
+.rlx-rail[data-h="1"] { transform: translateX(-140%); opacity: 0; pointer-events: none; }
+button.rlx-row, .rlx-fbtn, .rlx-release, .rlx-take, .rlx-handle,
+#rlx-fm-close, #rlx-fm-esc, #rlx-take2 {
+  font: inherit; background: none; border: 0; color: inherit; cursor: pointer; text-align: left;
+}
+button.rlx-row { width: 100%; transition: background .12s ease; }
+button.rlx-row:hover { background: rgba(255,255,255,.07); }
+button.rlx-row:active { transform: translateY(1px); }
+.rlx-ic { display: flex; width: 20px; height: 20px; align-items: center; justify-content: center; flex: none; }
+.rlx-mod { cursor: default; }
+
+/* presence */
+.rlx-strip-other { background: repeating-linear-gradient(180deg, #b08cf7 0 6px, transparent 6px 12px); box-shadow: none; }
+.rlx-rail[data-p="you"] .rlx-strip-other, .rlx-rail[data-p="you"] .rlx-only-other { display: none; }
+.rlx-rail[data-p="other"] .rlx-strip-you, .rlx-rail[data-p="other"] .rlx-only-you { display: none; }
+.rlx-other {
+  display: flex; align-items: center; gap: 8px; margin-top: 9px; padding: 8px 10px;
+  border-radius: 6px; border: 1px solid #b08cf7; color: #b08cf7;
+  font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  background: repeating-linear-gradient(135deg, rgba(176,140,247,.15) 0 5px, transparent 5px 11px);
+}
+.rlx-take {
+  display: block; width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 6px;
+  background: #F2B33D; color: #2A1C02; font-size: 11.5px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; text-align: center;
+}
+.rlx-take:hover { filter: brightness(1.12); }
+.rlx-rail[data-p="other"] #rlx-mic { opacity: .45; cursor: not-allowed; }
+
+/* mic / rec / audio states */
+#rlx-mic.on { color: #3FD68C; background: rgba(63,214,140,.1); }
+.rlx-live { display: none; margin-left: 8px; font-size: 9px; font-weight: 700; letter-spacing: .1em; padding: 2px 5px; border-radius: 4px; background: #3FD68C; color: #052B17; animation: rlx-pulse 1.6s infinite; }
+#rlx-mic.on .rlx-live { display: inline-block; }
+#rlx-rec .stop-in { display: none; fill: currentColor; stroke: none; }
+#rlx-rec.on .dot-in { display: none; }
+#rlx-rec.on .stop-in { display: block; }
+#rlx-rec.on .ring { animation: rlx-pulse 1.2s infinite; }
+#rlx-rec.on { color: #FF5D55; background: rgba(255,93,85,.13); }
+.rlx-rectime { display: none; margin-left: 8px; font-size: 10px; color: #FF5D55; }
+#rlx-rec.on .rlx-rectime { display: inline; }
+#rlx-rtmp.on { color: #FF5D55; }
+#rlx-rtmp.on .rlx-live { display: inline-block; background: #FF5D55; color: #2A0503; }
+#rlx-audio.off .rlx-lab { text-decoration: line-through; text-decoration-thickness: 1px; color: #93A09A; }
+#rlx-audio.off .rlx-ic { opacity: .5; }
+
+/* collapse */
+.rlx-hc { display: none; }
+.rlx-rail[data-c="1"] { width: 58px; }
+.rlx-rail[data-c="1"] .rlx-hx, .rlx-rail[data-c="1"] .rlx-lab, .rlx-rail[data-c="1"] .rlx-count,
+.rlx-rail[data-c="1"] .rlx-chip, .rlx-rail[data-c="1"] .rlx-live, .rlx-rail[data-c="1"] .rlx-rectime,
+.rlx-rail[data-c="1"] .rlx-g, .rlx-rail[data-c="1"] .rlx-release, .rlx-rail[data-c="1"] .rlx-take,
+.rlx-rail[data-c="1"] .rlx-you span:last-child, .rlx-rail[data-c="1"] .rlx-other span:last-child,
+.rlx-rail[data-c="1"] .rlx-cap span:first-child, .rlx-rail[data-c="1"] .rlx-about { display: none; }
+.rlx-rail[data-c="1"] .rlx-hc { display: inline; }
+.rlx-rail[data-c="1"] .rlx-head { text-align: center; padding: 10px 0 0; }
+.rlx-rail[data-c="1"] .rlx-row { flex-direction: column; justify-content: center; gap: 3px; padding: 9px 0; }
+.rlx-rail[data-c="1"] .rlx-cap, .rlx-rail[data-c="1"] .rlx-you, .rlx-rail[data-c="1"] .rlx-other { justify-content: center; }
+.rlx-rail[data-c="1"] .rlx-you, .rlx-rail[data-c="1"] .rlx-other { padding: 8px 6px; }
+.rlx-rail[data-c="1"] .rlx-foot { flex-direction: column; align-items: center; }
+.rlx-rail[data-c="1"] .rlx-rectime { display: none !important; }
+.rlx-rail[data-c="1"] #rlx-rec.on .rlx-rectime {
+  display: block !important; margin-left: 0; font-size: 9px; text-align: center;
+}
+.rlx-cvr { display: none; }
+.rlx-rail[data-c="1"] .rlx-cvl { display: none; }
+.rlx-rail[data-c="1"] .rlx-cvr { display: flex; }
+.rlx-fbtn:hover { background: rgba(255,255,255,.07); color: #E7EDEA; }
+
+/* overlays */
+.rlx-handle {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%); z-index: 3;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  width: 20px; height: 76px; border-radius: 0 9px 9px 0;
+  background: rgba(13,17,16,.92); border: 1px solid rgba(255,255,255,.16); border-left: 0;
+  color: #93A09A; font-size: 11px; opacity: .55; transition: opacity .2s;
+}
+.rlx-handle:hover { opacity: 1; color: #E7EDEA; }
+.rlx-recpill {
+  position: absolute; top: 14px; right: 14px; z-index: 4;
+  display: flex; align-items: center; gap: 8px; padding: 6px 11px;
+  background: rgba(16,22,20,.96); border: 1px solid #FF5D55; border-radius: 6px;
+  font-family: var(--mono); font-size: 11.5px; font-weight: 700; letter-spacing: .1em; color: #FF5D55;
+  animation: rlx-fade .25s;
+}
+.rlx-banner {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px;
+  margin-bottom: 16px; position: relative;
+  background: rgba(16,22,20,.96); border: 1px solid #F2B33D; border-radius: 9px;
+  box-shadow: 0 14px 36px rgba(0,0,0,.4); color: #E7EDEA; white-space: normal;
+  font-family: var(--mono); font-size: 11.5px; animation: rlx-fade .25s;
+}
+.rlx-banner > svg { flex: none; color: #F2B33D; }
+.rlx-banner > span { min-width: 0; flex: 1; }
+.rlx-banner::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
+  border-radius: 9px 0 0 9px; opacity: .85;
+  background: repeating-linear-gradient(135deg, #F2B33D 0 5px, transparent 5px 10px);
+}
+.rlx-banner b { color: #F2B33D; }
+.rlx-banner button {
+  flex: none; padding: 7px 12px; border-radius: 6px; background: #F2B33D; color: #2A1C02;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: center;
+}
+.rlx-banner #rlx-take2 {
+  background: #F2B33D; color: #2A1C02;
+  padding: 7px 12px; border-radius: 6px;
+  font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; text-align: center;
+}
+.rlx-banner button:hover { filter: brightness(1.12); }
+.rlx-pop {
+  margin-top: 16px; padding: 16px 18px;
+  background: rgba(16,22,20,.96); border: 1px solid rgba(255,255,255,.16); border-radius: 9px;
+  box-shadow: 0 14px 36px rgba(0,0,0,.4); color: #E7EDEA;
+  font-family: var(--mono); animation: rlx-fade .18s;
+}
+.rlx-st-head {
+  display: flex; align-items: center; gap: 8px;
+  margin: -16px -18px 8px; padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.rlx-st-head > span:first-child { font-size: 9.5px; letter-spacing: .16em; color: #93A09A; }
+.rlx-st-live { width: 6px; height: 6px; border-radius: 50%; background: #3FD68C; animation: rlx-pulse 1.6s infinite; }
+#rlx-pop-close {
+  margin-left: auto; display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 20px; border: 0; border-radius: 5px;
+  background: none; color: #93A09A; cursor: pointer; font: inherit;
+}
+#rlx-pop-close:hover { background: rgba(255,255,255,.07); color: #E7EDEA; }
+.rlx-pop-grid { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 12px; }
+.rlx-pop-grid .k { color: #93A09A; font-size: 10.5px; align-self: baseline; }
+.rlx-pop-grid span:not(.k) { text-align: right; }
+.rlx-pop-grid i { font-style: normal; }
+.rlx-fm {
+  display: flex; flex-direction: column; margin-top: 16px;
+  background: rgba(13,17,16,.96); border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.45); color: #E7EDEA; overflow: hidden;
+  font-family: var(--mono); animation: rlx-fade .18s;
+}
+.rlx-fm-h { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+#rlx-fm-close { display: flex; align-items: center; justify-content: center; width: 26px; height: 24px; border-radius: 5px; color: #93A09A; }
+#rlx-fm-close:hover { background: rgba(255,255,255,.07); color: #E7EDEA; }
+.rlx-fm-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; padding: 10px; min-height: 240px; }
+.rlx-fm-pane { display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,.08); border-radius: 6px; overflow: hidden; min-height: 0; }
+.rlx-fm-ph { padding: 7px 10px; background: rgba(255,255,255,.07); border-bottom: 1px solid rgba(255,255,255,.08); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
+.rlx-fm-ph.g { color: #3FD68C; } .rlx-fm-ph.a { color: #F2B33D; }
+.rlx-fm-rows { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; font-size: 11.5px; color: #cfd8d3; }
+.rlx-fm-drop { flex: 1; display: flex; align-items: center; justify-content: center; text-align: center; margin: 10px; padding: 10px; border: 1px dashed rgba(242,179,61,.5); border-radius: 6px; font-size: 11px; color: #93A09A; min-height: 120px; }
+.rlx-fm-keys { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-top: 1px solid rgba(255,255,255,.08); }
+.rlx-fm-keys > * { display: flex; align-items: center; gap: 7px; flex: 1; justify-content: center; padding: 5px 8px; border-radius: 6px; font-size: 11px; color: #E7EDEA; min-width: 84px; }
+.rlx-fm-keys b { font-size: 9.5px; font-weight: 700; padding: 1px 5px; border: 1px solid rgba(255,255,255,.16); border-radius: 4px; color: #93A09A; }
+#rlx-fm-esc:hover { background: rgba(255,255,255,.07); }
+.rlx-toast {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 7;
+  padding: 8px 14px; background: rgba(16,22,20,.96); border: 1px solid rgba(255,255,255,.16);
+  border-radius: 7px; font-family: var(--mono); font-size: 12px; color: #E7EDEA;
+  box-shadow: 0 10px 28px rgba(0,0,0,.35); animation: rlx-fade .2s; white-space: nowrap; max-width: calc(100% - 28px); overflow: hidden; text-overflow: ellipsis;
+}
+.rlx-flash { position: absolute; inset: 0; background: #fff; opacity: .65; z-index: 8; pointer-events: none; }
+
+/* the streaming window, in the notes panel like the file manager */
+.rlx-rs {
+  display: flex; flex-direction: column; margin-top: 16px;
+  background: rgba(13,17,16,.96); border: 1px solid rgba(255,255,255,.16); border-radius: 10px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.45); color: #E7EDEA; overflow: hidden;
+  font-family: var(--mono); animation: rlx-fade .18s;
+}
+.rlx-rs-sub { margin-left: 2px; font-size: 11px; font-weight: 400; color: #93A09A; flex: 1; }
+#rlx-rs-close { display: flex; align-items: center; justify-content: center; width: 26px; height: 24px; border-radius: 5px; color: #93A09A; background: none; border: 0; cursor: pointer; font: inherit; }
+#rlx-rs-close:hover { background: rgba(255,255,255,.07); color: #E7EDEA; }
+.rlx-rs-body { display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+.rlx-rs-pick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.rlx-rs-plat {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  padding: 9px 4px 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 7px;
+  background: none; color: #93A09A; cursor: pointer; font: inherit; font-size: 9.5px;
+}
+.rlx-rs-plat:hover { background: rgba(255,255,255,.07); color: #E7EDEA; }
+.rlx-rs-plat[aria-checked="true"] { border-color: #3FD68C; color: #E7EDEA; background: rgba(63,214,140,.12); }
+.rlx-rs-field { display: flex; flex-direction: column; gap: 5px; }
+.rlx-rs-field > span { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #93A09A; }
+#rlx-rs-url {
+  width: 100%; padding: 8px 10px; font: inherit; font-size: 12px; color: #E7EDEA;
+  background: rgba(0,0,0,.28); border: 1px solid rgba(255,255,255,.08); border-radius: 6px; outline: none;
+}
+#rlx-rs-url:focus { border-color: var(--cyan); }
+#rlx-rs-url::placeholder { color: rgba(147,160,154,.55); }
+.rlx-rs-hint { font-size: 11px; line-height: 1.45; color: #93A09A; margin: -4px 0 0; }
+.rlx-rs-opts { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; }
+.rlx-rs-opts label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.rlx-rs-opts input { accent-color: #3FD68C; }
+#rlx-rs-msg { font-size: 11px; color: #93A09A; }
+#rlx-rs-help {
+  margin-left: auto; font-size: 11px; color: #93A09A; text-decoration: none;
+  white-space: nowrap; border-bottom: 1px solid transparent;
+}
+#rlx-rs-help:hover { color: #3FD68C; border-bottom-color: currentColor; }
+.rlx-rs-actions { display: flex; align-items: center; gap: 10px; }
+#rlx-rs-go {
+  padding: 8px 16px; font: inherit; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+  border: 0; border-radius: 6px; background: #3FD68C; color: #052B17; cursor: pointer;
+}
+#rlx-rs-go:hover { filter: brightness(1.08); }
+#rlx-rs-active { border-top: 1px solid rgba(255,255,255,.08); padding-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+.rlx-rs-ahead { font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase; color: #FF5D55; }
+#rlx-rs-list { list-style: none; display: flex; flex-direction: column; gap: 5px; margin: 0; padding: 0; }
+#rlx-rs-list li { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+#rlx-rs-list .plat { font-weight: 700; }
+#rlx-rs-list .url { flex: 1; color: #93A09A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#rlx-rs-list button {
+  padding: 3px 9px; font: inherit; font-size: 10.5px; border: 1px solid rgba(255,255,255,.16);
+  border-radius: 5px; background: none; color: #93A09A; cursor: pointer;
+}
+#rlx-rs-list button:hover { border-color: #FF5D55; color: #FF5D55; }
+
+/* --- the simulated desktop (fullscreen) ------------------------------------------
+ * What the Fullscreen row opens: the wallpaper, the LXPanel bar, Chromium on
+ * the project page and a terminal typing by itself. Windows drag for real.
+ */
+
+.rlx-desk {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: url('menu-wallpaper.webp') left center / cover no-repeat #0d1418;
+  cursor: default;
+}
+.rlx-desk[hidden] { display: none !important; }
+.rlx-desk [hidden] { display: none !important; }
+/* The rail rides along into the simulated desktop, floating over it exactly
+   like the real toolbar: left edge, vertically centred, above the windows. */
+.dk-area > .rlx-rail {
+  position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+  z-index: 60; max-height: calc(100% - 24px); overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;
+}
+.dk-area > .rlx-rail::-webkit-scrollbar { display: none; }
+.dk-area > .rlx-rail[data-h="1"] { transform: translate(-140%, -50%); }
+.dk-area > .rlx-handle { z-index: 59; }
+/* The demo windows follow into the desktop and float like the real ones:
+   file manager and streaming centred, statistics bottom-left. */
+.dk-area > .rlx-fm {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(720px, calc(100% - 96px)); max-height: calc(100% - 48px);
+  margin: 0; z-index: 55;
+}
+.dk-area > .rlx-rs {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(430px, calc(100% - 48px)); max-height: calc(100% - 48px);
+  margin: 0; z-index: 56; overflow-y: auto;
+}
+/* Participants' pointers, drawn over the desktop like the real X markers:
+   each in its owner's colour, looping on their own paths. */
+.dk-ptr {
+  position: absolute; z-index: 52; display: flex; align-items: flex-start; gap: 5px;
+  pointer-events: none; will-change: left, top;
+}
+.dk-ptr svg { flex: none; filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.85)); }
+.dk-ptr span {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 3px; white-space: nowrap; line-height: 1.5;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.5);
+}
+.dk-ptr-nicolas { left: 62%; top: 30%; animation: dk-ptr-nicolas 21s infinite; }
+.dk-ptr-nicolas svg { fill: #F2B33D; }
+.dk-ptr-nicolas span { background: #F2B33D; color: #2A1C02; }
+.dk-ptr-federico { left: 24%; top: 46%; animation: dk-ptr-federico 26s infinite; }
+.dk-ptr-federico svg { fill: #4CC8FF; }
+.dk-ptr-federico span { background: #4CC8FF; color: #03222f; }
+.dk-ptr-agent { left: 40%; top: 62%; animation: dk-ptr-agent 17s infinite; }
+.dk-ptr-agent svg { fill: #b08cf7; }
+.dk-ptr-agent span { background: #b08cf7; color: #1b1130; }
+@keyframes dk-ptr-nicolas {
+  0%   { left: 62%; top: 30% }
+  14%  { left: 74%; top: 56% }
+  30%  { left: 58%; top: 72% }
+  48%  { left: 80%; top: 38% }
+  66%  { left: 68%; top: 22% }
+  82%  { left: 55%; top: 44% }
+  100% { left: 62%; top: 30% }
+}
+/* A different rhythm on purpose: long pauses then a quick move, the way a
+   person parks the mouse while reading and then goes somewhere. */
+@keyframes dk-ptr-federico {
+  0%, 16%  { left: 24%; top: 46% }
+  20%, 42% { left: 33%; top: 24% }
+  46%, 63% { left: 21%; top: 68% }
+  67%, 88% { left: 38%; top: 55% }
+  92%, 100% { left: 24%; top: 46% }
+}
+@keyframes dk-ptr-agent {
+  0%   { left: 40%; top: 62% }
+  18%  { left: 30%; top: 34% }
+  36%  { left: 52%; top: 26% }
+  55%  { left: 46%; top: 70% }
+  74%  { left: 34%; top: 52% }
+  100% { left: 40%; top: 62% }
+}
+@media (prefers-reduced-motion: reduce) { .dk-ptr { animation: none; } }
+.dk-area > .rlx-pop {
+  position: absolute; left: 14px; bottom: 14px; width: 226px;
+  margin: 0; z-index: 54;
+}
+.dk-exit {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 24px; margin-left: 6px; border: 0; border-radius: 3px;
+  background: none; color: #1c2128; cursor: pointer; font: inherit;
+}
+.dk-exit:hover { background: #C2352F; color: #fff; }
+.dk-panel {
+  display: flex; align-items: center; gap: 4px; height: 30px; padding: 0 8px;
+  background: #d5dae3; border-bottom: 1px solid #b7bdc9; flex: none;
+}
+.dk-app {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 24px; border: 0; border-radius: 3px;
+  background: none; cursor: pointer; font: inherit;
+}
+.dk-app:hover { background: rgba(0,0,0,.12); }
+.dk-spacer { flex: 1; }
+.dk-tray { display: flex; align-items: center; margin-right: 7px; }
+.dk-clock { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: #1c2128; }
+.dk-area { position: relative; flex: 1; min-height: 0; }
+.dk-win {
+  position: absolute; display: flex; flex-direction: column;
+  border-radius: 6px 6px 4px 4px; overflow: hidden;
+  box-shadow: 0 18px 48px rgba(0,0,0,.5), 0 0 0 1px rgba(0,0,0,.35);
+  min-width: 220px; min-height: 120px;
+}
+.dk-cbtns { display: flex; align-items: center; gap: 2px; margin-left: auto; }
+.dk-wbtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 18px; border: 0; border-radius: 3px;
+  background: none; color: inherit; font-size: 9px; line-height: 1; cursor: pointer;
+}
+.dk-wbtn:hover { background: rgba(0,0,0,.18); }
+/* Chromium */
+.dk-chrome { background: #fff; }
+.dk-cbar {
+  display: flex; align-items: flex-end; gap: 8px; height: 34px; padding: 6px 8px 0;
+  background: #dee1e6; cursor: move; user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.dk-tab {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 8px 8px 0 0; background: #fff;
+  font-family: var(--sans); font-size: 11.5px; color: #202124; white-space: nowrap;
+}
+.dk-cbar .dk-cbtns { align-self: center; color: #444; }
+.dk-url {
+  display: flex; align-items: center; gap: 7px; margin: 6px 10px; padding: 5px 12px;
+  background: #f1f3f4; border-radius: 999px;
+  font-family: var(--sans); font-size: 11.5px; color: #202124;
+  white-space: nowrap; overflow: hidden;
+}
+.dk-page { flex: 1; width: 100%; border: 0; background: #05070D; }
+/* Terminal */
+.dk-term { background: rgba(24,27,33,.96); }
+.dk-tbar {
+  display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px 0 10px;
+  background: #3a3f47; color: #d7dce2;
+  font-family: var(--mono); font-size: 11px;
+  cursor: move; user-select: none; -webkit-user-select: none; touch-action: none;
+}
+.dk-tbar .dk-wbtn { color: #d7dce2; }
+.dk-tbar .dk-wbtn:hover { background: rgba(255,255,255,.15); }
+.dk-tbody {
+  flex: 1; padding: 10px 12px; overflow: hidden;
+  font-family: var(--mono); font-size: 12.5px; line-height: 1.65; color: #e7edea;
+  text-align: left;
+}
+.dk-tline { white-space: pre-wrap; word-break: break-all; }
+.dk-ps1 { color: #3FD68C; }
+.dk-caret {
+  display: inline-block; width: 7px; height: 13px; margin-left: 1px;
+  background: #e7edea; vertical-align: -2px;
+  animation: rlx-pulse 1.1s steps(2) infinite;
+}
+@media (max-width: 640px) {
+  .dk-chrome { width: 88% !important; }
+  .dk-term { width: 80% !important; left: 12% !important; }
+}
+
+/* the notes panel: one explanation at a time */
+.rlx-note { display: none; animation: rlx-fade .18s; }
+.rlx-note.on {
+  display: block; padding: 20px 22px;
+  border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+  background: linear-gradient(160deg, var(--raise-2), var(--raise) 55%);
+  clip-path: var(--clip);
+}
+.rlx-note-g { font-family: var(--mono); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--cyan); margin-bottom: 8px; }
+.rlx-note h3 { font-size: 17px; margin-bottom: 8px; }
+.rlx-note p { font-size: 14.5px; }
+@media (min-width: 921px) { .rlx-notes { position: sticky; top: 96px; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .rlx-rail, .rlx-handle { transition: none; }
+  .rlx-dot, .rlx-live, .rlx-recpill, .rlx-banner, .rlx-note.on, .rlx-pop, .rlx-fm, .rlx-toast { animation: none; }
+}
+
+/* --- footer --- */
 
 footer {
   border-top: 1px solid var(--line-soft);
@@ -764,7 +1409,7 @@ footer {
 footer .cols { display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start; }
 footer .cols > div:first-child { margin-right: auto; }
 footer a { color: var(--ink); text-decoration: none; }
-footer a:hover { color: var(--head); }
+footer a:hover { color: var(--cyan); }
 footer nav { display: flex; flex-direction: column; gap: 9px; }
 footer .legal { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line-soft); max-width: var(--measure); }
 footer .legal p + p { margin-top: 9px; }

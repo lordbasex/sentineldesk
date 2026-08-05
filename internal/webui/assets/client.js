@@ -342,6 +342,19 @@ let lastPresence = null;
 // somebody to watch with. Mirrors the condition in Room.UpdatePointer.
 let markerRepresentsMe = false;
 
+/* The floating notice states whichever thing is true, and stays while it is.
+ *
+ * It was first written for one case — somebody else is driving, wait — and it
+ * now covers the opposite one: nobody is driving, the controls are yours for
+ * the asking. Both are conditions, not events, so both stay on screen until
+ * they stop being true.
+ *
+ * A timed banner was the first attempt and it was wrong. The controls being
+ * free is exactly when a person needs the button, and a notice that removes
+ * itself after a few seconds is one you miss by looking away — which leaves
+ * the toolbar as the only route, which is the problem it was meant to solve.
+ */
+
 function applyPresence(msg) {
   lastPresence = msg;
   myMemberID = msg.you || myMemberID;
@@ -354,6 +367,11 @@ function applyPresence(msg) {
   applyCursor();
 
   const solo = members.length <= 1;
+  // Nobody at the controls is now a state of its own, and a common one: control
+  // is claimed, never inherited, so a room can sit free while everyone watches.
+  // It has to be told apart from "somebody else is driving" — the first invites
+  // you to take over, the second asks you to wait.
+  const nobodyDriving = !controller;
   // An agent in the room is worth saying out loud: a pointer that moves on its
   // own reads as a glitch until you know a model is driving.
   const agent = members.find((m) => m.agent);
@@ -362,8 +380,9 @@ function applyPresence(msg) {
   // once the labels are gone.
   for (const el of [presenceBox, toolbar]) {
     el.classList.toggle('solo', solo);
-    el.classList.toggle('you-control', !solo && iHaveControl);
-    el.classList.toggle('watching', !solo && !iHaveControl);
+    el.classList.toggle('you-control', iHaveControl);
+    el.classList.toggle('free', !iHaveControl && nobodyDriving);
+    el.classList.toggle('watching', !iHaveControl && !nobodyDriving);
   }
 
   presCount.textContent = solo ? '' : t('room.connected', { n: members.length });
@@ -371,26 +390,34 @@ function applyPresence(msg) {
   toolbar.classList.toggle('agent-controls', !!(agent && agent.controller));
   presN.textContent = solo ? '' : String(members.length);
 
-  if (solo) {
-    presenceText.textContent = t('room.onlyYou');
-    controlBtn.hidden = true;
-  } else if (iHaveControl) {
+  if (iHaveControl) {
     presenceText.textContent = t('room.youHaveControl');
     controlBtn.hidden = false;
     controlBtn.textContent = t('room.release');
     controlBtn.title = t('room.releaseHint');
+  } else if (nobodyDriving) {
+    presenceText.textContent = solo ? t('room.freeAlone') : t('room.free');
+    controlBtn.hidden = false;
+    controlBtn.textContent = t('room.take');
+    controlBtn.title = t('room.freeHint');
   } else {
-    const who = controller ? controller.name : '—';
-    presenceText.textContent = t('room.someoneHasControl', { who });
+    presenceText.textContent = t('room.someoneHasControl', { who: controller.name });
     controlBtn.hidden = false;
     controlBtn.textContent = t('room.take');
     controlBtn.title = '';
   }
 
-  // The notice only makes sense when somebody else is driving; alone, there is
-  // nothing to take control from.
-  watchingBox.classList.toggle('show', !solo && !iHaveControl);
-  if (!solo && !iHaveControl) watchingMsg.innerHTML = t('room.watching');
+  // Two messages share one element and mean opposite things: "somebody else is
+  // driving, wait" and "nobody is driving, go ahead". Only one can be true, and
+  // whichever it is stands until it stops being true. Holding control silences
+  // both — there is nothing to tell somebody who already has the desktop.
+  const someoneElseDrives = !iHaveControl && !nobodyDriving;
+  const upForGrabs = !iHaveControl && nobodyDriving;
+
+  watchingBox.classList.toggle('free', upForGrabs);
+  watchingBox.classList.toggle('show', someoneElseDrives || upForGrabs);
+  if (someoneElseDrives) watchingMsg.innerHTML = t('room.watching');
+  if (upForGrabs) watchingMsg.innerHTML = t('room.freeNotice');
 
   // The microphone travels upstream, and only the controller may publish. Say
   // so on the control rather than letting the click fail silently.

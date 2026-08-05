@@ -21,13 +21,18 @@
 // get them back out. There is no version skew to have, because there is no
 // second download.
 //
+// packages/ is here because the Dockerfile reads the package lists at build
+// time: a tree extracted without them has a Dockerfile that cannot build, and
+// the failure arrives as a missing file three minutes into a build rather than
+// as anything that names the cause.
+//
 // certs/ and wallpaper/ are deliberately absent: one holds private keys, the
 // other is content, and neither is configuration.
 package deploy
 
 import "embed"
 
-//go:embed config desktop
+//go:embed config desktop packages
 //go:embed Caddyfile.auto Caddyfile.custom Caddyfile.selfsigned Caddyfile.wildcard
 //go:embed Dockerfile Dockerfile.caddy
 //go:embed docker-compose.yml docker-compose.cpu.yml docker-compose.nvidia.yml docker-compose.vaapi.yml

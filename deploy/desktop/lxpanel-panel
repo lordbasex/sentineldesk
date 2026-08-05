@@ -28,68 +28,135 @@ Plugin {
   type=menu
   Config {
     image=/usr/share/icons/Papirus/24x24/apps/applications-all.svg
+    # Grouped by what somebody wants to do, not by which package ships it.
+    #
+    # The four at the top are what gets opened every session and they stay one
+    # click away; everything else is one level down, so the menu is a short list
+    # rather than a wall. One language throughout — it used to mix Spanish and
+    # English in the same column, which reads as an oversight to somebody who
+    # speaks both.
+    #
+    # Every entry here is a command this image actually installs. The old menu
+    # offered FileZilla, which was never in the package list: a menu that lies is
+    # worse than a short one.
     item {
       name=Terminal
       image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
       action=lxterminal
     }
     item {
-      name=Browser (Chromium)
+      name=Web Browser
       image=/usr/share/icons/Papirus/24x24/apps/chromium.svg
       action=chromium
     }
     item {
-      name=Archivos
+      name=Files
       image=/usr/share/icons/Papirus/24x24/apps/system-file-manager.svg
       action=pcmanfm
     }
     item {
-      name=Multimedia (VLC)
-      image=/usr/share/icons/Papirus/24x24/apps/vlc.svg
-      action=vlc
+      name=Text Editor
+      image=/usr/share/icons/Papirus/24x24/apps/accessories-text-editor.svg
+      action=mousepad
     }
     separator {
     }
     menu {
-      name=Acceso remoto
-      image=/usr/share/icons/Papirus/24x24/apps/preferences-desktop-remote-desktop.svg
+      name=Accessories
+      image=/usr/share/icons/Papirus/24x24/apps/applications-accessories.svg
       item {
-        name=VNC client
-        image=/usr/share/icons/Papirus/24x24/apps/krdc.svg
-        action=vnc-connect
+        name=Image Viewer
+        image=/usr/share/icons/Papirus/24x24/apps/multimedia-photo-viewer.svg
+        action=gpicview
       }
       item {
-        name=RDP client (FreeRDP)
+        name=Document Viewer
+        image=/usr/share/icons/Papirus/24x24/apps/evince.svg
+        action=evince
+      }
+      item {
+        name=Archive Manager
+        image=/usr/share/icons/Papirus/24x24/apps/xarchiver.svg
+        action=xarchiver
+      }
+      item {
+        name=Calculator
+        image=/usr/share/icons/Papirus/24x24/apps/galculator.svg
+        action=galculator
+      }
+      item {
+        name=Media Player
+        image=/usr/share/icons/Papirus/24x24/apps/vlc.svg
+        action=vlc
+      }
+    }
+    menu {
+      name=Network
+      image=/usr/share/icons/Papirus/24x24/apps/preferences-system-network.svg
+      item {
+        name=Remote Desktop (RDP)
         image=/usr/share/icons/Papirus/24x24/apps/remmina.svg
         action=rdp-connect
       }
       item {
-        name=FileZilla (FTP/SFTP)
-        image=/usr/share/icons/Papirus/24x24/apps/filezilla.svg
-        action=filezilla
+        name=Remote Desktop (VNC)
+        image=/usr/share/icons/Papirus/24x24/apps/krdc.svg
+        action=vnc-connect
+      }
+      item {
+        name=VPN (OpenVPN)
+        image=/usr/share/icons/Papirus/24x24/apps/network-vpn.svg
+        action=openvpn-connect
+      }
+      separator {
+      }
+      item {
+        name=SIP Capture (sngrep)
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
+        action=lxterminal -e sh -c "sudo -n sngrep || sngrep"
+      }
+      item {
+        name=Port Scan (nmap)
+        image=/usr/share/icons/Papirus/24x24/apps/nmap.svg
+        action=lxterminal -e sentineldesk-hint nmap
+      }
+      item {
+        name=Throughput Test (iperf3)
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-system-monitor.svg
+        action=lxterminal -e sentineldesk-hint iperf3
+      }
+      item {
+        name=Live Route (mtr)
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
+        action=lxterminal -e sentineldesk-hint mtr
       }
     }
     menu {
-      name=Gaming
-      image=/usr/share/icons/Papirus/24x24/apps/applications-games.svg
+      name=System Tools
+      image=/usr/share/icons/Papirus/24x24/apps/applications-system.svg
       item {
-        name=Steam
-        image=/usr/share/icons/Papirus/24x24/apps/steam.svg
-        action=run-steam
+        name=Task Manager
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-system-monitor.svg
+        action=lxtask
       }
       item {
-        name=Steam Big Picture (modo Deck)
-        image=/usr/share/icons/Papirus/24x24/devices/input-gaming.svg
-        action=run-steam -bigpicture
+        name=Process Viewer (htop)
+        image=/usr/share/icons/Papirus/24x24/apps/htop.svg
+        action=lxterminal -e htop
       }
       item {
-        name=ProtonDB (compatibilidad de juegos)
-        image=/usr/share/icons/Papirus/24x24/actions/web-browser.svg
-        action=chromium https://www.protondb.com/
+        name=Disk Usage (ncdu)
+        image=/usr/share/icons/Papirus/24x24/apps/disk-usage-analyzer.svg
+        action=lxterminal -e ncdu /
+      }
+      item {
+        name=Midnight Commander
+        image=/usr/share/icons/Papirus/24x24/apps/mc.svg
+        action=lxterminal -e mc
       }
     }
     menu {
-      name=All applications
+      name=All Applications
       image=/usr/share/icons/Papirus/24x24/apps/applications-other.svg
       system {
       }
@@ -97,7 +164,7 @@ Plugin {
     separator {
     }
     item {
-      name=Ejecutar…
+      name=Run…
       image=/usr/share/icons/Papirus/24x24/actions/system-run.svg
       command=run
     }

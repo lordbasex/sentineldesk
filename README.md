@@ -18,10 +18,11 @@ same session, the same room:
 - **The agent is a participant**, not a background process. It has a name in the
   list and a pointer on screen in its own colour, so it is never ambiguous
   whether a colleague or the model just moved the mouse.
-- **They take turns.** Exactly one participant holds control at a time. While a
-  person is connected the agent has to ask, and a prompt appears on that
-  person's screen with a timer; no answer means no. With an empty room it simply
-  works, because there is nobody to take turns with.
+- **They take turns.** Control is claimed, never assumed — by anybody, including
+  the agent, and whether or not somebody is watching. Nobody holds the controls
+  until they ask for them, so a person who joined to watch a colleague work is
+  never handed a desktop they did not want. When somebody is driving, asking puts
+  a prompt on their screen with a timer, and no answer means no.
 - **They read the same state.** Every command run in a terminal reports its exit
   status, whoever ran it — so a person can hit an error, ask the agent to look,
   and the agent reads what actually happened instead of being told about it.
@@ -41,7 +42,7 @@ track, and the encoder stays under full control at runtime.
 
 | Layer | What it uses |
 |---|---|
-| Desktop | Xvfb, Openbox, LXPanel, pcmanfm; Chromium, VLC, lxterminal, TigerVNC, FreeRDP, Steam |
+| Desktop | Xvfb, Openbox, LXPanel, pcmanfm; Chromium, VLC, lxterminal, TigerVNC, FreeRDP — see [docs/packages.md](docs/packages.md) |
 | Capture | `ximagesrc` with X DAMAGE tracking, one shared pipeline |
 | Video | NVENC → VA-API → x264 → VP8, chosen by a real probe at startup |
 | Audio | PulseAudio null sink → `opusenc`; a remapped source so the browser's microphone appears as a real input device |
@@ -195,11 +196,17 @@ each browser. That distinction matters: because the pointer is part of the
 desktop, it appears in recordings, in screenshots, and in every other viewer's
 stream, instead of existing only in one browser's DOM.
 
-Now the asymmetry, which is worth stating plainly: **MCP tools do not go through
-room control arbitration.** They inject straight into XTEST, because the MCP
-arrives over the daemon's local socket rather than over the web. Room arbitration
-exists between *browsers*. To stop an agent from touching anything, the
-instrument is its policy (`-mcp-policy readonly`), not room control.
+Arbitration covers **both** planes, not just the browsers. Every MCP tool that
+reaches XTEST passes through the same gate a browser does (`mayInject`), so the
+agent has to hold the controls before it can move the mouse, type, drive a form
+or run something in a visible terminal. Earlier versions of this document said
+the opposite; it was wrong.
+
+What the two planes do NOT share is the *policy* ceiling. Room control decides
+who is driving right now; `-mcp-policy readonly` decides what the agent may ever
+do. They answer different questions, and to stop an agent from touching anything
+the instrument is the policy — a `readonly` connection cannot act even holding
+the controls.
 
 ### Networking
 
@@ -260,7 +267,19 @@ curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install
 ```
 
 `auto` picks Docker when it is present and a native systemd install otherwise;
-`docker` or `native` chooses explicitly. A running binary can also hand its
+`docker` or `native` chooses explicitly. A second word picks the variant, and
+**lite is the default**:
+
+```bash
+sudo ./install.sh docker full     # the larger image
+sudo ./install.sh native lite     # or just: sudo ./install.sh native
+```
+
+The native install reads the very same `deploy/packages/*.txt` the container
+image is built from — extracted out of the binary a moment earlier — so a
+machine installed natively and one running the container get the same desktop.
+The installer used to carry its own copy of the list, which is the arrangement
+that lets two things drift apart quietly. A running binary can also hand its
 files to another machine: `sentineldesk -install` serves them over HTTP, and
 `sentineldesk -extract-deploy <dir>` writes them to disk.
 
@@ -295,9 +314,11 @@ make build    # compile on the host, a fast type check
 make down     # stop everything
 ```
 
-The desktop ships with Chromium, VLC, a terminal (lxterminal), a file manager
-(pcmanfm), a VNC client (TigerVNC), an RDP client (FreeRDP) and Steam, on an
-LXPanel top bar with Openbox underneath.
+`make up` builds **both variants** and starts lite. The desktop ships with
+Chromium, VLC, a terminal, a file manager, a text editor, image and document
+viewers, VNC and RDP clients, and a network toolbox — on an LXPanel top bar with
+Openbox underneath. See [docs/packages.md](docs/packages.md) for the whole list
+and why each one is there.
 
 **Steam / Steam Play**: **amd64** images only, since Steam has no ARM build. The
 first run downloads its runtime (~500 MB) into the persistent `sentineldesk-home`
@@ -432,10 +453,50 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `WEBRTC_MIN_PORT` / `WEBRTC_MAX_PORT` | — | Fixed UDP range for ICE |
 | `CLIENT_STUN` | Google's STUN | STUN handed to the browser |
 | `CLIENT_TURN_URLS` + `TURN_USER`/`TURN_PASS` | — | TURN for the browser (NAT fallback) |
+| `TZ` | `UTC` | Timezone, any tzdata name (`America/Argentina/Buenos_Aires`) |
+| `KEYBOARD_LAYOUT` | `us` | X layout: `us`, `es` (Spain), `latam`, `pt`, `fr`, `de`… |
+| `KEYBOARD_VARIANT` | — | Optional layout variant, passed through untouched |
 | `MCP_POLICY`, `MCP_DENY`, `MCP_ALLOW` | `full` | The MCP permission ceiling — see [docs/mcp.md](docs/mcp.md) |
 | `HTTP_PORT` | `8080` | Port for the web client and signalling |
 
-## Clipboard, joystick and Steam
+## Two images: lite and full
+
+One Dockerfile produces both, and `make up` builds them together:
+
+```
+sentineldesk:<version>-lite    also :latest, :lite     the default
+sentineldesk:<version>-full    also :full
+```
+
+**Lite here does not mean headless.** On a Raspberry Pi, "Lite" means no desktop
+at all; here the desktop *is* the product. Lite means the smallest set that
+leaves nobody reaching for `apt` on their first afternoon: the shell, a browser,
+an editor, an image and document viewer, and the network tools this desktop
+mostly exists to use — `nmap`, `dig`, `iperf3`, `tcpdump`, `mtr`, `sngrep`,
+OpenVPN. Plus `git` and Go, because the machine people work from should be able
+to build the thing it runs.
+
+**Full adds what is too large or too specialised to hand everybody**:
+LibreOffice, Firefox, GIMP, Wireshark, `build-essential`, and — on amd64 —
+Steam and Wine.
+
+Full is built `FROM` lite, so **anything added to lite is in both**. The two
+share every layer up to the split: a registry holding both stores the difference
+once, and a machine that already pulled lite pulls only the extra.
+
+The package lists are plain text, not Dockerfile instructions:
+
+```
+deploy/packages/desktop.txt      lite  (and therefore full too)
+deploy/packages/full.txt         only full, every architecture
+deploy/packages/full-amd64.txt   only full, and only where the package exists
+```
+
+One package per line, `#` for comments, with the reasoning and the measured size
+beside each choice. **[docs/packages.md](docs/packages.md)** carries the full
+argument, including what was taken from Raspberry Pi OS and what was left there.
+
+## Clipboard, joystick and gaming
 
 - **Two-way clipboard** (xclip + DataChannel): what you copy on the remote
   desktop appears in your local clipboard, and what is in your local one syncs
@@ -445,22 +506,86 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
   machine running the browser and a virtual Xbox 360 pad appears on the remote
   desktop. It needs `/dev/uinput` on the host, mapped in the compose file; when
   it is missing the feature disables itself and everything else still works.
-- **Steam**: its newer bootstrap needs *user namespaces*, which Docker's default
-  seccomp profile blocks. The compose files carry `security_opt:
-  seccomp:unconfined` to allow them. On hosts without `/dev/uinput`, comment out
-  the `devices` line.
+- **Steam / Steam Play — full image, amd64 only.** Its newer bootstrap needs
+  *user namespaces*, which Docker's default seccomp profile blocks, so a machine
+  meant for it has to add the setting back:
+
+  ```yaml
+  security_opt:
+    - seccomp:unconfined
+  ```
+
+  The compose files no longer carry it. It was there for Steam, Steam is no
+  longer in the default image, and it widens what the container may ask of the
+  kernel — not a thing to leave on for a feature most installations never start.
+
+  The same setting decides whether **Chromium keeps its own sandbox**:
+  `deploy/desktop/chromium-flags.conf` tests for user namespaces at startup and
+  adds `--no-sandbox` only when they are missing. Without the setting the browser
+  runs unsandboxed, as it always did; with it, sandboxed and without the warning
+  bar. Neither the DevTools protocol nor the accessibility tree is affected, so
+  the `browser_*` and `ui_*` tools behave the same either way.
+
+  For real gaming performance also use the **nvidia** compose (32-bit `compat32`
+  through `NVIDIA_DRIVER_CAPABILITIES=all`) or **vaapi** with `/dev/dri`. Without
+  a GPU, games fall back to software Vulkan — light 2D titles only.
+
+## Timezone and keyboard
+
+One image, every region. Both are read at start, so neither is baked in:
+
+```yaml
+environment:
+  - TZ=America/Argentina/Buenos_Aires    # any tzdata name
+  - KEYBOARD_LAYOUT=latam                # us · es (Spain) · latam · pt · fr · de…
+  - KEYBOARD_VARIANT=                    # optional
+```
+
+`TZ` is applied as root before anything starts; `KEYBOARD_LAYOUT` against the
+running X server. An unknown value is reported and ignored rather than
+half-applied — a clock quietly running in UTC because of a typo is worse than
+one that says so.
+
+## VPN clients
+
+`openvpn` is in lite, and the compose files grant what it needs to work at all:
+
+```yaml
+cap_add:
+  - NET_ADMIN
+devices:
+  - /dev/net/tun
+```
+
+Without both, it installs cleanly and fails at the moment somebody needs it.
+`NET_ADMIN` is a real grant — the container can manage its own interfaces,
+routes and firewall — so both lines are worth removing where no one dials a VPN.
+
+The **VPN** entry under Network in the menu picks a `.ovpn` profile and connects.
+Debian's graphical client needs NetworkManager, which nothing runs here, so it
+would have been a menu entry that opens a window that cannot connect.
 
 ## The shared session
 
 Several people can watch the same desktop at once — see
 [the room](#the-room-and-one-deliberate-asymmetry) for how it works. In practice:
 
-- Whoever arrives first holds control; everyone after that watches.
-- The rail says who is driving and offers **Take control**. It is cooperative and
-  always granted.
+- **Nobody drives until somebody asks.** Joining does not hand you the controls,
+  so opening the desktop to watch is a thing you can do. The room reports that
+  state as `FREE`.
+- The rail says who is driving and offers **Take control**. Between people it is
+  cooperative and always granted; there is no hierarchy, because everyone got in
+  with the same credential.
+- **A floating bar tells everyone when the controls are free** — green, with the
+  button in it — and turns amber to say somebody else is driving. It stays while
+  that is true rather than flashing past, so the moment the agent finishes is not
+  something you have to have been watching for.
+- **Releasing frees the controls; it does not pass them on.** "I have finished"
+  and "you are up now" are different statements, and only the first is ever true.
+  The same applies when the person driving disconnects: the controls go free, and
+  whoever wants them claims them.
 - Each participant's pointer carries their name, so it is clear who is pointing
   at what.
-- If the person driving disconnects, control passes to the next one.
 
 ## The microphone, into the desktop
 

@@ -27,7 +27,14 @@ GO      := go
 DOCKER  ?= docker
 # The local tag (what the compose file runs) and the registry name (what
 # `make push` publishes). Override REGISTRY_IMAGE for another registry.
+# Two variants from one Dockerfile: lite is the desktop plus the tools people
+# need in it; full adds what is too large or too niche to hand everybody. Both
+# carry the version in the tag, because "latest" answers no question worth
+# asking six months from now — and both keep a moving tag so the compose files
+# do not have to be edited on every build.
 IMAGE          ?= sentineldesk:latest
+IMAGE_LITE     ?= sentineldesk:lite
+IMAGE_FULL     ?= sentineldesk:full
 REGISTRY_IMAGE ?= lordbasex/sentineldesk
 # Pinned on purpose. Compose otherwise derives the project name from the
 # directory holding the file, so moving the compose file orphans every running
@@ -81,7 +88,7 @@ VERSION_ARGS := --build-arg VERSION=$(next_version) \
                 --build-arg GIT_HASH=$(git_hash) \
                 --build-arg BUILD_DATE=$(build_date)
 
-.PHONY: build image up down logs shell test fmt vet help \
+.PHONY: build image image-lite image-full up down logs shell test fmt vet help \
         _version version release-binaries checksums push release
 
 # _version persists version.txt and prints the version. One target, so make
@@ -101,7 +108,25 @@ build: _version
 
 ## image: build the container image, version stamped in
 image: _version
-	$(DOCKER) build $(VERSION_ARGS) -f deploy/Dockerfile -t $(IMAGE) .
+	@echo "▶ lite…"
+	$(DOCKER) build $(VERSION_ARGS) -f deploy/Dockerfile --target desktop \
+	  -t $(IMAGE) -t $(IMAGE_LITE) -t sentineldesk:$(next_version) \
+	  -t sentineldesk:$(next_version)-lite .
+	@echo "▶ full…"
+	$(DOCKER) build $(VERSION_ARGS) -f deploy/Dockerfile --target full \
+	  -t $(IMAGE_FULL) -t sentineldesk:$(next_version)-full .
+	@echo "✓ sentineldesk:$(next_version)-lite  (also :latest, :lite)"
+	@echo "✓ sentineldesk:$(next_version)-full  (also :full)"
+
+## image-lite: only the lite variant, when the full one is not needed
+image-lite: _version
+	$(DOCKER) build $(VERSION_ARGS) -f deploy/Dockerfile --target desktop \
+	  -t $(IMAGE) -t $(IMAGE_LITE) -t sentineldesk:$(next_version)-lite .
+
+## image-full: only the full variant
+image-full: _version
+	$(DOCKER) build $(VERSION_ARGS) -f deploy/Dockerfile --target full \
+	  -t $(IMAGE_FULL) -t sentineldesk:$(next_version)-full .
 
 ## up: build the image and start the desktop
 up: image
@@ -155,10 +180,16 @@ checksums:
 push: _version
 	$(DOCKER) buildx build $(VERSION_ARGS) \
 	  --platform linux/amd64,linux/arm64 \
-	  -f deploy/Dockerfile \
+	  -f deploy/Dockerfile --target desktop \
 	  -t $(REGISTRY_IMAGE):latest -t $(REGISTRY_IMAGE):$(next_version) \
+	  -t $(REGISTRY_IMAGE):lite -t $(REGISTRY_IMAGE):$(next_version)-lite \
 	  --push .
-	@echo "✓ pushed $(REGISTRY_IMAGE):latest and $(REGISTRY_IMAGE):$(next_version)"
+	$(DOCKER) buildx build $(VERSION_ARGS) \
+	  --platform linux/amd64,linux/arm64 \
+	  -f deploy/Dockerfile --target full \
+	  -t $(REGISTRY_IMAGE):full -t $(REGISTRY_IMAGE):$(next_version)-full \
+	  --push .
+	@echo "✓ pushed $(REGISTRY_IMAGE) :latest :lite :full and $(next_version){,-lite,-full}"
 
 ## release: binaries + checksums + GitHub Release (tag v<version>), via gh
 release: release-binaries checksums

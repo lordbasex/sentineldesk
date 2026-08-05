@@ -239,6 +239,17 @@
              background: repeating-linear-gradient(135deg,
                          color-mix(in srgb, #b08cf7 15%, transparent) 0 5px,
                          transparent 5px 11px); }
+  /* Nobody driving. Neither the solid green of "you are driving" nor the
+     hatched amber of "somebody else is": an outline says the seat is empty and
+     the shape stays distinct from both, so the three states are still told
+     apart without relying on colour. */
+  #presence.free #pres-chip { padding: 8px 10px; font-weight: 700;
+             letter-spacing: .06em; border: 1px dashed var(--sd-line);
+             color: var(--sd-dim); background: transparent; }
+  #toolbar.free #rail-sig {
+             background: repeating-linear-gradient(180deg,
+                         var(--sd-line) 0 4px, transparent 4px 10px); }
+
   #presence.watching #pres-chip { padding: 8px 10px; font-weight: 700;
              letter-spacing: .06em; border: 1px solid var(--sd-watch);
              color: var(--sd-watch);
@@ -319,6 +330,14 @@
              font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
              animation: sd-rise .3s ease; }
   #watching.show { display: flex; }
+  /* The same notice, opposite meaning. Amber says "wait, somebody is working";
+     the accent says "the seat is empty, it is yours" — a different colour AND a
+     different stripe angle, so the two never read as the same message glanced
+     at quickly. */
+  #watching.free { border-color: var(--sd-drive); }
+  #watching.free .stripe { background: var(--sd-drive); opacity: .9; }
+  #watching.free button { background: var(--sd-drive); color: var(--sd-drive-ink);
+             border-color: var(--sd-drive); }
   #watching .stripe { position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
              border-radius: 9px 0 0 9px; opacity: .85;
              background: repeating-linear-gradient(135deg,

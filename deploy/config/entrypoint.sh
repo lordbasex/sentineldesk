@@ -20,6 +20,25 @@ chmod 700 /run/user/1000
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 
+# --- Timezone ----------------------------------------------------------------
+#
+# One image, every timezone: TZ names a zone from tzdata and this points
+# /etc/localtime at it. Applied here rather than baked into the image because a
+# desktop somebody works at should show THEIR clock, and the same build serves
+# a machine in Buenos Aires and one in Madrid.
+#
+# An unknown name is reported and ignored rather than left half-applied — a
+# clock quietly running in UTC because of a typo is worse than one that says so.
+if [ -n "${TZ:-}" ]; then
+    if [ -f "/usr/share/zoneinfo/$TZ" ]; then
+        ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime
+        echo "$TZ" > /etc/timezone
+        echo "sentineldesk: timezone $TZ ($(date '+%Z %z'))"
+    else
+        echo "sentineldesk: unknown TZ '$TZ' — staying on $(cat /etc/timezone 2>/dev/null || echo UTC)" >&2
+    fi
+fi
+
 # Leftovers from the previous start. `docker run` never has them, but `docker
 # restart` keeps the filesystem: the lock survives and Xvfb refuses to start
 # with "Server is already active for display 0" — and the desktop never comes

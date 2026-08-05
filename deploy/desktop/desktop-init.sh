@@ -20,13 +20,33 @@ if [ -d /etc/skel.sentineldesk ]; then
     cp -r /etc/skel.sentineldesk/. "$HOME/" 2>/dev/null || true
 fi
 
+# --- Keyboard layout ---------------------------------------------------------
+#
+# X decides which key produces which character, and it defaults to US. On a
+# Spanish keyboard that turns ñ, á and the whole punctuation row into something
+# else — and the person typing has no way to tell it is the server's fault.
+#
+# KEYBOARD_LAYOUT takes an X layout code: us, es (Spain), latam (Latin America),
+# pt, fr, de… KEYBOARD_VARIANT is optional and passed through untouched.
+#
+# Applied to the running X server rather than baked in, so one image serves
+# every keyboard, and reported either way: a layout that silently failed to
+# apply is the kind of thing people spend an afternoon on.
+LAYOUT="${KEYBOARD_LAYOUT:-us}"
+if [ -n "$LAYOUT" ]; then
+    if setxkbmap -layout "$LAYOUT" ${KEYBOARD_VARIANT:+-variant "$KEYBOARD_VARIANT"} 2>/dev/null; then
+        echo "sentineldesk: keyboard $LAYOUT${KEYBOARD_VARIANT:+ ($KEYBOARD_VARIANT)}"
+    else
+        echo "sentineldesk: could not apply keyboard layout '$LAYOUT' — staying on us" >&2
+        setxkbmap -layout us 2>/dev/null || true
+    fi
+fi
+
 # Browser locks left by the previous container. The home persists but the
 # hostname changes, so Chromium and Firefox conclude the profile is open "on
 # another computer" and refuse to start.
 rm -f "$HOME/.config/chromium/Singleton"* 2>/dev/null
 rm -f "$HOME"/.mozilla/firefox/*/lock "$HOME"/.mozilla/firefox/*/.parentlock 2>/dev/null
-# Steam ships its own Chromium (CEF), with the same lock problem.
-find "$HOME/.steam" "$HOME/.local/share/Steam" -name "Singleton*" -delete 2>/dev/null
 
 # Exit-status reporting in interactive shells. /etc/profile.d only covers login
 # shells and a terminal emulator opens a non-login one, so the hook has to be
