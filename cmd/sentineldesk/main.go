@@ -169,18 +169,12 @@ func main() {
 	mux := http.NewServeMux()
 	mux.Handle("/", webui.Handler())
 
-	// The documentation, behind the same login as the desktop.
-	//
-	// The client shell at "/" is served openly on purpose: it is an empty frame
-	// that can do nothing until it authenticates over the WebSocket, and gating
-	// it would only mean serving a login page from two places. The docs are
-	// different — they are content, and on a deployment reachable from the
-	// internet they would otherwise be readable by anyone who guessed the path.
-	//
-	// A page the browser navigates to cannot send a header, so this reads the
-	// cookie the client mirrors its token into after logging in. No cookie, or a
-	// stale one, and the reader is sent to the front door.
-	mux.Handle("/docs/", requireSession(auth, webui.Handler()))
+	// There is no /docs/ route. The guide used to be embedded here and served
+	// behind the same login as the desktop; it is published on the project site
+	// now, so the rail links out to it instead. That makes documentation the one
+	// thing in this binary that needs a route to the internet — deliberately, to
+	// keep a single copy that cannot drift from what a reader is looking at.
+	// Nothing about running, streaming or driving the desktop depends on it.
 
 	// The browser's file manager (download/upload), behind the same session
 	// token the WebSocket login issues.
@@ -275,35 +269,4 @@ func main() {
 		log.Fatal(http.ListenAndServeTLS(addr, certFile, keyFile, mux))
 	}
 	log.Fatal(http.ListenAndServe(addr, mux))
-}
-
-// requireSession gates a handler on the session cookie the browser client sets
-// once it has authenticated over the WebSocket.
-//
-// With authentication switched off it is a pass-through: there is no session to
-// require, and refusing everybody on a development instance would be a puzzle
-// rather than a protection.
-func requireSession(auth *stream.Auth, h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !auth.Enabled() {
-			h.ServeHTTP(w, r)
-			return
-		}
-		c, err := r.Cookie("sentineldesk_session")
-		if err == nil {
-			if tok, derr := url.QueryUnescape(c.Value); derr == nil && auth.ValidToken(tok) {
-				h.ServeHTTP(w, r)
-				return
-			}
-		}
-		// A redirect rather than a 401: whoever asked for this is a person with
-		// a browser, and the useful answer is the login screen, not a status
-		// code. Sub-resources get the 401 they can actually act on.
-		if r.Header.Get("Sec-Fetch-Mode") == "navigate" || r.Method == http.MethodGet &&
-			strings.Contains(r.Header.Get("Accept"), "text/html") {
-			http.Redirect(w, r, "/", http.StatusSeeOther)
-			return
-		}
-		http.Error(w, "not authenticated", http.StatusUnauthorized)
-	})
 }

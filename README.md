@@ -1,9 +1,10 @@
 # SentinelDesk — a collaborative operating system for people and AI agents
 
 **Project site: <https://lordbasex.github.io/sentineldesk/docs/index.html>** —
-this material laid out as a site, with the architecture and installation pages,
-in English, Spanish and Portuguese. Not to be confused with `/docs/` on a
-running instance, which is the desktop's own user guide.
+this material laid out as a site, with the architecture and installation pages
+and the full [user guide](https://lordbasex.github.io/sentineldesk/docs/guide/index.html),
+in English, Spanish and Portuguese. It is where the **Docs** button in the
+desktop's rail goes.
 
 ![SentinelDesk architecture](docs/architecture.png)
 
@@ -223,11 +224,11 @@ deploy/               Dockerfile, compose files, desktop and supervisor config
 
 ## Documentation
 
-The desktop serves its own user guide at **`/docs/`** — English, Spanish and
-Portuguese, with deep links:
+The user guide lives on the project site — English, Spanish and Portuguese,
+with deep links:
 
 ```
-http://localhost:8080/docs/?lang=es#capture-stream-out
+https://lordbasex.github.io/sentineldesk/docs/guide/index.html?lang=es#capture-stream-out
 ```
 
 **Docs** in the rail opens it in a new tab, in whatever language the toolbar is
@@ -235,16 +236,17 @@ set to. It opens in the viewer's browser rather than inside the virtual desktop
 on purpose: half of it explains how to operate the control layer, and the other
 half is commands to run on your own machine.
 
-It is behind the same login as the desktop. The client shell at `/` stays open
-because it is an empty frame that can do nothing until it authenticates over the
-WebSocket; the docs are content, so `/docs/` checks the session. A page the
-browser navigates to cannot send a header, so the client mirrors its token into
-a `SameSite=Lax` cookie when the login succeeds and clears it on sign-out. With
-`AUTH_USER`/`AUTH_PASS` unset there is no session to require and it is open.
+The guide used to be embedded in the binary and served at `/docs/`. Publishing
+it instead keeps exactly one copy — one that can be corrected without cutting a
+release, and that cannot drift from the version a reader is holding. The cost is
+named plainly: **documentation is the one part of this project that needs a
+route to the internet.** Running the desktop, streaming it, recording it and
+driving it over MCP need nothing beyond the machine itself and its own clients.
+An air-gapped deployment works; its Docs button does not.
 
-Source: `internal/webui/assets/docs/` — one HTML fragment per language, with the
-navigation generated from the section ids so the three cannot drift apart, and
-per-OS instructions in tab groups that remember which platform you picked.
+Source: `docs/guide/` — one HTML fragment per language, with the navigation
+generated from the section ids so the three cannot drift apart, and per-OS
+instructions in tab groups that remember which platform you picked.
 
 ## Installing on a machine of its own
 

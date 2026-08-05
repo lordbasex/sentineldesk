@@ -22,7 +22,7 @@
   "home.lede": "A complete Linux desktop running inside a container with no physical monitor, streamed to the browser over <strong>WebRTC</strong> — and driven, at the same time, by people and by an agent that sees and acts on the same screen. Same X display, same session, same room.",
   "home.cta.start": "Get started",
   "home.cta.docs": "Read the docs",
-  "home.note": "The desktop also serves this guide itself, in three languages, at <code>/docs/</code> on a running instance.",
+  "home.note": "Published here, in three languages. The desktop's <strong>Docs</strong> button opens this same guide.",
   "home.demo.you": "You",
   "home.demo.agent": "AI agent",
   "home.demo.chip.you": "You are driving",
@@ -195,7 +195,7 @@
   "install.st4.p": "The MCP bridge over <code>docker exec</code>, with whatever policy you want to give it.",
   "install.back": "← How it works inside",
   "install.final.h2": "Instance ready?",
-  "install.final.p": "The desktop's full guide, in three languages — published here, and served by the desktop itself on a running instance.",
+  "install.final.p": "The full user guide, in three languages — the same one the desktop's rail links to.",
   "install.final.cta1": "Read the documentation",
   "install.final.cta2": "See the repository"
 }

@@ -22,7 +22,7 @@
   "home.lede": "Um desktop Linux completo rodando dentro de um contêiner sem nenhum monitor físico, transmitido ao navegador por <strong>WebRTC</strong> — e conduzido, ao mesmo tempo, por pessoas e por um agente que vê e age sobre a mesma tela. O mesmo display X, a mesma sessão, a mesma sala.",
   "home.cta.start": "Começar",
   "home.cta.docs": "Ler a documentação",
-  "home.note": "O desktop também serve este guia por conta própria, em três idiomas, em <code>/docs/</code> de uma instância rodando.",
+  "home.note": "Publicado aqui, em três idiomas. O botão <strong>Docs</strong> do desktop abre este mesmo guia.",
   "home.demo.you": "Você",
   "home.demo.agent": "Agente IA",
   "home.demo.chip.you": "Você está conduzindo",
@@ -195,7 +195,7 @@
   "install.st4.p": "A ponte MCP por <code>docker exec</code>, com a política que você quiser dar a ele.",
   "install.back": "← Como funciona por dentro",
   "install.final.h2": "Instância pronta?",
-  "install.final.p": "O guia completo do desktop, em três idiomas: publicado aqui, e servido pelo próprio desktop numa instância rodando.",
+  "install.final.p": "O guia completo de uso, em três idiomas: o mesmo para o qual a barra do desktop aponta.",
   "install.final.cta1": "Ler a documentação",
   "install.final.cta2": "Ver o repositório"
 }

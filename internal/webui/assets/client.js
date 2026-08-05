@@ -55,29 +55,11 @@ let cfg = { iceServers: [], remoteCursor: false };
 let authRequired = false;
 let sessionToken = sessionStorage.getItem('sentineldesk_token') || '';
 
-/* The session token, also as a cookie.
- *
- * Everything the client fetches itself carries the token in a header, which is
- * the better place for it. The documentation cannot: it is a page the browser
- * NAVIGATES to, in a tab of its own, and a navigation carries no headers.
- *
- * So the same token is mirrored into a cookie when the login succeeds and
- * removed when it ends. SameSite=Lax is exactly the behaviour wanted — sent
- * when this site opens one of its own pages, withheld when another site links
- * to it. Not HttpOnly, because this code is what writes it; the token is
- * already in sessionStorage and this exposes nothing new.
- */
-function setSessionCookie(token) {
-  const secure = location.protocol === 'https:' ? '; secure' : '';
-  if (!token) {
-    document.cookie = 'sentineldesk_session=; path=/; max-age=0; samesite=lax' + secure;
-    return;
-  }
-  // A session cookie with no max-age: it should not outlive the browser, the
-  // same way sessionStorage does not outlive the tab.
-  document.cookie = 'sentineldesk_session=' + encodeURIComponent(token) +
-    '; path=/; samesite=lax' + secure;
-}
+/* The token is kept in sessionStorage only. It used to be mirrored into a
+ * cookie as well, because the documentation was a page the browser NAVIGATED
+ * to and a navigation carries no headers. The guide is on the project site now,
+ * so nothing this server serves is reached by navigation any more, and the
+ * cookie had no second reader. */
 let pendingCreds = null;   // credentials taken from the login form
 let stopRetrying = false;  // set on logout or auth failure
 
@@ -116,7 +98,6 @@ document.getElementById('login-form').addEventListener('submit', (e) => {
 
 logoutBtn.addEventListener('click', () => {
   sessionStorage.removeItem('sentineldesk_token');
-  setSessionCookie('');
   sessionToken = '';
   pendingCreds = null;
   stopRetrying = true;
@@ -173,13 +154,11 @@ async function connect() {
         if (msg.token) {
           sessionToken = msg.token;
           sessionStorage.setItem('sentineldesk_token', sessionToken);
-          setSessionCookie(sessionToken);
         }
         setStatus(t('status.negotiating'));
       } else {
         sessionStorage.removeItem('sentineldesk_token');
-        setSessionCookie('');
-        sessionToken = '';
+              sessionToken = '';
         pendingCreds = null;
         stopRetrying = true;
         showLogin(t(msg.reason === 'locked' ? 'login.locked' : 'login.badCredentials'));
@@ -2218,8 +2197,21 @@ document.addEventListener('languagechange', () => selectPlatform(rs.platform));
  *
  * The language rides along, so the docs open in the same one the toolbar is in.
  */
+/* The guide is published on the project site, not embedded in this binary.
+ *
+ * That is a deliberate trade and it is worth naming: the documentation now
+ * needs a route to the internet, which nothing else here does. What it buys is
+ * a single copy — one that can be corrected without cutting a release, and that
+ * cannot drift from the version a reader is looking at, because there is only
+ * ever one.
+ *
+ * Everything else in this binary stays self-contained. This is the one
+ * dependency, and it is on documentation, not on operation: the desktop runs,
+ * streams and takes instructions with no network beyond its own clients. */
+const DOCS_URL = 'https://lordbasex.github.io/sentineldesk/docs/guide/index.html';
+
 function docsURL(hash) {
-  return '/docs/?lang=' + encodeURIComponent(currentLanguage()) + (hash || '');
+  return DOCS_URL + '?lang=' + encodeURIComponent(currentLanguage()) + (hash || '');
 }
 
 function openDocs(hash) {
