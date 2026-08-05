@@ -1,0 +1,380 @@
+<!doctype html>
+<!--
+ * SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+-->
+
+<!--
+  Installation page, published with GitHub Pages at repository level:
+
+      https://lordbasex.github.io/sentineldesk/docs/instalacion.html?lang=pt
+
+  The filename is Spanish; the content is whatever ?lang= asks for, defaulting
+  to English. One page per topic, three languages, chosen at read time.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Installation — SentinelDesk</title>
+<meta name="page-key" content="install.title">
+<meta name="description" content="How to install SentinelDesk: one command on a VPS or a Raspberry Pi 5, the production compose files per hardware, TLS and the environment variables.">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='8' width='56' height='38' rx='6' fill='%233FD68C'/%3E%3Crect x='10' y='14' width='44' height='26' rx='2' fill='%230C0E0D'/%3E%3Crect x='22' y='50' width='20' height='4' rx='2' fill='%233FD68C'/%3E%3Crect x='16' y='54' width='32' height='4' rx='2' fill='%232AA96C'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="sentineldesk.css">
+</head>
+<body>
+
+<a class="skip" href="#main" data-i18n="nav.skip">Skip to content</a>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="SentinelDesk">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+        <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+        <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+        <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+      </svg>
+      <span>SentinelDesk</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="arquitectura.html" data-i18n="nav.architecture">Architecture</a>
+      <a href="instalacion.html" aria-current="page" data-i18n="nav.installation">Installation</a>
+      <a class="hide-sm" href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="nav.mcp">MCP</a>
+      <div class="langs" data-lang-switcher role="group" aria-label="Language"></div>
+      <a class="btn btn-primary btn-sm" href="#own" data-i18n="nav.start">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <div class="hero" style="padding:72px 0 44px">
+    <div class="wrap">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span> <span data-i18n="install.eyebrow">Installation</span></p>
+      <h1 style="font-size:clamp(34px,5vw,50px)" data-i18n="install.h1">A binary that brings its own deployment</h1>
+      <p class="lede" data-i18n-html="install.lede">
+        The installer downloads one binary and asks <em>it</em> for everything else. The binary
+        embeds its own deployment files, so configuration and code can never disagree about
+        versions: there is no second download to fall out of step with.
+      </p>
+    </div>
+  </div>
+
+  <section style="padding-top:16px">
+    <div class="wrap">
+      <div class="prose">
+
+        <h2 id="own" data-i18n="install.own.h2">On a machine of its own</h2>
+        <p data-i18n="install.own.p1">
+          For a VPS or a Raspberry Pi 5 (Debian 13 / Raspberry Pi OS, amd64 or arm64):
+        </p>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
+  | sudo bash -s auto</code></pre>
+
+        <p data-i18n-html="install.own.p2">
+          <code>auto</code> picks Docker when it is present and a native systemd install otherwise;
+          <code>docker</code> or <code>native</code> choose explicitly. A running binary can also
+          hand its files to another machine: <code>sentineldesk -install</code> serves them over
+          HTTP and <code>sentineldesk -extract-deploy &lt;dir&gt;</code> writes them to disk.
+        </p>
+
+        <div class="note">
+          <p data-i18n-html="install.own.note">
+            Every build knows what it is: <code>sentineldesk -version</code> prints something like
+            <code>sentineldesk v1.2.3 (081b14d) · build 20260804-190000</code>, and the same string
+            appears at the bottom of the control rail.
+          </p>
+        </div>
+
+        <h2 id="development" data-i18n="install.dev.h2">For development, from a clone</h2>
+
+<pre><code data-i18n-html="install.dev.pre">make up     <span class="c"># build the image and start the desktop</span>
+make logs   <span class="c"># follow the logs</span>
+make shell  <span class="c"># a root shell inside the container</span>
+make down   <span class="c"># stop everything</span></code></pre>
+
+        <p data-i18n-html="install.dev.p">
+          Then <a href="http://localhost:8080">http://localhost:8080</a>. With
+          <code>AUTH_USER</code> and <code>AUTH_PASS</code> set it asks for a login; without them
+          it is open, and that is <strong>for development only</strong>.
+        </p>
+
+        <h2 id="production" data-i18n="install.prod.h2">Production</h2>
+        <p data-i18n-html="install.prod.p">
+          Pick the compose file that matches the server's hardware. All three use
+          <code>network_mode: host</code> for a direct ICE connection, which is the lowest latency.
+        </p>
+
+<pre><code data-i18n-html="install.prod.pre"><span class="c"># CPU only (software VP8)</span>
+AUTH_USER=admin AUTH_PASS=secret \
+docker compose -f deploy/docker-compose.cpu.yml up -d
+
+<span class="c"># NVIDIA GPU (NVENC) — needs nvidia-container-toolkit</span>
+AUTH_USER=admin AUTH_PASS=secret \
+docker compose -f deploy/docker-compose.nvidia.yml up -d
+
+<span class="c"># Intel/AMD GPU (VA-API) — passes /dev/dri through</span>
+AUTH_USER=admin AUTH_PASS=secret \
+docker compose -f deploy/docker-compose.vaapi.yml up -d</code></pre>
+
+        <div class="note warn">
+          <p data-i18n-html="install.prod.warn">
+            <b>Before exposing it to the internet</b>, always set <code>AUTH_USER</code> and
+            <code>AUTH_PASS</code>: the production compose files require them. Without them
+            authentication is disabled, which is good for a development LAN and for nothing else.
+          </p>
+        </div>
+
+        <h2 id="tls" data-i18n="install.tls.h2">TLS and certificates</h2>
+        <p data-i18n="install.tls.p">
+          Two ways to serve HTTPS, depending on whether you have a proxy in front.
+        </p>
+
+        <h3 data-i18n="install.tls.a.h3">A. Native TLS in the backend</h3>
+        <p data-i18n="install.tls.a.p">No Caddy, a single port.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="install.th.vars">Variables</th>
+                <th data-i18n="install.th.result">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>TLS_SELFSIGNED=1</code></td>
+                <td data-i18n-html="install.tls.self">Generates a <strong>self-signed certificate</strong> once and persists it in the volume. SANs: localhost, the hostname, plus whatever you add in <code>TLS_HOSTS=ip,domain</code>. Good for a LAN or for testing.</td>
+              </tr>
+              <tr>
+                <td><code>TLS_CERT</code> + <code>TLS_KEY</code></td>
+                <td data-i18n-html="install.tls.own">Uses <strong>your own certificate</strong>: a purchased wildcard, a corporate one, or one issued by certbot. Copy the files into <code>deploy/certs/</code>, which is mounted as <code>/certs</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+<pre><code data-i18n-html="install.tls.pre">TLS_SELFSIGNED=1 docker compose -f deploy/docker-compose.yml up -d
+<span class="c"># → https://localhost:8080</span></code></pre>
+
+        <h3 data-i18n="install.tls.b.h3">B. Caddy as a reverse proxy</h3>
+        <p data-i18n-html="install.tls.b.p">
+          With <code>--profile tls</code> on the production compose files, choosing the mode with
+          <code>TLS_MODE=</code>.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="install.th.mode">Mode</th>
+                <th data-i18n="install.th.cert">Certificate</th>
+                <th data-i18n="install.th.needs">Requires</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>auto</code></td>
+                <td data-i18n-html="install.tls.auto.c"><strong>Let's Encrypt</strong> automatically (HTTP-01), renewing itself</td>
+                <td data-i18n-html="install.tls.auto.n"><code>DOMAIN</code> pointing at the server, ports 80/443</td>
+              </tr>
+              <tr>
+                <td><code>selfsigned</code></td>
+                <td data-i18n-html="install.tls.ss.c"><strong>Self-signed</strong> by Caddy's internal CA</td>
+                <td data-i18n-html="install.tls.ss.n">Nothing: works by IP or local name</td>
+              </tr>
+              <tr>
+                <td><code>custom</code></td>
+                <td data-i18n-html="install.tls.cu.c"><strong>Your certificate / wildcard</strong> from <code>deploy/certs/</code></td>
+                <td data-i18n-html="install.tls.cu.n">The files in <code>deploy/certs/</code></td>
+              </tr>
+              <tr>
+                <td><code>wildcard</code></td>
+                <td data-i18n-html="install.tls.wc.c"><strong>Let's Encrypt wildcard</strong> <code>*.domain</code> (DNS-01 through Cloudflare)</td>
+                <td data-i18n-html="install.tls.wc.n">An image with the plugin + <code>CLOUDFLARE_API_TOKEN</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+<pre><code data-i18n-html="install.tls.pre2"><span class="c"># Classic Let's Encrypt</span>
+DOMAIN=desktop.example.com AUTH_USER=admin AUTH_PASS=secret \
+docker compose -f deploy/docker-compose.nvidia.yml --profile tls up -d
+
+<span class="c"># Self-signed through Caddy (no domain)</span>
+TLS_MODE=selfsigned AUTH_USER=admin AUTH_PASS=secret \
+docker compose -f deploy/docker-compose.cpu.yml --profile tls up -d</code></pre>
+
+        <p data-i18n-html="install.tls.p2">
+          In any of these modes the WebSocket switches to <code>wss://</code> on its own. Ports to
+          open in the firewall: <strong>80/443</strong> for the web, and WebRTC's <strong>UDP</strong>
+          range (or the fixed one you set with <code>WEBRTC_MIN_PORT</code> /
+          <code>WEBRTC_MAX_PORT</code>).
+        </p>
+
+        <h2 id="variables" data-i18n="install.vars.h2">Environment variables</h2>
+        <p data-i18n="install.vars.p">
+          Configuration is environment-only: the container is the unit of deployment, and a
+          separate configuration file would just be one more thing that can disagree with the
+          compose file.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="install.th.var">Variable</th>
+                <th data-i18n="install.th.def">Default</th>
+                <th data-i18n="install.th.does">What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>DISPLAY_WIDTH</code> / <code>DISPLAY_HEIGHT</code></td><td><code>1920</code> / <code>1080</code></td><td data-i18n="install.v.res">Virtual desktop resolution</td></tr>
+              <tr><td><code>FPS</code></td><td><code>30</code></td><td data-i18n="install.v.fps">Frames per second (60 is worth it with a GPU)</td></tr>
+              <tr><td><code>ENCODER</code></td><td><code>auto</code></td><td data-i18n-html="install.v.enc"><code>auto</code>, <code>nvenc</code>, <code>vaapi</code>, <code>h264</code>, <code>vp8</code></td></tr>
+              <tr><td><code>VIDEO_BITRATE_KBPS</code></td><td><code>4000</code></td><td data-i18n="install.v.vbr">Bitrate ceiling; the adaptive loop only goes lower</td></tr>
+              <tr><td><code>AUDIO_BITRATE</code></td><td><code>96000</code></td><td data-i18n="install.v.abr">Opus bitrate, in bps</td></tr>
+              <tr><td><code>REMOTE_CURSOR</code></td><td><code>0</code></td><td data-i18n-html="install.v.cur"><code>1</code> draws the pointer on the server (more perceived latency)</td></tr>
+              <tr><td><code>MAX_VIEWERS</code></td><td><code>4</code></td><td data-i18n="install.v.max">How many people share one desktop</td></tr>
+              <tr><td><code>AUTH_USER</code> / <code>AUTH_PASS</code></td><td>—</td><td data-i18n="install.v.auth">Credentials (empty = no auth, development only)</td></tr>
+              <tr><td><code>AUTH_SECRET</code></td><td>random</td><td data-i18n="install.v.secret">HMAC key for session tokens; pin it to survive restarts</td></tr>
+              <tr><td><code>AUTH_TTL_HOURS</code></td><td><code>12</code></td><td data-i18n="install.v.ttl">Session lifetime</td></tr>
+              <tr><td><code>FILES_ROOT</code></td><td><code>/home/sentineldesk</code></td><td data-i18n="install.v.files">How far the file manager may reach</td></tr>
+              <tr><td><code>NAT1TO1_IP</code></td><td>—</td><td data-i18n="install.v.nat">Public IP to advertise in ICE (server behind NAT)</td></tr>
+              <tr><td><code>WEBRTC_MIN_PORT</code> / <code>WEBRTC_MAX_PORT</code></td><td>—</td><td data-i18n="install.v.ports">Fixed UDP range for ICE</td></tr>
+              <tr><td><code>CLIENT_TURN_URLS</code> + <code>TURN_USER</code>/<code>TURN_PASS</code></td><td>—</td><td data-i18n="install.v.turn">TURN for the browser (NAT fallback)</td></tr>
+              <tr><td><code>MCP_POLICY</code>, <code>MCP_DENY</code>, <code>MCP_ALLOW</code></td><td><code>full</code></td><td data-i18n="install.v.mcp">The MCP permission ceiling</td></tr>
+              <tr><td><code>HTTP_PORT</code></td><td><code>8080</code></td><td data-i18n="install.v.port">Port for the web client and signalling</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="mcp" data-i18n="install.mcp.h2">Connecting an agent over MCP</h2>
+        <p data-i18n-html="install.mcp.p1">
+          The bridge runs <strong>inside</strong> the container, so the AI host launches it with
+          <code>docker exec</code>. In the host's MCP configuration:
+        </p>
+
+<pre><code>{
+  "mcpServers": {
+    "sentineldesk": {
+      "command": "docker",
+      "args": [
+        "exec", "-i", "-u", "sentineldesk", "sentineldesk",
+        "/usr/local/bin/sentineldesk", "-mcp-stdio",
+        "-mcp-sock", "/run/user/1000/sentineldesk-mcp.sock"
+      ]
+    }
+  }
+}</code></pre>
+
+        <ul>
+          <li data-i18n-html="install.mcp.li1"><code>-i</code> keeps stdin open: that is the MCP transport.</li>
+          <li data-i18n-html="install.mcp.li2"><code>-u sentineldesk</code> runs as the socket's owner (uid 1000).</li>
+          <li data-i18n-html="install.mcp.li3">The container has to be named <code>sentineldesk</code>, or adjust the name.</li>
+        </ul>
+
+        <p data-i18n-html="install.mcp.p2">
+          To hand an agent a read-only endpoint against the same daemon you use with full
+          permissions, add <code>-mcp-policy readonly</code> to those arguments. A connection can
+          drop below the ceiling the daemon set, never raise it.
+        </p>
+
+        <h2 id="steps" data-i18n="install.steps.h2">Getting it running, end to end</h2>
+
+        <ol class="steps">
+          <li>
+            <h3 data-i18n="install.st1.h3">Start the desktop</h3>
+            <p data-i18n-html="install.st1.p">Whichever compose file matches the hardware, with <code>AUTH_USER</code> and <code>AUTH_PASS</code> set.</p>
+          </li>
+          <li>
+            <h3 data-i18n="install.st2.h3">Open it in the browser</h3>
+            <p data-i18n-html="install.st2.p">Port <code>8080</code> by default. Whoever arrives first takes control; the rest watch and can ask for it.</p>
+          </li>
+          <li>
+            <h3 data-i18n="install.st3.h3">Add TLS if it faces the internet</h3>
+            <p data-i18n-html="install.st3.p">Native TLS with <code>TLS_SELFSIGNED=1</code>, or Caddy with <code>--profile tls</code> and a domain.</p>
+          </li>
+          <li>
+            <h3 data-i18n="install.st4.h3">Plug the agent in</h3>
+            <p data-i18n-html="install.st4.p">The MCP bridge over <code>docker exec</code>, with whatever policy you want to give it.</p>
+          </li>
+        </ol>
+
+        <p style="margin-top:34px">
+          <a href="arquitectura.html" data-i18n="install.back">← How it works inside</a>
+        </p>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="final">
+    <div class="wrap">
+      <h2 data-i18n="install.final.h2">Instance ready?</h2>
+      <p data-i18n="install.final.p">The desktop's full guide, in three languages, is served by the desktop itself.</p>
+      <div class="cta">
+        <a class="btn btn-primary" href="http://localhost:8080/docs/?lang=es" data-i18n="install.final.cta1">Read the documentation</a>
+        <a class="btn btn-ghost" href="https://github.com/lordbasex/sentineldesk" data-i18n="install.final.cta2">See the repository</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="index.html" aria-label="SentinelDesk">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+            <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+            <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+            <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+          </svg>
+          <span>SentinelDesk</span>
+        </a>
+        <p style="margin-top:12px;max-width:34ch" data-i18n="brand.tagline">
+          A collaborative operating system for people and AI agents.
+        </p>
+        <div class="langs" data-lang-switcher role="group" aria-label="Language" style="margin-top:16px;display:inline-flex"></div>
+      </div>
+
+      <nav aria-label="Project">
+        <a href="index.html" data-i18n="foot.home">Home</a>
+        <a href="arquitectura.html" data-i18n="foot.arch">Architecture</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="foot.mcp">MCP server</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp-tools-checklist.md" data-i18n="foot.checklist">Tool checklist</a>
+      </nav>
+
+      <nav aria-label="Source">
+        <a href="https://github.com/lordbasex/sentineldesk" data-i18n="foot.repo">Repository</a>
+        <a href="https://github.com/lordbasex/sentineldesk/releases" data-i18n="foot.releases">Releases</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/LICENSE" data-i18n="foot.license">License</a>
+      </nav>
+    </div>
+
+    <div class="legal">
+      <p data-i18n="foot.copyright">Copyright 2026 Federico Pereira. Co-authored by Nicolas Pereira. Licensed under the Apache License, Version 2.0.</p>
+      <p data-i18n="foot.trademark">"SentinelDesk" and its logo are trademarks of Federico Pereira and are not covered by the code license. You may fork, modify and redistribute the code freely; you may not call the result SentinelDesk or use its branding without permission.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="i18n.js"></script>
+</body>
+</html>

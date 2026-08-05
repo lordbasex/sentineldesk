@@ -1,0 +1,420 @@
+<!doctype html>
+<!--
+ * SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+-->
+
+<!--
+  Project landing page, published with GitHub Pages at repository level:
+
+      https://lordbasex.github.io/sentineldesk/docs/
+      https://lordbasex.github.io/sentineldesk/docs/?lang=pt
+
+  Every internal link is RELATIVE. Pages serves the repository under a path
+  prefix (/sentineldesk/), so an absolute "/docs/x.html" resolves against the
+  domain root and 404s.
+
+  The prose lives in lang/*.json and is applied by i18n.js, the same mechanism
+  the desktop's own documentation uses. English is written into the markup as
+  well, deliberately: the page is readable before the script runs, and if the
+  script never runs at all a visitor still gets the whole site rather than a
+  skeleton of empty elements.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SentinelDesk — A collaborative operating system for people and AI agents</title>
+<meta name="page-key" content="home.title">
+<meta name="description" content="A full Linux desktop in a container, streamed to the browser over WebRTC, driven at the same time by people and by AI agents through 114 MCP tools.">
+
+<meta property="og:title" content="SentinelDesk">
+<meta property="og:description" content="A full Linux desktop in a container, streamed to the browser over WebRTC, driven at the same time by people and by AI agents.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="architecture.png">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='8' width='56' height='38' rx='6' fill='%233FD68C'/%3E%3Crect x='10' y='14' width='44' height='26' rx='2' fill='%230C0E0D'/%3E%3Crect x='22' y='50' width='20' height='4' rx='2' fill='%233FD68C'/%3E%3Crect x='16' y='54' width='32' height='4' rx='2' fill='%232AA96C'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="sentineldesk.css">
+</head>
+<body>
+
+<a class="skip" href="#main" data-i18n="nav.skip">Skip to content</a>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="SentinelDesk">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+        <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+        <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+        <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+      </svg>
+      <span>SentinelDesk</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="arquitectura.html" data-i18n="nav.architecture">Architecture</a>
+      <a href="instalacion.html" data-i18n="nav.installation">Installation</a>
+      <a class="hide-sm" href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="nav.mcp">MCP</a>
+      <div class="langs" data-lang-switcher role="group" aria-label="Language"></div>
+      <a class="btn btn-primary btn-sm" href="instalacion.html" data-i18n="nav.start">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- ── hero ────────────────────────────────────────────────────────────── -->
+  <div class="hero">
+    <div class="wrap">
+     <div class="hero-grid">
+      <div class="hero-copy">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span> <span data-i18n="home.eyebrow">Apache 2.0 · Debian 13 · amd64 and arm64</span></p>
+
+      <h1 data-i18n-html="home.h1">A collaborative operating system for people and <span class="accent">AI agents</span></h1>
+
+      <p class="lede" data-i18n-html="home.lede">
+        A complete Linux desktop running inside a container with no physical monitor,
+        streamed to the browser over <strong>WebRTC</strong> — and driven, at the same time,
+        by people and by an agent that sees and acts on the same screen.
+        Same X display, same session, same room.
+      </p>
+
+      <div class="cta">
+        <a class="btn btn-primary" href="instalacion.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12h14M13 6l6 6-6 6"/>
+          </svg>
+          <span data-i18n="home.cta.start">Get started</span>
+        </a>
+        <a class="btn btn-ghost" href="https://github.com/lordbasex/sentineldesk/blob/main/internal/webui/assets/index.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 5.5A1.5 1.5 0 015.5 4H10a2 2 0 012 2v13a2 2 0 00-2-2H5.5A1.5 1.5 0 014 15.5z"/>
+            <path d="M20 5.5A1.5 1.5 0 0018.5 4H14a2 2 0 00-2 2v13a2 2 0 012-2h4.5a1.5 1.5 0 001.5-1.5z"/>
+          </svg>
+          <span data-i18n="home.cta.docs">Read the docs</span>
+        </a>
+      </div>
+
+      <p class="hero-note" data-i18n-html="home.note">
+        The desktop serves its own guide in three languages at <code>/docs/</code>, so that link
+        opens once your instance is running.
+      </p>
+
+      </div>
+
+      <!-- The signature. The frame and the state bar are decorative in the
+           accessibility sense — an animation cannot be read aloud usefully, and
+           a screen reader hitting three chips that contradict each other over
+           sixteen seconds is worse than silence. The caption carries the whole
+           meaning in words instead, and it is translated like everything else. -->
+      <figure class="console">
+        <div class="console-frame" aria-hidden="true">
+          <div class="rail"></div>
+          <div class="screen">
+            <div class="panel"><i></i><i></i><i></i><span class="spacer"></span><u></u></div>
+            <div class="win win-a">
+              <div class="win-bar"><i></i><i></i><i></i></div>
+              <div class="win-body">
+                <u class="on" style="width:62%"></u>
+                <u style="width:88%"></u>
+                <u style="width:44%"></u>
+                <u class="on" style="width:71%"></u>
+              </div>
+            </div>
+            <div class="win win-b">
+              <div class="win-bar"><i></i><i></i></div>
+              <div class="win-body">
+                <u style="width:78%"></u>
+                <u style="width:52%"></u>
+              </div>
+            </div>
+            <span class="caret"></span>
+
+            <div class="ptr ptr-you">
+              <svg viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
+              <span data-i18n="home.demo.you">You</span>
+            </div>
+            <div class="ptr ptr-agent">
+              <svg viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
+              <span data-i18n="home.demo.agent">AI agent</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="console-bar" aria-hidden="true">
+          <div class="chip-stack">
+            <span class="chip chip-you"><b></b><span data-i18n="home.demo.chip.you">You are driving</span></span>
+            <span class="chip chip-ask"><b></b><span data-i18n="home.demo.chip.ask">AI agent is asking for control</span></span>
+            <span class="chip chip-agent"><b></b><span data-i18n="home.demo.chip.agent">AI agent is driving</span></span>
+          </div>
+          <p class="readout" data-i18n-html="home.demo.readout"><em>114</em> tools · <em>50–70 ms</em> glass-to-glass · <em>1</em> encode → <em>4</em> viewers</p>
+        </div>
+
+        <figcaption data-i18n="home.demo.cap">
+          A loop of the turn-taking, not a live session. While a person is connected the
+          agent has to ask, and the answer is theirs to give; with an empty room it simply
+          works, because there is nobody to take turns with.
+        </figcaption>
+      </figure>
+     </div>
+    </div>
+  </div>
+
+  <!-- ── the two control planes ──────────────────────────────────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker" data-i18n="home.planes.kicker">The idea</p>
+        <h2 data-i18n="home.planes.h2">Two independent control planes over one desktop</h2>
+        <p data-i18n="home.planes.p">
+          The second half is not a metaphor for an API. A person drives through a control
+          layer in the browser; an agent drives through a local Unix socket. Neither is a
+          guest of the other, and that separation is the single most important thing about
+          the design.
+        </p>
+      </div>
+
+      <div class="grid c2">
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 11a4 4 0 100-8 4 4 0 000 8z"/><path d="M4 21a8 8 0 0116 0"/></svg>
+          </div>
+          <h3 data-i18n="home.c1.h3">People, over WebSocket</h3>
+          <p data-i18n-html="home.c1.p">
+            <code>/ws</code> is the only door. The first frame must be an authentication frame;
+            until it validates there is no SDP offer, no ICE and no DataChannel. Keyboard and
+            mouse arrive on a data channel and go into X through XTEST.
+          </p>
+        </div>
+
+        <div class="card watch">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4M8 9h.01M12 9h.01M16 9h.01"/></svg>
+          </div>
+          <h3 data-i18n="home.c2.h3">Agents, over a local socket</h3>
+          <p data-i18n-html="home.c2.p">
+            A <code>0600</code> Unix socket exposes 114 tools to any MCP-capable host. The bridge
+            is a thin stdio pipe spawned with <code>docker exec</code>, so killing the host never
+            takes the desktop down with it.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── architecture ────────────────────────────────────────────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <p class="kicker" data-i18n="home.arch.kicker">Architecture</p>
+          <h2 data-i18n="home.arch.h2">One capture, many observers</h2>
+          <p style="margin-top:14px" data-i18n-html="home.arch.p1">
+            The screen is encoded <strong>once</strong> and fanned out: to every browser, to the
+            recorder, to a live stream. A second participant costs bandwidth, not CPU. GStreamer
+            runs inside the Go process, so every RTP packet goes from <code>appsink</code> straight
+            onto the WebRTC track and the encoder stays reachable at runtime.
+          </p>
+          <p style="margin-top:14px" data-i18n="home.arch.p2">
+            The encoder is picked at startup by running a real probe pipeline for each candidate —
+            NVENC, VA-API, x264, then software VP8 — so the choice reflects what actually works on
+            the host rather than what the drivers claim.
+          </p>
+          <div class="cta">
+            <a class="btn btn-ghost btn-sm" href="arquitectura.html" data-i18n="home.arch.link">See the full architecture →</a>
+          </div>
+        </div>
+        <figure>
+          <img src="architecture.png" width="1672" height="941"
+               data-i18n-alt="home.arch.alt"
+               alt="SentinelDesk architecture: the container's X display captured once by GStreamer, encoded and fanned out over WebRTC to several browsers, with a parallel MCP control plane over a local Unix socket.">
+          <figcaption data-i18n="home.arch.cap">Capture, encode and fan-out, with the two control planes either side.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── capabilities ────────────────────────────────────────────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="sec-head">
+        <p class="kicker" data-i18n="home.cap.kicker">What it does</p>
+        <h2 data-i18n="home.cap.h2">A real desktop, not a screenshot service</h2>
+      </div>
+
+      <div class="grid c3">
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+          </div>
+          <h3 data-i18n="home.f1.h3">They take turns</h3>
+          <p data-i18n="home.f1.p">
+            Exactly one participant holds control. While a person is connected the agent has to
+            ask, and a prompt appears on that person's screen with a timer; no answer means no.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1018 0 9 9 0 00-18 0z"/><path d="M12 7v5l3 2"/></svg>
+          </div>
+          <h3 data-i18n="home.f2.h3">Adaptive by design</h3>
+          <p data-i18n="home.f2.p">
+            Congestion estimation over TWCC steers the bitrate, a lost reference frame is answered
+            with an immediate keyframe, and the shared encoder follows the slowest link so the
+            worst connection is never dropped.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          </div>
+          <h3 data-i18n="home.f3.h3">Structure, not pixels</h3>
+          <p data-i18n="home.f3.p">
+            An agent reads the screen as an accessibility tree or drives the real DOM through
+            DevTools, so it clicks a button by name instead of guessing at coordinates.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 003-3V6a3 3 0 00-6 0v6a3 3 0 003 3z"/><path d="M19 11a7 7 0 01-14 0M12 18v3"/></svg>
+          </div>
+          <h3 data-i18n="home.f4.h3">Audio both ways</h3>
+          <p data-i18n="home.f4.p">
+            The desktop's sound reaches the browser, and the browser's microphone comes back as an
+            ordinary capture device inside the desktop — a real input, not a monitor a page will
+            refuse to list.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><path d="M12 11v5M9.5 13.5L12 11l2.5 2.5"/></svg>
+          </div>
+          <h3 data-i18n="home.f5.h3">Files, clipboard, gamepad</h3>
+          <p data-i18n="home.f5.p">
+            A two-pane manager with Midnight Commander keys, drag-and-drop onto the page, a two-way
+            clipboard, and a browser gamepad that appears inside as a virtual Xbox 360 pad.
+          </p>
+        </div>
+
+        <div class="card">
+          <div class="ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M16 10l6-3v10l-6-3z"/></svg>
+          </div>
+          <h3 data-i18n="home.f6.h3">Record and stream out</h3>
+          <p data-i18n="home.f6.p">
+            Record to MP4, WebM or MKV, or send the live session to YouTube, Twitch or your own
+            VLC — reusing the encode the room is already producing rather than capturing twice.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── quick start ─────────────────────────────────────────────────────── -->
+  <section>
+    <div class="wrap">
+      <div class="split">
+        <div>
+          <p class="kicker" data-i18n="home.quick.kicker">Quick start</p>
+          <h2 data-i18n="home.quick.h2">One command on a machine of its own</h2>
+          <p style="margin-top:14px" data-i18n-html="home.quick.p">
+            The installer downloads one binary and asks <em>it</em> for everything else: the binary
+            embeds its own deployment files, so configuration and code can never disagree about
+            versions. <code>auto</code> picks Docker when it is present and a native systemd install
+            otherwise.
+          </p>
+          <div class="cta">
+            <a class="btn btn-primary btn-sm" href="instalacion.html" data-i18n="home.quick.btn">Full installation guide</a>
+          </div>
+        </div>
+
+        <div>
+<pre><code data-i18n-html="home.quick.pre"><span class="c"># VPS or Raspberry Pi 5 (Debian 13 / Raspberry Pi OS)</span>
+curl -fsSL https://raw.githubusercontent.com/\
+lordbasex/sentineldesk/main/install.sh | sudo bash -s auto
+
+<span class="c"># or, from a clone, for development</span>
+make up   <span class="c"># → http://localhost:8080</span></code></pre>
+          <p class="hero-note" style="margin-top:14px" data-i18n-html="home.quick.note">
+            Set <code>AUTH_USER</code> and <code>AUTH_PASS</code> before exposing it. Without them
+            authentication is disabled, which is for LAN development only.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── closing ─────────────────────────────────────────────────────────── -->
+  <section class="final">
+    <div class="wrap">
+      <h2 data-i18n="home.final.h2">Put a person and an agent on the same screen</h2>
+      <p data-i18n="home.final.p">
+        Everything is in one repository, under Apache 2.0: the daemon, the browser client, the
+        deployment tree and the installer.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="instalacion.html" data-i18n="home.final.cta1">Get started</a>
+        <a class="btn btn-ghost" href="https://github.com/lordbasex/sentineldesk/blob/main/internal/webui/assets/index.html" data-i18n="home.final.cta2">Read the docs</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="index.html" aria-label="SentinelDesk">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+            <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+            <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+            <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+          </svg>
+          <span>SentinelDesk</span>
+        </a>
+        <p style="margin-top:12px;max-width:34ch" data-i18n="brand.tagline">
+          A collaborative operating system for people and AI agents.
+        </p>
+        <div class="langs" data-lang-switcher role="group" aria-label="Language" style="margin-top:16px;display:inline-flex"></div>
+      </div>
+
+      <nav aria-label="Project">
+        <a href="arquitectura.html" data-i18n="foot.arch">Architecture</a>
+        <a href="instalacion.html" data-i18n="foot.install">Installation</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="foot.mcp">MCP server</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp-tools-checklist.md" data-i18n="foot.checklist">Tool checklist</a>
+      </nav>
+
+      <nav aria-label="Source">
+        <a href="https://github.com/lordbasex/sentineldesk" data-i18n="foot.repo">Repository</a>
+        <a href="https://github.com/lordbasex/sentineldesk/releases" data-i18n="foot.releases">Releases</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/LICENSE" data-i18n="foot.license">License</a>
+      </nav>
+    </div>
+
+    <div class="legal">
+      <p data-i18n="foot.copyright">Copyright 2026 Federico Pereira. Co-authored by Nicolas Pereira. Licensed under the Apache License, Version 2.0.</p>
+      <p data-i18n="foot.trademark">"SentinelDesk" and its logo are trademarks of Federico Pereira and are not covered by the code license. You may fork, modify and redistribute the code freely; you may not call the result SentinelDesk or use its branding without permission.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="i18n.js"></script>
+</body>
+</html>

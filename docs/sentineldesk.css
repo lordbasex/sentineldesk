@@ -1,0 +1,770 @@
+/*
+ * SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+
+/* Project site — shared styling for the landing page and its two sub-pages.
+ *
+ * The tokens below are lifted verbatim from internal/webui/assets/docs/docs.css
+ * rather than re-picked by eye. A visitor moves from this page to the desktop's
+ * own documentation in one click, and two greens that are almost the same read
+ * as a mistake, not as a family.
+ *
+ * ONE webfont, self-hosted, in one role. The in-container documentation loads
+ * none — it has to render on a machine with no route to the internet — but this
+ * site is published, so that constraint does not carry over; what does carry
+ * over is the refusal to depend on a third party, so the file sits in fonts/
+ * rather than on a CDN. Everything else is the system stack.
+ *
+ * Archivo at its expanded widths is the choice, and it is a deliberate one: an
+ * expanded grotesque is the lettering of instrument panels and equipment
+ * labelling, which is what this product is — a rack of controls over a live
+ * machine — and it sets the landing page apart from the desktop's own
+ * documentation without abandoning the palette they share.
+ *
+ * Dark only, deliberately. The product is a control layer floating over live
+ * video, and it has exactly one appearance; a light landing page would promise
+ * something the desktop never shows.
+ */
+
+/* font-display: swap — the page renders immediately in the fallback and
+   reflows once. On a landing page a visible headline late beats no headline. */
+@font-face {
+  font-family: 'Archivo';
+  font-style: normal;
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
+  font-display: swap;
+  src: url('fonts/archivo-variable-latin.woff2') format('woff2');
+  /* Latin-1 covers every accent the three languages need. */
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+2000-206F, U+2122, U+2191,
+                 U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  color-scheme: dark;
+
+  --bg:         #0C0E0D;
+  --raise:      #141817;
+  --line:       rgba(255,255,255,.09);
+  --line-soft:  rgba(255,255,255,.055);
+
+  --head:       #DEDEDE;   /* headings, and anything being emphasised */
+  --ink:        #9E9E9E;   /* body text */
+  --faint:      #6E7573;
+
+  --drive:      #3FD68C;   /* the accent, used sparingly */
+  --drive-ink:  #052B17;
+  --watch:      #F2B33D;
+  --rec:        #FF6B63;
+
+  /* The agent's own colour, taken from the control rail. Amber already means
+     "somebody else is driving"; violet says that somebody is not a person, and
+     a pointer moving on its own stops reading as a fault. */
+  --agent:      #B08CF7;
+  --agent-ink:  #1B0E33;
+
+  --display: 'Archivo', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sans:  system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono:  ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas,
+           "Liberation Mono", monospace;
+
+  --wrap: 1060px;
+  --measure: 72ch;
+  --radius: 10px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  /* The page must never scroll sideways, whatever a code block contains. */
+  overflow-x: hidden;
+}
+
+img { max-width: 100%; height: auto; }
+
+::selection { background: color-mix(in srgb, var(--drive) 30%, transparent); color: #fff; }
+
+/* A visible focus ring everywhere. Keyboard users are navigating a page whose
+   links are mostly low-contrast on purpose; losing the caret would strand them. */
+a:focus-visible, button:focus-visible, .btn:focus-visible {
+  outline: 2px solid var(--drive);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.skip {
+  position: absolute; left: -9999px; top: 8px; z-index: 100;
+  padding: 8px 14px; background: var(--drive); color: var(--drive-ink);
+  border-radius: 6px; font-weight: 600; text-decoration: none;
+}
+.skip:focus { left: 8px; }
+
+.wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding: 0 24px; }
+
+/* --- brand mark -----------------------------------------------------------
+ *
+ * The favicon's monitor, redrawn in the accent rather than the client's blue.
+ * The blue belongs to the loading overlay, which is the one surface a visitor
+ * never sees; the green is what the control layer actually wears.
+ */
+
+.brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: var(--head); text-decoration: none;
+  font-family: var(--display); font-size: 17px; letter-spacing: -.005em;
+  font-weight: 700; font-stretch: 112%;
+}
+.brand svg { width: 22px; height: 22px; flex: none; }
+.brand .scr { fill: var(--drive); }
+.brand .gls { fill: var(--bg); }
+.brand .std { fill: color-mix(in srgb, var(--drive) 62%, #000); }
+
+/* --- header ---------------------------------------------------------------
+ *
+ * Sticky, and translucent over whatever scrolls beneath it. It carries the
+ * primary action at every scroll position: the page is long enough that a
+ * visitor who decides halfway down should not have to travel back to the hero.
+ */
+
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line-soft);
+}
+header .wrap {
+  display: flex; align-items: center; gap: 20px;
+  height: 62px;
+}
+header nav { display: flex; align-items: center; gap: 22px; margin-left: auto; }
+header nav a {
+  color: var(--ink); text-decoration: none; font-size: 14.5px;
+  transition: color .15s ease;
+}
+header nav a:hover, header nav a[aria-current="page"] { color: var(--head); }
+header nav a[aria-current="page"] { color: var(--drive); }
+
+@media (max-width: 720px) {
+  header nav .hide-sm { display: none; }
+  /* Two rows rather than one that overflows. The button is the page's primary
+     action; letting it slide off the right edge — where `overflow-x: hidden`
+     then quietly clips it — is worse than spending 40px of height. */
+  header .wrap {
+    flex-wrap: wrap; height: auto; gap: 10px 14px; padding-block: 10px;
+  }
+  header nav {
+    width: 100%; margin-left: 0; justify-content: space-between; gap: 14px;
+  }
+  header nav a { font-size: 13.5px; }
+}
+
+/* --- language switcher ----------------------------------------------------
+ *
+ * Three codes in a segmented control rather than a dropdown. With exactly three
+ * options a select hides two of them behind a click and tells a visitor nothing
+ * about what is on offer; laid out flat, the choice is legible at a glance and
+ * costs one interaction instead of two.
+ *
+ * The active one is marked by BOTH weight and colour, and carries
+ * aria-pressed — colour alone would leave the state invisible to anyone who
+ * cannot rely on it.
+ */
+
+.langs {
+  display: flex; align-items: center; gap: 2px;
+  padding: 2px; border: 1px solid var(--line-soft); border-radius: 7px;
+  background: var(--raise);
+}
+.langs button {
+  appearance: none; border: 0; background: transparent; cursor: pointer;
+  font-family: var(--sans); font-size: 12px; font-weight: 600;
+  letter-spacing: .03em; color: var(--faint);
+  padding: 4px 8px; border-radius: 5px; line-height: 1.4;
+  transition: color .15s ease, background .15s ease;
+}
+.langs button:hover { color: var(--head); background: rgba(255,255,255,.05); }
+.langs button.on {
+  color: var(--drive-ink); background: var(--drive); font-weight: 700;
+}
+.langs button:focus-visible { outline: 2px solid var(--drive); outline-offset: 2px; }
+
+/* In the footer it sits on the page background, not on a raised header. */
+footer .langs { background: transparent; }
+
+/* --- buttons --------------------------------------------------------------
+ *
+ * Two weights only. The filled one is the accent and there is at most one of it
+ * in view at a time; a page with two primary actions has none.
+ */
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 11px 20px; border-radius: 8px; border: 1px solid transparent;
+  font-family: var(--sans); font-size: 15px; font-weight: 600;
+  text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: filter .15s ease, background .15s ease, border-color .15s ease,
+              transform .06s ease;
+}
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 16px; height: 16px; flex: none; }
+
+.btn-primary { background: var(--drive); color: var(--drive-ink); }
+.btn-primary:hover { filter: brightness(1.1); }
+
+.btn-ghost {
+  background: transparent; color: var(--head); border-color: var(--line);
+}
+.btn-ghost:hover {
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.2);
+}
+
+.btn-sm { padding: 8px 15px; font-size: 14px; }
+
+/* --- hero -----------------------------------------------------------------
+ *
+ * The glow and the grid are one element each, both painted with CSS rather than
+ * an image: a hero that ships as a 400 KB PNG is the slowest thing on a page
+ * whose entire pitch is latency.
+ */
+
+.hero { position: relative; overflow: hidden; padding: 96px 0 80px; }
+
+.hero::before {
+  /* The phosphor glow, sitting behind the headline and fading out well before
+     the edges so it never draws a visible ellipse. */
+  content: ""; position: absolute; inset: -40% 0 auto 50%;
+  width: 1100px; height: 700px; transform: translateX(-50%);
+  background: radial-gradient(closest-side,
+    color-mix(in srgb, var(--drive) 15%, transparent), transparent 75%);
+  pointer-events: none;
+}
+.hero::after {
+  /* A faint engineering grid, masked to nothing at the bottom so the section
+     below it starts on flat background instead of on a hard cut. */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--line-soft) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-soft) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(closest-side at 50% 30%, #000, transparent);
+  mask-image: radial-gradient(closest-side at 50% 30%, #000, transparent);
+  opacity: .7;
+}
+.hero .wrap { position: relative; z-index: 1; }
+
+/* Two columns: the claim on the left, the evidence on the right. Stacked below
+   980px, copy first — on a phone the argument has to arrive before the demo. */
+.hero-grid {
+  display: grid; grid-template-columns: 1fr; gap: 44px; align-items: center;
+}
+/* min-width: 0 is load-bearing. A grid track sized in fr still refuses to go
+   below its content's min-content width, and a 60px expanded headline has a
+   very wide longest word — without this the left column quietly eats the
+   right one and the console ends up half the size it was given. */
+.hero-grid > * { min-width: 0; }
+
+@media (min-width: 980px) {
+  .hero-grid { grid-template-columns: 1.02fr 1fr; gap: 52px; }
+  .hero { padding: 84px 0 76px; }
+  /* Half the width means half the headline. At the full-bleed size the column
+     fits two or three words a line and the first line is a lone article. */
+  .hero-grid h1 { font-size: clamp(32px, 3.5vw, 45px); max-width: none; }
+  .hero-grid .lede { font-size: 17px; }
+}
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 5px 13px 5px 9px; margin-bottom: 26px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--raise);
+  font-size: 13px; color: var(--ink);
+}
+.eyebrow .dot {
+  width: 7px; height: 7px; border-radius: 2px; background: var(--drive);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--drive) 60%, transparent);
+  flex: none;
+}
+
+h1 {
+  font-family: var(--display); font-weight: 800; color: var(--head);
+  font-stretch: 125%;
+  font-size: clamp(36px, 5.6vw, 60px); line-height: 1.02;
+  letter-spacing: -.035em; max-width: 14ch;
+}
+h1 .accent { color: var(--drive); }
+
+.lede {
+  margin-top: 22px; max-width: 60ch;
+  font-size: clamp(17px, 2vw, 19px); line-height: 1.6;
+}
+.lede strong { color: var(--head); font-weight: 600; }
+
+.cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+
+.hero-note { margin-top: 18px; font-size: 13.5px; color: var(--faint); }
+.hero-note code {
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink);
+  background: var(--raise); border: 1px solid var(--line-soft);
+  padding: 2px 6px; border-radius: 4px;
+}
+
+/* --- the shared console: this page's one signature ------------------------
+ *
+ * The hero's job is to show the thing the product actually is — a person and an
+ * agent on the same screen, taking turns — rather than assert it in a headline
+ * and prove it with four big numbers.
+ *
+ * Every device here is borrowed from the product's own control rail rather than
+ * invented for the web: the 3px signature strip down the left edge, the SOLID
+ * chip for "you are driving" against the diagonally HATCHED one for "somebody
+ * else is", and the violet that means the somebody else is not a person. Anyone
+ * who has used the desktop recognises the vocabulary; anyone who has not learns
+ * it here, before they install anything.
+ *
+ * It is a loop, not a live session, and the caption says so. A fake live demo
+ * would be the one dishonest thing on the page.
+ *
+ * Control state is carried by SHAPE and TEXT, never by colour alone — the same
+ * rule the client follows, for the same reason.
+ */
+
+.console { --loop: 16s; background: none; border: 0; padding: 0; overflow: visible; }
+@media (max-width: 979px) { .console { margin-top: 4px; } }
+
+.console-frame {
+  position: relative; display: flex;
+  border: 1px solid var(--line); border-radius: 12px;
+  background: var(--raise); overflow: hidden;
+  box-shadow: 0 26px 64px -34px rgba(0,0,0,.95);
+}
+
+/* The control signature: 3px, the full height of the frame. */
+.rail { position: relative; width: 3px; flex: none; }
+.rail::before, .rail::after { content: ""; position: absolute; inset: 0; }
+.rail::before {
+  background: var(--drive);
+  box-shadow: 0 0 12px var(--drive);
+  animation: rail-you var(--loop) infinite;
+}
+.rail::after {
+  background: repeating-linear-gradient(180deg,
+              var(--agent) 0 6px, transparent 6px 12px);
+  opacity: 0;
+  animation: rail-agent var(--loop) infinite;
+}
+
+.screen {
+  position: relative; flex: 1; aspect-ratio: 16 / 9; overflow: hidden;
+  background: #090C0B;
+}
+
+/* The desktop's actual wallpaper, so the miniature is showing the real thing
+   rather than a stand-in. wallpaper/sentineldesk-wallpaper-1.png resized to
+   1000px and re-encoded as WebP: the original is 2.8 MB, which is ten times the
+   weight of this entire site, and the frame never renders wider than ~475 CSS
+   pixels.
+   
+   Dimmed and desaturated on purpose, not to be subtle. The artwork runs to
+   saturated violet on its right side, which is exactly the colour that means
+   "the agent is driving" — at full strength the agent's pointer disappears into
+   the sky behind it. The control vocabulary has to stay the most legible thing
+   in the frame; the wallpaper is context, not content. */
+.screen::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(125% 105% at 50% 6%,
+      rgba(9,12,11,.34) 0%, rgba(9,12,11,.90) 84%),
+    url('desktop-wallpaper.webp') center / cover no-repeat;
+  filter: saturate(.6);
+}
+
+/* Schematic windows, not a screenshot. A real capture would date instantly and
+   weigh more than everything else on the page put together. */
+.panel {
+  position: absolute; left: 0; right: 0; top: 0; height: 8.5%;
+  background: #121716; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; gap: 5px; padding: 0 7px;
+}
+.panel i { width: 13px; height: 5px; border-radius: 2px; background: rgba(255,255,255,.13); }
+.panel i:first-child { width: 5px; background: color-mix(in srgb, var(--drive) 60%, transparent); }
+.panel .spacer { flex: 1; }
+.panel u {
+  display: block; width: 22px; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.10); text-decoration: none;
+}
+
+.win {
+  position: absolute; border: 1px solid var(--line);
+  border-radius: 5px; background: #0E1211; overflow: hidden;
+}
+.win-bar {
+  height: 15px; background: #171C1A; border-bottom: 1px solid var(--line-soft);
+  display: flex; align-items: center; gap: 3px; padding: 0 6px;
+}
+.win-bar i { width: 4px; height: 4px; border-radius: 50%; background: var(--faint); }
+.win-body { padding: 8px; display: flex; flex-direction: column; gap: 5px; }
+.win-body u {
+  display: block; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,.10); text-decoration: none;
+}
+.win-body u.on { background: color-mix(in srgb, var(--drive) 45%, transparent); }
+
+.win-a { left: 5%;  top: 17%; width: 54%; }
+.win-b { left: 41%; top: 50%; width: 52%; }
+
+/* The caret only blinks while the agent is at the controls: it is the visible
+   consequence of the turn having changed, not ambient decoration. */
+.caret {
+  position: absolute; left: 46%; top: 72%; width: 6px; height: 9px;
+  background: var(--agent); opacity: 0;
+  animation: caret-window var(--loop) infinite;
+}
+
+/* --- pointers ---
+ * Named, in their owner's colour. In the product these are real X windows, so
+ * they show up in recordings and in everyone else's stream; here they are the
+ * cheapest honest way to show that two parties share one surface. */
+.ptr {
+  position: absolute; display: flex; align-items: flex-start; gap: 5px;
+  pointer-events: none; will-change: left, top;
+}
+/* A dark ring under both the arrow and the label. In the real product the
+   wallpaper rotates every five minutes, so a pointer that is only legible
+   against one particular background is a pointer that disappears on the next
+   one. This holds over anything. */
+.ptr svg { width: 16px; height: 16px; flex: none;
+           filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.85)); }
+.ptr span {
+  font-family: var(--display); font-size: 9.5px; font-weight: 700;
+  font-stretch: 105%; letter-spacing: .07em; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px; white-space: nowrap; line-height: 1.5;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.5);
+}
+.ptr-you { left: 30%; top: 74%; animation: ptr-you var(--loop) infinite; }
+.ptr-you svg { fill: var(--drive); }
+.ptr-you span { background: var(--drive); color: var(--drive-ink); }
+.ptr-agent { left: 72%; top: 30%; animation: ptr-agent var(--loop) infinite; }
+.ptr-agent svg { fill: var(--agent); }
+.ptr-agent span { background: var(--agent); color: var(--agent-ink); }
+
+/* --- the state bar under the frame --- */
+
+.console-bar {
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 9px; margin-top: 14px;
+}
+
+.chip-stack { position: relative; height: 28px; align-self: stretch; }
+.chip {
+  position: absolute; left: 0; top: 0; display: inline-flex; align-items: center;
+  gap: 7px; height: 28px; padding: 0 11px; border-radius: 6px;
+  font-family: var(--display); font-size: 10.5px; font-weight: 700;
+  font-stretch: 105%; letter-spacing: .08em; text-transform: uppercase;
+  white-space: nowrap; opacity: 0;
+}
+.chip b { width: 7px; height: 7px; border-radius: 2px; flex: none; }
+
+/* Solid: you are driving. */
+.chip-you {
+  background: var(--drive); color: var(--drive-ink); opacity: 1;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--drive) 32%, transparent);
+  animation: chip-you var(--loop) infinite;
+}
+.chip-you b { background: var(--drive-ink); }
+
+/* Hatched: somebody else. Amber while the question is open… */
+.chip-ask {
+  border: 1px solid var(--watch); color: var(--watch);
+  background: repeating-linear-gradient(135deg,
+              color-mix(in srgb, var(--watch) 15%, transparent) 0 5px,
+              transparent 5px 11px);
+  animation: chip-ask var(--loop) infinite;
+}
+.chip-ask b { background: var(--watch); }
+
+/* …violet once the somebody else turns out to be the agent. */
+.chip-agent {
+  border: 1px solid var(--agent); color: var(--agent);
+  background: repeating-linear-gradient(135deg,
+              color-mix(in srgb, var(--agent) 15%, transparent) 0 5px,
+              transparent 5px 11px);
+  animation: chip-agent var(--loop) infinite;
+}
+.chip-agent b { background: var(--agent); }
+
+/* The readout: the numbers that survived, as instrument labelling rather than
+   as four big figures. "1 encode → 4 viewers" says what a pair of numbers
+   sitting side by side could not. */
+.readout {
+  font-family: var(--mono); font-size: 11.5px; letter-spacing: .03em;
+  color: var(--faint); line-height: 1.7;
+}
+.readout em { font-style: normal; color: var(--ink); }
+
+.console figcaption {
+  margin-top: 12px; font-size: 12.5px; color: var(--faint); max-width: 62ch;
+}
+
+@media (max-width: 640px) {
+  .ptr span { font-size: 8px; padding: 1px 4px; }
+  .readout { font-size: 10.5px; }
+}
+
+/* --- the loop ---
+ * One timeline, four beats: you drive · the agent asks · the agent drives ·
+ * control comes back. Percentages are shared across every animation below, so
+ * the rail, the chips, the caret and both pointers stay in step. */
+
+/* Hard cuts, not cross-fades. Two reasons, and the second is the real one:
+   the chips are stacked at the same origin and are different widths, so a fade
+   lets the wider one show its tail from behind the narrower one — it reads as a
+   glitch. And a change of control is discrete. You either hold it or you do
+   not; there is no frame in which you half-hold it, so there should be no frame
+   in which the page says you do. */
+@keyframes rail-you   { 0%,52.9% { opacity: 1 } 53%,89.9% { opacity: 0 } 90%,100% { opacity: 1 } }
+@keyframes rail-agent { 0%,52.9% { opacity: 0 } 53%,89.9% { opacity: 1 } 90%,100% { opacity: 0 } }
+
+@keyframes chip-you   { 0%,42.9% { opacity: 1 } 43%,89.9% { opacity: 0 } 90%,100% { opacity: 1 } }
+@keyframes chip-ask   { 0%,42.9% { opacity: 0 } 43%,52.9% { opacity: 1 } 53%,100% { opacity: 0 } }
+@keyframes chip-agent { 0%,52.9% { opacity: 0 } 53%,89.9% { opacity: 1 } 90%,100% { opacity: 0 } }
+
+@keyframes caret-window {
+  0%,56% { opacity: 0 }
+  60% { opacity: 1 } 63% { opacity: 0 } 66% { opacity: 1 } 69% { opacity: 0 }
+  72% { opacity: 1 } 75% { opacity: 0 } 78% { opacity: 1 } 81% { opacity: 0 }
+  84% { opacity: 1 } 88%,100% { opacity: 0 }
+}
+
+@keyframes ptr-you {
+  0%   { left: 30%; top: 74% }
+  10%  { left: 44%; top: 34% }
+  20%  { left: 62%; top: 50% }
+  30%  { left: 36%; top: 62% }
+  40%, 100% { left: 28%; top: 76% }
+}
+
+@keyframes ptr-agent {
+  0%, 55% { left: 72%; top: 30% }
+  63% { left: 54%; top: 62% }
+  72% { left: 30%; top: 40% }
+  81% { left: 60%; top: 48% }
+  89%, 100% { left: 72%; top: 30% }
+}
+
+/* Reduced motion: the loop stops and the frame settles into its opening beat —
+ * both pointers present, control with the person. Every base rule above already
+ * describes that state, so switching the animations off is the whole fix. */
+@media (prefers-reduced-motion: reduce) {
+  .rail::before, .rail::after, .caret,
+  .chip, .ptr { animation: none; }
+  .rail::after, .caret, .chip-ask, .chip-agent { opacity: 0; }
+  .rail::before, .chip-you { opacity: 1; }
+}
+
+/* --- sections ------------------------------------------------------------- */
+
+section { padding: 72px 0; }
+section + section { border-top: 1px solid var(--line-soft); }
+
+.sec-head { max-width: var(--measure); margin-bottom: 38px; }
+.kicker {
+  font-family: var(--display); font-size: 11.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--drive); font-weight: 700;
+  font-stretch: 105%; margin-bottom: 13px;
+}
+h2 {
+  font-family: var(--display); font-weight: 700; color: var(--head);
+  font-stretch: 115%;
+  font-size: clamp(25px, 3.2vw, 33px); line-height: 1.15; letter-spacing: -.025em;
+}
+h3 {
+  font-family: var(--display); font-weight: 700; color: var(--head);
+  font-stretch: 108%;
+  font-size: 18.5px; line-height: 1.25; letter-spacing: -.015em;
+}
+.sec-head p { margin-top: 14px; }
+
+/* --- cards ---------------------------------------------------------------- */
+
+.grid { display: grid; gap: 16px; }
+.grid.c2 { grid-template-columns: repeat(2, 1fr); }
+.grid.c3 { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 900px) { .grid.c3 { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) {
+  .grid.c2, .grid.c3 { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--raise); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); padding: 24px;
+  transition: border-color .15s ease, transform .15s ease;
+}
+.card:hover { border-color: var(--line); }
+@media (prefers-reduced-motion: no-preference) {
+  .card:hover { transform: translateY(-2px); }
+}
+.card .ic {
+  width: 34px; height: 34px; border-radius: 8px; margin-bottom: 16px;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--drive) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--drive) 22%, transparent);
+}
+.card .ic svg {
+  width: 17px; height: 17px; fill: none; stroke: var(--drive);
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.card h3 { margin-bottom: 9px; }
+.card p { font-size: 14.7px; }
+
+/* A card that carries a different meaning gets a different accent, so the two
+   are told apart by hue as well as by wording. */
+.card.watch .ic {
+  background: color-mix(in srgb, var(--watch) 12%, transparent);
+  border-color: color-mix(in srgb, var(--watch) 22%, transparent);
+}
+.card.watch .ic svg { stroke: var(--watch); }
+
+/* --- split (text beside a figure) ----------------------------------------- */
+
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+.split > *, .grid > * { min-width: 0; }
+.split pre, .prose pre { min-width: 0; max-width: 100%; }
+@media (max-width: 880px) { .split { grid-template-columns: 1fr; gap: 30px; } }
+
+figure {
+  background: var(--raise); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); padding: 12px; overflow: hidden;
+}
+figure img { display: block; border-radius: 6px; }
+figcaption { margin-top: 12px; font-size: 13px; color: var(--faint); padding: 0 4px 4px; }
+
+/* --- prose ---------------------------------------------------------------- */
+
+.prose { max-width: var(--measure); }
+.prose > * + * { margin-top: 18px; }
+.prose h2 { margin-top: 46px; }
+.prose h3 { margin-top: 34px; }
+.prose strong { color: var(--head); font-weight: 600; }
+.prose a { color: var(--drive); text-decoration: none; border-bottom: 1px solid color-mix(in srgb, var(--drive) 35%, transparent); }
+.prose a:hover { border-bottom-color: var(--drive); }
+.prose ul, .prose ol { padding-left: 22px; }
+.prose li + li { margin-top: 8px; }
+.prose li::marker { color: var(--faint); }
+
+/* --- code ----------------------------------------------------------------- */
+
+code { font-family: var(--mono); font-size: .89em; }
+
+p code, li code, td code {
+  background: var(--raise); border: 1px solid var(--line-soft);
+  padding: 1.5px 5px; border-radius: 4px; color: var(--head);
+  white-space: nowrap;
+}
+
+/* nowrap is right on a wide screen — it stops a flag like -mcp-stdio being
+   split across two lines. On a narrow one it is what pushes a long run such as
+   a full version string past the edge of the viewport, so below this width
+   breaking inside the token wins over overflowing the page. */
+@media (max-width: 700px) {
+  p code, li code, td code { white-space: normal; overflow-wrap: anywhere; }
+}
+
+pre {
+  background: var(--raise); border: 1px solid var(--line-soft);
+  border-radius: var(--radius); padding: 16px 18px;
+  /* The one place sideways scrolling is allowed: inside the block, never on
+     the page. A wrapped shell command is a command that cannot be copied. */
+  overflow-x: auto;
+  font-size: 13.5px; line-height: 1.6;
+}
+pre code { color: var(--head); white-space: pre; }
+pre .c { color: var(--faint); }      /* comment */
+pre .p { color: var(--drive); }      /* prompt / emphasis */
+
+/* --- tables --------------------------------------------------------------- */
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line-soft); border-radius: var(--radius); }
+table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+th, td { text-align: left; padding: 11px 15px; border-bottom: 1px solid var(--line-soft); }
+th { color: var(--head); font-weight: 600; background: var(--raise); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+
+/* --- callout -------------------------------------------------------------- */
+
+.note {
+  border-left: 2px solid var(--drive);
+  background: color-mix(in srgb, var(--drive) 6%, transparent);
+  padding: 15px 18px; border-radius: 0 8px 8px 0; font-size: 14.7px;
+}
+.note.warn {
+  border-left-color: var(--watch);
+  background: color-mix(in srgb, var(--watch) 7%, transparent);
+}
+.note b { color: var(--head); }
+
+/* --- steps ---------------------------------------------------------------- */
+
+.steps { list-style: none; counter-reset: step; padding: 0; }
+.steps > li {
+  counter-increment: step; position: relative;
+  padding-left: 46px; padding-bottom: 30px;
+}
+.steps > li::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--raise); border: 1px solid var(--line);
+  color: var(--drive); font-size: 13px; font-weight: 700; font-family: var(--sans);
+}
+/* The connecting rail, stopping at the last item so it does not dangle. */
+.steps > li:not(:last-child)::after {
+  content: ""; position: absolute; left: 13.5px; top: 32px; bottom: 6px;
+  width: 1px; background: var(--line-soft);
+}
+.steps > li > * + * { margin-top: 12px; }
+.steps h3 { margin: 0; }
+
+/* --- final call ----------------------------------------------------------- */
+
+.final { text-align: center; padding: 84px 0; }
+.final h2 { margin: 0 auto; max-width: 20ch; }
+.final p { margin: 16px auto 0; max-width: 54ch; }
+.final .cta { justify-content: center; }
+
+/* --- footer --------------------------------------------------------------- */
+
+footer {
+  border-top: 1px solid var(--line-soft);
+  padding: 40px 0 56px; font-size: 13.5px; color: var(--faint);
+}
+footer .cols { display: flex; flex-wrap: wrap; gap: 30px; align-items: flex-start; }
+footer .cols > div:first-child { margin-right: auto; }
+footer a { color: var(--ink); text-decoration: none; }
+footer a:hover { color: var(--head); }
+footer nav { display: flex; flex-direction: column; gap: 9px; }
+footer .legal { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line-soft); max-width: var(--measure); }
+footer .legal p + p { margin-top: 9px; }

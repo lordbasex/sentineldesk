@@ -1,0 +1,353 @@
+<!doctype html>
+<!--
+ * SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+-->
+
+<!--
+  Architecture page, published with GitHub Pages at repository level:
+
+      https://lordbasex.github.io/sentineldesk/docs/arquitectura.html?lang=es
+
+  The filename is Spanish; the content is whatever ?lang= asks for, defaulting
+  to English. One page per topic, three languages, chosen at read time — the
+  same arrangement the desktop's own documentation uses.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — SentinelDesk</title>
+<meta name="page-key" content="arch.title">
+<meta name="description" content="How SentinelDesk works inside: two independent control planes, one capture shared by everyone, and the full path of the video and the audio.">
+
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='4' y='8' width='56' height='38' rx='6' fill='%233FD68C'/%3E%3Crect x='10' y='14' width='44' height='26' rx='2' fill='%230C0E0D'/%3E%3Crect x='22' y='50' width='20' height='4' rx='2' fill='%233FD68C'/%3E%3Crect x='16' y='54' width='32' height='4' rx='2' fill='%232AA96C'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="sentineldesk.css">
+</head>
+<body>
+
+<a class="skip" href="#main" data-i18n="nav.skip">Skip to content</a>
+
+<header>
+  <div class="wrap">
+    <a class="brand" href="index.html" aria-label="SentinelDesk">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+        <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+        <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+        <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+      </svg>
+      <span>SentinelDesk</span>
+    </a>
+    <nav aria-label="Main">
+      <a href="arquitectura.html" aria-current="page" data-i18n="nav.architecture">Architecture</a>
+      <a href="instalacion.html" data-i18n="nav.installation">Installation</a>
+      <a class="hide-sm" href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="nav.mcp">MCP</a>
+      <div class="langs" data-lang-switcher role="group" aria-label="Language"></div>
+      <a class="btn btn-primary btn-sm" href="instalacion.html" data-i18n="nav.start">Get started</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <div class="hero" style="padding:72px 0 44px">
+    <div class="wrap">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span> <span data-i18n="arch.eyebrow">Architecture</span></p>
+      <h1 style="font-size:clamp(34px,5vw,50px)" data-i18n="arch.h1">One desktop, two control planes</h1>
+      <p class="lede" data-i18n="arch.lede">
+        Everything else follows from that separation: people come in over a WebSocket,
+        the agent over a local Unix socket, and neither is a guest of the other.
+      </p>
+    </div>
+  </div>
+
+  <section style="padding-top:24px">
+    <div class="wrap">
+      <figure>
+        <img src="architecture.png" width="1672" height="941"
+             data-i18n-alt="arch.alt"
+             alt="SentinelDesk architecture diagram: the container's X display captured once by GStreamer, encoded and fanned out over WebRTC to several browsers, with the MCP control plane in parallel over a local Unix socket.">
+        <figcaption data-i18n-html="arch.cap">Capture, encode and fan-out, with the two control planes either side. <em>Note: the diagram is labelled 106 tools; the current catalogue has 114.</em></figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="prose">
+
+        <h2 id="desktop" data-i18n="arch.desktop.h2">The desktop</h2>
+        <p data-i18n-html="arch.desktop.p1">
+          <code>Xvfb :0</code> provides a virtual display with no physical monitor behind it.
+          <strong>Openbox</strong> manages window frames and nothing else — it does not draw the
+          desktop. That job belongs to <code>pcmanfm</code> in desktop mode, which owns the root
+          window and paints the wallpaper and icons, with <code>lxpanel</code> on top.
+        </p>
+        <p data-i18n-html="arch.desktop.p2">
+          Everything runs under <strong>supervisord</strong>, so any piece restarts on its own
+          without taking the rest down: <code>xvfb</code>, <code>pulseaudio</code>,
+          <code>dbus-session</code>, <code>at-spi</code>, <code>openbox</code>,
+          <code>pcmanfm-desktop</code>, <code>lxpanel</code> and <code>sentineldesk</code> itself.
+        </p>
+
+        <h2 id="video" data-i18n="arch.video.h2">The media path, outbound</h2>
+        <p data-i18n-html="arch.video.p1">
+          <code>ximagesrc</code> reads the framebuffer and hands it to GStreamer, which runs
+          <em>inside</em> the Go process through go-gst rather than as a separate
+          <code>gst-launch</code> child. That is what keeps the encoder reachable while it runs:
+          bitrate changes, keyframes on demand, and destinations attached and detached without
+          cutting anything.
+        </p>
+        <p data-i18n="arch.video.p2">
+          The encoder is chosen at startup by running a real probe pipeline for each candidate,
+          in order. The choice reflects what actually works on that host, not what the drivers
+          claim to support.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="arch.th.order">Order</th>
+                <th data-i18n="arch.th.enc">Encoder</th>
+                <th data-i18n="arch.th.hw">Hardware</th>
+                <th data-i18n="arch.th.codec">Codec</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>1</td><td><code>nvenc</code></td><td>NVIDIA (CUDA)</td><td>H.264</td></tr>
+              <tr><td>2</td><td><code>vaapi</code></td><td>Intel / AMD</td><td>H.264</td></tr>
+              <tr><td>3</td><td><code>h264</code> (x264)</td><td>—</td><td>H.264</td></tr>
+              <tr><td>4</td><td><code>vp8</code></td><td>—</td><td>VP8</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p data-i18n-html="arch.video.p3">
+          Encoded frames leave through an <code>appsink</code> and each RTP packet goes straight
+          onto the Pion track. On the H.264 encoders they also pass through a <code>tee</code>: in
+          the normal case nothing is attached to it, and that is where an external destination gets
+          a copy of the same picture the room is already receiving. Streaming to YouTube does not
+          mean encoding the screen a second time.
+        </p>
+
+        <div class="note">
+          <p data-i18n-html="arch.tee.note">
+            <b>Why the <code>tee</code> sits before <code>h264parse</code>.</b> Each branch parses
+            for itself: WebRTC wants byte-stream and FLV wants AVC. Asking one parser to produce
+            both deadlocks the negotiation. Parsing is nearly free — it reads headers, it does not
+            decode — so the duplication costs nothing next to a second encoder.
+          </p>
+        </div>
+
+        <h3 data-i18n="arch.audio.h3">Audio</h3>
+        <p data-i18n-html="arch.audio.p">
+          There is no sound card, so PulseAudio loads a <em>null sink</em> named
+          <code>sentineldesk</code>. Applications play into it and
+          <code>pulsesrc sentineldesk.monitor</code> captures what they played;
+          <code>opusenc</code> encodes it and a second <code>appsink</code> feeds the audio track.
+        </p>
+
+        <h2 id="microphone" data-i18n="arch.mic.h2">The way back: the microphone</h2>
+        <p data-i18n="arch.mic.p1">
+          The browser's microphone travels the other way, and the return path needs two
+          PulseAudio objects rather than one:
+        </p>
+
+<pre><code data-i18n="arch.mic.pre">incoming Opus track → appsrc → pulsesink device=sentineldesk_mic
+                             → null sink "sentineldesk_mic"
+                               → sentineldesk_mic.monitor
+                                 → module-remap-source "sentineldesk_mic_in"</code></pre>
+
+        <p data-i18n-html="arch.mic.p2">
+          The <em>remap</em> is not decoration. A monitor is how PulseAudio exposes "what a sink is
+          playing", and applications treat it as such: browsers list monitors separately from real
+          inputs, or hide them from the microphone picker altogether. Remapped, the same audio
+          presents as an ordinary capture device — and it is made the system default.
+        </p>
+        <p data-i18n-html="arch.mic.p3">
+          Both objects are created <strong>at startup</strong>, not on first use. A page enumerates
+          its audio devices when it loads, so a microphone that appears later is missing from the
+          list of the very page that wanted it.
+        </p>
+
+        <h2 id="human-plane" data-i18n="arch.human.h2">Control plane 1 — people, over WebSocket</h2>
+        <p data-i18n-html="arch.human.p1">
+          <code>WS /ws</code> is <strong>the only door</strong>. The first frame must be
+          <code>{type:"auth"}</code>; until it validates there is no SDP offer, no ICE, no
+          DataChannel. After authentication the same socket carries signalling and presence.
+        </p>
+        <p data-i18n-html="arch.human.p2">
+          <code>HTTP :8080</code> serves the client embedded with <code>go:embed</code> and the
+          file-manager endpoints, and holds <strong>no secrets</strong>: the ICE configuration and
+          TURN credentials travel over the already-authenticated WebSocket. The only informational
+          endpoint is <code>/auth</code>, which says nothing beyond whether a login is required.
+          <strong>There is no <code>/login</code> endpoint, by design</strong>: HTTP is not the
+          authentication gate.
+        </p>
+        <p data-i18n-html="arch.human.p3">
+          Keyboard and mouse arrive over a DataChannel named <code>input</code> and are injected
+          into X through XTEST. A browser gamepad becomes a virtual Xbox 360 pad through uinput,
+          where the host exposes <code>/dev/uinput</code>.
+        </p>
+
+        <h2 id="agent-plane" data-i18n="arch.agent.h2">Control plane 2 — the agent, over a local Unix socket</h2>
+        <p data-i18n-html="arch.agent.p1">
+          The MCP server listens on <code>/run/user/1000/sentineldesk-mcp.sock</code>, mode
+          <code>0600</code>, and exposes <strong>114 tools</strong>. The AI host spawns
+          <code>sentineldesk -mcp-stdio</code> with <code>docker exec</code>; that sub-command is a
+          thin JSON-RPC pipe between stdin/stdout and the socket. Killing the host never takes the
+          desktop down with it.
+        </p>
+        <p data-i18n-html="arch.agent.p2">
+          Two helper bridges cover what pixels cannot: <code>a11y.py</code> exposes the AT-SPI
+          accessibility tree (the <code>ui_*</code> tools, which invoke a button by name rather
+          than by coordinates) and Chromium runs with CDP on port 9222 (the <code>browser_*</code>
+          tools, which drive the real DOM).
+        </p>
+        <p data-i18n-html="arch.agent.p3">
+          What the agent may do is bounded by a three-level policy — <code>full</code>,
+          <code>safe</code>, <code>readonly</code> — plus a denylist and an allowlist. The daemon
+          sets the ceiling through the environment, and each connection can restrict itself further
+          but <strong>never widen</strong>.
+        </p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="arch.th.level">Level</th>
+                <th data-i18n="arch.th.allows">What it lets through</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>full</code></td><td data-i18n-html="arch.pol.full">Everything (the default)</td></tr>
+              <tr><td><code>safe</code></td><td data-i18n-html="arch.pol.safe">Everything except running code or touching the system; <code>as_root</code> is out</td></tr>
+              <tr><td><code>readonly</code></td><td data-i18n-html="arch.pol.readonly">Observation only: see the screen, read the tree, list things</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="room" data-i18n="arch.room.h2">The room, and one deliberate asymmetry</h2>
+        <p data-i18n-html="arch.room.p1">
+          Capture happens <strong>once</strong> and is fanned out to up to four participants
+          (<code>MAX_VIEWERS</code>), so a second viewer does not cost a second encoder. One person
+          drives at a time; the rest watch, and control is handed over cooperatively: everyone
+          arrived with the same credential, so there is no hierarchy to enforce.
+        </p>
+        <p data-i18n-html="arch.room.p2">
+          The shared encoder's bitrate is the <strong>minimum</strong> of what each network
+          estimates, because encoding for the best link would drop the worst one.
+        </p>
+        <p data-i18n-html="arch.room.p3">
+          Each participant's pointer is drawn as a <strong>real X window</strong>, not as an overlay
+          in each browser. That distinction matters: because the pointer is part of the desktop, it
+          appears in recordings, in screenshots and in every other viewer's stream, instead of
+          existing only in one browser's DOM.
+        </p>
+
+        <div class="note warn">
+          <p data-i18n-html="arch.asym">
+            <b>The asymmetry, stated plainly:</b> MCP tools do <strong>not</strong> go through the
+            room's control arbitration. They inject straight into XTEST, because the MCP arrives
+            over the daemon's local socket rather than over the web. Arbitration exists between
+            <em>browsers</em>. To stop an agent from touching anything, the instrument is its policy
+            (<code>-mcp-policy readonly</code>), not room control.
+          </p>
+        </div>
+
+        <h2 id="network" data-i18n="arch.net.h2">Networking</h2>
+        <p data-i18n-html="arch.net.p1">
+          On Linux with <code>network_mode: host</code>, ICE connects directly over UDP with nothing
+          in between — the fastest path. On macOS and Windows the Docker Desktop VM breaks direct
+          ICE, so <code>deploy/docker-compose.yml</code> includes <strong>coturn</strong> as a
+          relay. For clients behind strict corporate NAT, publish coturn in production too and pass
+          its URLs through <code>CLIENT_TURN_URLS</code>.
+        </p>
+        <p data-i18n-html="arch.net.p2">
+          If the server sits behind NAT and does not hold the public IP on its own interface, set
+          <code>NAT1TO1_IP=&lt;public IP&gt;</code> so ICE advertises the right address.
+        </p>
+
+        <h2 id="code" data-i18n="arch.code.h2">How the code is organised</h2>
+
+<pre><code data-i18n="arch.code.pre">cmd/sentineldesk/   wiring only: flags, HTTP, WebSocket, MCP socket
+internal/config/    environment configuration
+internal/desktop/   X11: input injection, cursor, clipboard, joystick, pointers
+internal/media/     GStreamer: pipelines, encoders, recording, upstream audio
+internal/stream/    sessions, the shared room, auth, rate limiting, TLS, files
+internal/mcp/       the MCP server and its 114 tools
+internal/webui/     the browser client, embedded with go:embed
+deploy/             Dockerfile, compose, desktop and supervisor config</code></pre>
+
+        <p data-i18n-html="arch.code.p">
+          The backend is <strong>a single Go binary</strong> (Pion WebRTC + go-gst). Because it uses
+          CGO to link GStreamer, it cannot be cross-compiled with a bare <code>GOOS</code>/<code>GOARCH</code>:
+          release binaries are built inside the Debian 13 Docker stage and extracted, so they are
+          byte-for-byte what the container runs.
+        </p>
+
+        <p style="margin-top:34px">
+          <a href="instalacion.html" data-i18n="arch.next">Continue with the installation →</a>
+        </p>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <a class="brand" href="index.html" aria-label="SentinelDesk">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect class="scr" x="4" y="8" width="56" height="38" rx="6"/>
+            <rect class="gls" x="10" y="14" width="44" height="26" rx="2"/>
+            <rect class="scr" x="22" y="50" width="20" height="4" rx="2"/>
+            <rect class="std" x="16" y="54" width="32" height="4" rx="2"/>
+          </svg>
+          <span>SentinelDesk</span>
+        </a>
+        <p style="margin-top:12px;max-width:34ch" data-i18n="brand.tagline">
+          A collaborative operating system for people and AI agents.
+        </p>
+        <div class="langs" data-lang-switcher role="group" aria-label="Language" style="margin-top:16px;display:inline-flex"></div>
+      </div>
+
+      <nav aria-label="Project">
+        <a href="index.html" data-i18n="foot.home">Home</a>
+        <a href="instalacion.html" data-i18n="foot.install">Installation</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="foot.mcp">MCP server</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp-tools-checklist.md" data-i18n="foot.checklist">Tool checklist</a>
+      </nav>
+
+      <nav aria-label="Source">
+        <a href="https://github.com/lordbasex/sentineldesk" data-i18n="foot.repo">Repository</a>
+        <a href="https://github.com/lordbasex/sentineldesk/releases" data-i18n="foot.releases">Releases</a>
+        <a href="https://github.com/lordbasex/sentineldesk/blob/main/LICENSE" data-i18n="foot.license">License</a>
+      </nav>
+    </div>
+
+    <div class="legal">
+      <p data-i18n="foot.copyright">Copyright 2026 Federico Pereira. Co-authored by Nicolas Pereira. Licensed under the Apache License, Version 2.0.</p>
+      <p data-i18n="foot.trademark">"SentinelDesk" and its logo are trademarks of Federico Pereira and are not covered by the code license. You may fork, modify and redistribute the code freely; you may not call the result SentinelDesk or use its branding without permission.</p>
+    </div>
+  </div>
+</footer>
+
+<script type="module" src="i18n.js"></script>
+</body>
+</html>

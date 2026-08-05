@@ -1,5 +1,10 @@
 # SentinelDesk — a collaborative operating system for people and AI agents
 
+**Project site: <https://lordbasex.github.io/sentineldesk/docs/index.html>** —
+this material laid out as a site, with the architecture and installation pages,
+in English, Spanish and Portuguese. Not to be confused with `/docs/` on a
+running instance, which is the desktop's own user guide.
+
 ![SentinelDesk architecture](docs/architecture.png)
 
 A complete Linux desktop running **inside a Docker container with no physical
