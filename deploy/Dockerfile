@@ -217,7 +217,10 @@ RUN chmod +x /usr/local/bin/desktop-init.sh /usr/local/bin/wallpaper-rotate.sh \
     # because rc.xml carries several <font> blocks and only these two draw a
     # window title.
     && python3 -c "import re; p='/etc/xdg/openbox/rc.xml'; s=open(p).read(); s=re.sub(r'(<font place=\"(?:Active|Inactive)Window\">.*?<name>)[^<]*(</name>.*?<size>)[^<]*(</size>.*?<weight>)[^<]*(</weight>)', r'\g<1>monospace\g<2>9\g<3>normal\g<4>', s, flags=re.S); open(p,'w').write(s)" \
-    && fc-cache -f >/dev/null
+    && fc-cache -f >/dev/null \
+    # The MIME-type -> application map. Built here rather than left to a package
+    # trigger, because --no-install-recommends means nothing else runs it.
+    && update-desktop-database /usr/share/applications
 
 # Defaults; override from docker-compose or -e
 ENV DISPLAY=:0 \

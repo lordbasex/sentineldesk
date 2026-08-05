@@ -148,6 +148,11 @@ cifs-utils                #  0.9 MB
 # pip, because a Python tool is a common answer to "can you also…".
 python3-pip               # 10.3 MB
 
+# update-desktop-database, which builds /usr/share/applications/mimeinfo.cache.
+# A Recommends of the desktop packages, so --no-install-recommends leaves it out
+# and the image ships without the cache that maps MIME types to applications.
+desktop-file-utils        #  0.1 MB
+
 # ── Localisation ──────────────────────────────────────────────────────────────
 # Read at start from TZ and KEYBOARD_LAYOUT, so one image serves every region.
 tzdata
