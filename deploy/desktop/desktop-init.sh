@@ -16,8 +16,22 @@
 # The image's user configuration. The home is a persistent volume, so this is
 # resynchronised on every start — otherwise an old copy would stay frozen there
 # and image updates would never reach an existing installation.
+#
+# That overwrite is only safe in a home the desktop owns. A native install can
+# be pointed at somebody's existing account, and there this would replace their
+# lxpanel, lxterminal and GTK settings with the defaults on every boot: not a
+# resync, a nightly reset of a machine they configured. DESKTOP_OWN_HOME says
+# which case this is — the installer sets it when it CREATED the account, and
+# leaves it unset when it was handed one.
+#
+# Unset, the copy still runs but with -n, so files that are not there yet are
+# filled in and files the person already has are left exactly alone.
 if [ -d /etc/skel.sentineldesk ]; then
-    cp -r /etc/skel.sentineldesk/. "$HOME/" 2>/dev/null || true
+    if [ "${DESKTOP_OWN_HOME:-1}" = 1 ]; then
+        cp -r /etc/skel.sentineldesk/. "$HOME/" 2>/dev/null || true
+    else
+        cp -rn /etc/skel.sentineldesk/. "$HOME/" 2>/dev/null || true
+    fi
 fi
 
 # --- Keyboard layout ---------------------------------------------------------

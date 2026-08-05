@@ -42,6 +42,10 @@ OPT=/opt/sentineldesk
 MODE=""
 WANT_VERSION=""
 LOCAL_BINARY=""
+# Native mode only. Empty means "create a dedicated sentineldesk account", which
+# is the default and the safer one — see install_native_mode for what changes
+# when this names an account that already exists.
+WANT_USER=""
 # lite is the default on purpose: it is the desktop plus the tools somebody
 # needs in it, and it is what most installations want. full adds LibreOffice,
 # Firefox, GIMP, Wireshark, a compiler and — on amd64 — Steam and Wine, at
@@ -60,6 +64,7 @@ while [ $# -gt 0 ]; do
     --install|install)  MODE="${MODE:-auto}" ;;
     --version) WANT_VERSION="$2"; shift ;;
     --binary)  LOCAL_BINARY="$2"; shift ;;
+    --user)    WANT_USER="$2"; shift ;;
     -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
@@ -297,12 +302,55 @@ install_native_mode() {
   # owns that directory for whoever really is uid 1000 and recreates it on their
   # every login. Sharing it would put PulseAudio and D-Bus in a directory another
   # process rearranges underneath them.
-  if ! id sentineldesk >/dev/null 2>&1; then
-    useradd -m -s /bin/bash sentineldesk
+  # --user names an account to run as instead. On a Raspberry Pi that is usually
+  # the point: it is your machine, and you want your files, your home and your
+  # desktop rather than a second one beside it.
+  #
+  # Two things follow from handing the desktop an account somebody already uses,
+  # and both are handled rather than hoped about:
+  #
+  #   OWN_HOME=0 stops desktop-init.sh overwriting their lxpanel, lxterminal and
+  #   GTK configuration on every boot. It fills in what is missing instead.
+  #
+  #   enable-linger, because systemd-logind creates /run/user/<uid> when that
+  #   person logs in and REMOVES it when their last session ends. Without
+  #   linger, closing your last ssh connection takes PulseAudio's socket, D-Bus
+  #   and the MCP socket with it, out from under a desktop that is still running.
+  #
+  # And one thing that cannot be handled, only stated: the desktop is reachable
+  # over the network and hands out a shell. Running it as your account means
+  # whoever reaches the desktop IS you, sudo and ssh keys included. That is why
+  # a dedicated user stays the default.
+  OWN_HOME=1
+  if [ -n "$WANT_USER" ]; then
+    DESKTOP_USER="$WANT_USER"
+    if id "$DESKTOP_USER" >/dev/null 2>&1; then
+      OWN_HOME=0
+      warn "running the desktop as the existing account '$DESKTOP_USER'."
+      warn "  anyone who reaches the desktop gets a shell as $DESKTOP_USER — its"
+      warn "  sudo rights and ssh keys included. Ctrl-C now to use a dedicated user."
+      sleep 5
+    else
+      useradd -m -s /bin/bash "$DESKTOP_USER"
+    fi
+  else
+    DESKTOP_USER=sentineldesk
+    id "$DESKTOP_USER" >/dev/null 2>&1 || useradd -m -s /bin/bash "$DESKTOP_USER"
   fi
-  SD_UID=$(id -u sentineldesk)
+
+  SD_UID=$(id -u "$DESKTOP_USER")
+  DESKTOP_HOME=$(getent passwd "$DESKTOP_USER" | cut -d: -f6)
+  [ -n "$DESKTOP_HOME" ] || die "could not resolve the home of '$DESKTOP_USER'"
   RUNTIME_DIR="/run/user/$SD_UID"
-  say "desktop user: sentineldesk (uid $SD_UID) · runtime dir $RUNTIME_DIR"
+  say "desktop user: $DESKTOP_USER (uid $SD_UID) · home $DESKTOP_HOME · runtime $RUNTIME_DIR"
+
+  # Only for an account that a person also logs into. For one we just created
+  # nobody ever logs in, so logind never touches the directory either way — but
+  # asking for linger costs nothing and makes the two cases behave alike.
+  if command -v loginctl >/dev/null 2>&1; then
+    loginctl enable-linger "$DESKTOP_USER" 2>/dev/null \
+      || warn "could not enable linger for $DESKTOP_USER; if the desktop loses audio after you log out, that is why"
+  fi
   usermod -aG video sentineldesk 2>/dev/null || true
   usermod -aG render sentineldesk 2>/dev/null || true
 
@@ -311,10 +359,62 @@ install_native_mode() {
   # Helper scripts land where the supervisor config already points.
   install -m 0755 "$D"/config/wait-x11.sh "$D"/config/wait-wm.sh \
                   "$D"/config/mkinput.sh /usr/local/bin/
-  install -m 0755 "$D"/desktop/desktop-init.sh /usr/local/bin/
-  for f in "$D"/desktop/vnc-connect "$D"/desktop/rdp-connect; do
-    [ -f "$f" ] && install -m 0755 "$f" /usr/local/bin/
+  install -m 0755 "$D"/desktop/desktop-init.sh "$D"/desktop/wallpaper-rotate.sh /usr/local/bin/
+  for f in vnc-connect rdp-connect sentineldesk-hint openvpn-connect; do
+    [ -f "$D/desktop/$f" ] && install -m 0755 "$D/desktop/$f" /usr/local/bin/
   done
+
+  # --- the desktop's own appearance and behaviour ------------------------------
+  #
+  # Everything below is what the Dockerfile puts on the system and this script
+  # did not, which made a native install a materially different product from the
+  # container rather than the same one without a runtime. wallpaper-rotate.sh
+  # above is the sharpest example: supervisord.conf lists it as a program, so
+  # its absence was a FATAL service on every native install, every boot.
+  #
+  # The rest was quieter and worse. No chromium-flags.conf means no
+  # --remote-debugging-port, which means all eight browser_* MCP tools fail on a
+  # native install and only there. No skel tree means no panel layout, no
+  # terminal profile and no GTK theme. No openbox theme means the window frames
+  # are Clearlooks.
+  install -D -m 0644 "$D"/desktop/openbox-themerc \
+                     /usr/share/themes/SentinelDesk/openbox-3/themerc
+  install -D -m 0644 "$D"/desktop/chromium-flags.conf /etc/chromium.d/90-sentineldesk
+  # GTK reads system settings from the XDG paths, not /etc/gtk-*
+  install -D -m 0644 "$D"/desktop/gtk-settings.ini /etc/xdg/gtk-3.0/settings.ini
+  install -D -m 0644 "$D"/desktop/gtk-settings.ini /etc/xdg/gtk-4.0/settings.ini
+  install -D -m 0644 "$D"/desktop/gtkrc-2.0        /etc/gtk-2.0/gtkrc
+
+  # Per-user configuration, staged where desktop-init.sh looks for it. It is
+  # copied into the home at every start — over the top when the desktop owns
+  # that home, and with -n when it was handed somebody's existing account.
+  install -D -m 0644 "$D"/desktop/lxpanel-panel \
+                     /etc/skel.sentineldesk/.config/lxpanel/LXDE/panels/panel
+  install -D -m 0644 "$D"/desktop/lxpanel-config \
+                     /etc/skel.sentineldesk/.config/lxpanel/LXDE/config
+  install -D -m 0644 "$D"/desktop/lxterminal.conf \
+                     /etc/skel.sentineldesk/.config/lxterminal/lxterminal.conf
+  install -D -m 0644 "$D"/desktop/gtk-settings.ini \
+                     /etc/skel.sentineldesk/.config/gtk-3.0/settings.ini
+  install -D -m 0644 "$D"/desktop/gtkrc-2.0 /etc/skel.sentineldesk/.gtkrc-2.0
+
+  # The fallback wallpaper, rendered at install time exactly as the image builds
+  # it, plus the directory wallpaper-rotate.sh reads. Without both, the desktop
+  # comes up on whatever pcmanfm defaults to.
+  mkdir -p /usr/share/backgrounds /wallpaper
+  rsvg-convert -w 1920 -h 1080 -o /usr/share/backgrounds/sentineldesk.png \
+               "$D"/desktop/wallpaper.svg 2>/dev/null \
+    || warn "could not render the fallback wallpaper (librsvg2-bin missing?)"
+
+  # Openbox: select the theme, and put title bars in the same monospace as the
+  # control layer. Matched by place because rc.xml carries several <font>
+  # blocks and only these two draw a window title.
+  if [ -f /etc/xdg/openbox/rc.xml ]; then
+    sed -i 's|<name>Clearlooks</name>|<name>SentinelDesk</name>|' /etc/xdg/openbox/rc.xml
+    python3 -c "import re; p='/etc/xdg/openbox/rc.xml'; s=open(p).read(); s=re.sub(r'(<font place=\"(?:Active|Inactive)Window\">.*?<name>)[^<]*(</name>.*?<size>)[^<]*(</size>.*?<weight>)[^<]*(</weight>)', r'\g<1>monospace\g<2>9\g<3>normal\g<4>', s, flags=re.S); open(p,'w').write(s)" \
+      2>/dev/null || true
+  fi
+  fc-cache -f >/dev/null 2>&1 || true
   install -m 0644 "$D"/config/supervisord.conf /etc/supervisor/sentineldesk.conf
   mkdir -p /etc/pulse
   install -m 0644 "$D"/config/pulse-daemon.pa /etc/pulse/sentineldesk.pa
@@ -340,11 +440,23 @@ VIDEO_BITRATE_KBPS=8000
 AUTH_USER=admin
 AUTH_PASS=$pass
 MCP_SOCK=$RUNTIME_DIR/sentineldesk-mcp.sock
-FILES_ROOT=/home/sentineldesk
+FILES_ROOT=$DESKTOP_HOME
 EOF
     chmod 600 /etc/sentineldesk/env
     say "credentials generated in /etc/sentineldesk/env (user admin, password $pass)"
   fi
+
+  # Who the desktop runs as, in a file of its own and rewritten on every
+  # install. Deliberately NOT in /etc/sentineldesk/env: that one is written once
+  # and then belongs to whoever operates the machine — resolution, bitrate,
+  # credentials, things they edit. This is identity, the installer owns it, and
+  # a reinstall onto a different account has to be able to correct it.
+  cat > /etc/sentineldesk/user <<EOF
+DESKTOP_USER=$DESKTOP_USER
+DESKTOP_HOME=$DESKTOP_HOME
+DESKTOP_OWN_HOME=$OWN_HOME
+EOF
+  chmod 644 /etc/sentineldesk/user
 
   # A host entrypoint, NOT the container's. The container one sets the root
   # password and rewrites /etc/machine-id — correct inside an image it owns,
@@ -369,14 +481,20 @@ if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
     exit 1
 fi
 
-# The XDG runtime directory, read by supervisord.conf as %(ENV_RUNTIME_DIR)s.
-# Derived here from the user's ACTUAL uid rather than baked in when the
-# installer wrote this file: if the account is ever recreated on a different
-# number, the session follows it instead of pointing at a stale path.
-RUNTIME_DIR="/run/user/$(id -u sentineldesk)"
+# Who the desktop runs as, and where. supervisord.conf reads all three as
+# %(ENV_…)s; without them it refuses to start and names the one it is missing.
+. /etc/sentineldesk/user
+export DESKTOP_USER DESKTOP_HOME DESKTOP_OWN_HOME
+
+# The uid is looked up here rather than baked in when the installer wrote this
+# file: if the account is ever recreated on a different number, the session
+# follows it instead of pointing at a stale path.
+RUNTIME_DIR="/run/user/$(id -u "$DESKTOP_USER")"
 export RUNTIME_DIR
 mkdir -p "$RUNTIME_DIR"
-chown sentineldesk:sentineldesk "$RUNTIME_DIR"
+# "$USER:" gives the user's own default group, which is not always a group of
+# the same name — an existing account may well have been put in another one.
+chown "$DESKTOP_USER:" "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR"
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 

@@ -38,14 +38,22 @@ if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
     exit 1
 fi
 
-# The XDG runtime directory. supervisord.conf reads it as %(ENV_RUNTIME_DIR)s
-# rather than carrying /run/user/1000 nine times, so that the native installer
-# can put the desktop on whatever uid is free — see the comment at the top of
-# that file. In the image the uid IS 1000, because the image owns its own users
+# Who the desktop runs as. supervisord.conf reads these as %(ENV_…)s rather
+# than carrying the literals ten times each, so that the native installer can
+# put the desktop on whatever account the machine has room for — see the comment
+# at the top of that file. In the image none of it varies: it owns its own users
 # and nobody else is in it.
+#
+# DESKTOP_OWN_HOME says this home belongs to the desktop and to nothing else,
+# which is what lets desktop-init.sh resynchronise its configuration into it on
+# every start. A native install onto somebody's existing account leaves it unset,
+# and that copy stops overwriting their files.
+export DESKTOP_USER="${DESKTOP_USER:-sentineldesk}"
+export DESKTOP_HOME="${DESKTOP_HOME:-/home/sentineldesk}"
 export RUNTIME_DIR="${RUNTIME_DIR:-/run/user/1000}"
+export DESKTOP_OWN_HOME="${DESKTOP_OWN_HOME:-1}"
 mkdir -p "$RUNTIME_DIR"
-chown sentineldesk:sentineldesk "$RUNTIME_DIR"
+chown "$DESKTOP_USER:$DESKTOP_USER" "$RUNTIME_DIR"
 chmod 700 "$RUNTIME_DIR"
 
 # Where lxpanel's stderr lands instead of the container log — see the comment on
