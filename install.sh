@@ -281,15 +281,28 @@ install_native_mode() {
   # start — "the pcmanfm.desktop is not valid desktop id of file manager".
   update-desktop-database /usr/share/applications 2>/dev/null || true
 
-  # uid 1000 is load-bearing: the supervisor config and the MCP socket path
-  # both say /run/user/1000. If 1000 is somebody else, stop rather than run
-  # the desktop as them.
+  # The desktop's own user, on whatever uid is free.
+  #
+  # This used to demand uid 1000 and refuse the install when it was taken, which
+  # in practice meant refusing on any machine with a person on it: useradd hands
+  # 1000 to the first real user on Debian, Ubuntu and Raspberry Pi OS alike, so
+  # native mode worked only on a box with nothing but root. Every Raspberry Pi
+  # was excluded by a number.
+  #
+  # What was actually load-bearing is the PATH, /run/user/1000, which the
+  # supervisor config now takes as %(ENV_RUNTIME_DIR)s. So the directory follows
+  # the uid, and the uid is whatever useradd picks.
+  #
+  # Not, to be clear, by pointing a second user at /run/user/1000: systemd-logind
+  # owns that directory for whoever really is uid 1000 and recreates it on their
+  # every login. Sharing it would put PulseAudio and D-Bus in a directory another
+  # process rearranges underneath them.
   if ! id sentineldesk >/dev/null 2>&1; then
-    if id -nu 1000 >/dev/null 2>&1; then
-      die "uid 1000 is taken by '$(id -nu 1000)'. The desktop's config expects sentineldesk at uid 1000; free it or install in Docker mode."
-    fi
-    useradd -m -u 1000 -s /bin/bash sentineldesk
+    useradd -m -s /bin/bash sentineldesk
   fi
+  SD_UID=$(id -u sentineldesk)
+  RUNTIME_DIR="/run/user/$SD_UID"
+  say "desktop user: sentineldesk (uid $SD_UID) · runtime dir $RUNTIME_DIR"
   usermod -aG video sentineldesk 2>/dev/null || true
   usermod -aG render sentineldesk 2>/dev/null || true
 
@@ -305,6 +318,13 @@ install_native_mode() {
   install -m 0644 "$D"/config/supervisord.conf /etc/supervisor/sentineldesk.conf
   mkdir -p /etc/pulse
   install -m 0644 "$D"/config/pulse-daemon.pa /etc/pulse/sentineldesk.pa
+  # PulseAudio's client-side default, so a process that did not inherit
+  # PULSE_SERVER from supervisord still finds the socket. The image gets this
+  # from the Dockerfile as a fixed path; here it has to be written, because the
+  # path follows whatever uid the desktop's user ended up on.
+  mkdir -p /etc/pulse/client.conf.d
+  printf 'default-server = unix:%s/pulse/native\n' "$RUNTIME_DIR" \
+    > /etc/pulse/client.conf.d/sentineldesk.conf
   install -m 0644 "$D"/desktop/shell-report.sh /etc/profile.d/99-sentineldesk-report.sh
 
   # Defaults, all overridable here and nowhere else.
@@ -319,7 +339,7 @@ ENCODER=auto
 VIDEO_BITRATE_KBPS=8000
 AUTH_USER=admin
 AUTH_PASS=$pass
-MCP_SOCK=/run/user/1000/sentineldesk-mcp.sock
+MCP_SOCK=$RUNTIME_DIR/sentineldesk-mcp.sock
 FILES_ROOT=/home/sentineldesk
 EOF
     chmod 600 /etc/sentineldesk/env
@@ -349,9 +369,15 @@ if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
     exit 1
 fi
 
-mkdir -p /run/user/1000
-chown sentineldesk:sentineldesk /run/user/1000
-chmod 700 /run/user/1000
+# The XDG runtime directory, read by supervisord.conf as %(ENV_RUNTIME_DIR)s.
+# Derived here from the user's ACTUAL uid rather than baked in when the
+# installer wrote this file: if the account is ever recreated on a different
+# number, the session follows it instead of pointing at a stale path.
+RUNTIME_DIR="/run/user/$(id -u sentineldesk)"
+export RUNTIME_DIR
+mkdir -p "$RUNTIME_DIR"
+chown sentineldesk:sentineldesk "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
 # lxpanel's stderr goes to a file here instead of the journal — see the comment

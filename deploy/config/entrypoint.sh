@@ -38,9 +38,15 @@ if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
     exit 1
 fi
 
-mkdir -p /run/user/1000
-chown sentineldesk:sentineldesk /run/user/1000
-chmod 700 /run/user/1000
+# The XDG runtime directory. supervisord.conf reads it as %(ENV_RUNTIME_DIR)s
+# rather than carrying /run/user/1000 nine times, so that the native installer
+# can put the desktop on whatever uid is free — see the comment at the top of
+# that file. In the image the uid IS 1000, because the image owns its own users
+# and nobody else is in it.
+export RUNTIME_DIR="${RUNTIME_DIR:-/run/user/1000}"
+mkdir -p "$RUNTIME_DIR"
+chown sentineldesk:sentineldesk "$RUNTIME_DIR"
+chmod 700 "$RUNTIME_DIR"
 
 # Where lxpanel's stderr lands instead of the container log — see the comment on
 # [program:lxpanel] in supervisord.conf for why it is the one exception. The
