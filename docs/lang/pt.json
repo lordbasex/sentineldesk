@@ -195,7 +195,7 @@
   "install.st4.p": "A ponte MCP por <code>docker exec</code>, com a política que você quiser dar a ele.",
   "install.back": "← Como funciona por dentro",
   "install.final.h2": "Instância pronta?",
-  "install.final.p": "O guia completo do desktop, em três idiomas, é servido pelo próprio desktop.",
+  "install.final.p": "O guia completo do desktop, em três idiomas: publicado aqui, e servido pelo próprio desktop numa instância rodando.",
   "install.final.cta1": "Ler a documentação",
   "install.final.cta2": "Ver o repositório"
 }
