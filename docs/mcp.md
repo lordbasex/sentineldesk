@@ -42,6 +42,22 @@ The bridge runs **inside the container**, so the AI host launches it with
 - `-u sentineldesk` runs as the socket's owner (uid 1000).
 - The container has to be named `sentineldesk` (or adjust the name).
 
+**On a native install the path is not `/run/user/1000`.** The installer puts the
+desktop's user on whatever uid is free — 1000 usually belongs to a person
+already — so the socket follows it. Read it rather than guessing:
+
+```bash
+grep MCP_SOCK /etc/sentineldesk/env     # e.g. /run/user/1001/sentineldesk-mcp.sock
+```
+
+There is no `docker exec` in front of it either; the bridge is the same binary
+run as the same user:
+
+```bash
+sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
+  -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
+```
+
 ## Available tools (114)
 
 **👁️ Seeing the screen**

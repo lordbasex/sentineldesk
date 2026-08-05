@@ -167,7 +167,9 @@ where the host exposes `/dev/uinput`.
 ### Control plane 2 — the AI agent, over a local Unix socket
 
 The MCP server listens on `/run/user/1000/sentineldesk-mcp.sock`, mode `0600`,
-and exposes **114 tools**. The AI host — Claude Code, Claude Desktop, or any
+and exposes **114 tools**. (In the container that path is fixed; a native
+install puts the desktop's user on whatever uid is free, so the socket follows
+it — `grep MCP_SOCK /etc/sentineldesk/env`.) The AI host — Claude Code, Claude Desktop, or any
 other agent — spawns `sentineldesk -mcp-stdio` with `docker exec`; that
 sub-command is a thin JSON-RPC pipe between stdin/stdout and the socket. Killing
 the AI host therefore never takes the desktop down with it.
