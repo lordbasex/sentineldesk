@@ -61,7 +61,7 @@ what this desktop is usually for.
 | Core | `chromium` `lxterminal` `zenity` `dbus-x11` `vlc` | VLC doubles as a way to test the upstream audio path |
 | Remote out | `tigervnc-viewer` `freerdp3-x11` | This desktop is often the jump host, not the destination |
 | Graphics | `libgl1-mesa-dri` `mesa-vulkan-drivers` `vulkan-tools` | `vulkaninfo` answers "am I on llvmpipe?" |
-| Utilities | `mousepad` `gpicview` `xarchiver` `galculator` `lxtask` `evince` `zathura` | |
+| Utilities | `mousepad` `gpicview` `xarchiver` `galculator` `lxtask` `evince` `zathura` `zathura-pdf-poppler` | |
 | Network | `nmap` `dnsutils` `iperf3` `tcpdump` `mtr-tiny` `traceroute` `socat` `whois` `sngrep` `net-tools` `iputils-ping` `ethtool` `openvpn` | |
 | Terminal | `git` `curl` `wget` `vim` `tmux` `less` `tree` `ncdu` `pv` `jq` `rsync` `unzip` `zip` `p7zip-full` | |
 | System | `bash-completion` `man-db` `psmisc` `usbutils` `strace` `ffmpeg` `scrot` `avahi-daemon` `ntfs-3g` `cifs-utils` `python3-pip` | |
@@ -92,7 +92,9 @@ general usefulness:
 | `wireshark` | 340 MB | `tcpdump` in lite covers *taking* a capture. This is for *reading* one. |
 | `build-essential` | 297 MB | Raspberry Pi OS puts this in its base, because a Pi is a machine people learn to program on. This is a desktop people work from. |
 | `gimp` | 276 MB | Lite views images; this edits them. |
+| `golang-go` | 246 MB | This project is written in Go, so the temptation is to call it a base tool. A quarter of a gigabyte for people who will never type `go` says otherwise: `git` is in lite because everybody clones something, a toolchain is not. |
 | `gdb` `python3-numpy` `meson` `geany` | 81 MB | Rounds out the build set. |
+| `hunspell-es` | small | Spell checking past `en_US`, which is all lite already carries. It follows LibreOffice rather than standing on its own. |
 
 ## Measured against Raspberry Pi OS
 
