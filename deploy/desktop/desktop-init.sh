@@ -42,6 +42,25 @@ if [ -n "$LAYOUT" ]; then
     fi
 fi
 
+# --- The XDG user directories ------------------------------------------------
+#
+# Debian creates these from xdg-user-dirs on a real first login, through PAM.
+# Nothing here logs in — supervisord starts the session directly — so the home
+# came up without them, and pcmanfm and lxpanel each said so on every boot:
+#
+#   The directory '~/Templates' doesn't exist, ignoring it
+#
+# Which is fair enough: "New file from template" is a right-click menu entry
+# with nowhere to read templates from. Creating the directories is both the fix
+# for the warning and the fix for the missing feature, and it costs eight empty
+# directories in a home that already persists.
+#
+# mkdir -p, so a home carried over from an older container keeps whatever the
+# person put in these, and one that already has them is left alone.
+for d in Desktop Documents Downloads Music Pictures Public Templates Videos; do
+    mkdir -p "$HOME/$d" 2>/dev/null || true
+done
+
 # Browser locks left by the previous container. The home persists but the
 # hostname changes, so Chromium and Firefox conclude the profile is open "on
 # another computer" and refuse to start.
