@@ -202,7 +202,7 @@ services:
       - WEBRTC_MAX_PORT=59049
       - CLIENT_STUN=stun:stun.l.google.com:19302
       # Read at start, so this one image serves every region. Edit and restart.
-      - TZ=\${TZ:-UTC}
+      - TZ=\${TZ:-America/Argentina/Buenos_Aires}
       - KEYBOARD_LAYOUT=\${KEYBOARD_LAYOUT:-us}
     ports:
       - "8080:8080"
@@ -274,6 +274,13 @@ install_native_mode() {
   apt-get install -y -qq --no-install-recommends \
     $(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' $lists)
 
+  # The MIME-type -> application map. desktop-file-utils arrives with the list
+  # above, but the cache it builds does not: with --no-install-recommends no
+  # package trigger runs, exactly as in the Dockerfile, which builds it by hand
+  # for the same reason. Without it lxpanel rejects the file manager on every
+  # start — "the pcmanfm.desktop is not valid desktop id of file manager".
+  update-desktop-database /usr/share/applications 2>/dev/null || true
+
   # uid 1000 is load-bearing: the supervisor config and the MCP socket path
   # both say /run/user/1000. If 1000 is somebody else, stop rather than run
   # the desktop as them.
@@ -325,10 +332,33 @@ EOF
   cat > /usr/local/bin/sentineldesk-session <<'EOF'
 #!/bin/bash
 set -e
+
+# Half a login is a typo, not a configuration — the same check the container's
+# entrypoint makes, for the same reason and with the same wording. Setting one
+# of AUTH_USER/AUTH_PASS and not the other used to mean "no authentication",
+# which is never what somebody who typed one of them wanted. Both empty stays
+# legal. Refusing here rather than in the binary matters because supervisord
+# restarts what it supervises: the server alone would refuse and be restarted
+# forever, while systemd reported the unit as running.
+if { [ -n "${AUTH_USER:-}" ] && [ -z "${AUTH_PASS:-}" ]; } \
+   || { [ -z "${AUTH_USER:-}" ] && [ -n "${AUTH_PASS:-}" ]; }; then
+    if [ -n "${AUTH_USER:-}" ]; then set_var=AUTH_USER; missing=AUTH_PASS
+    else set_var=AUTH_PASS; missing=AUTH_USER; fi
+    echo "sentineldesk: $set_var is set but $missing is empty: refusing to start with half a login." >&2
+    echo "sentineldesk: set both in /etc/sentineldesk/env, or neither for an open desktop." >&2
+    exit 1
+fi
+
 mkdir -p /run/user/1000
 chown sentineldesk:sentineldesk /run/user/1000
 chmod 700 /run/user/1000
 mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
+
+# lxpanel's stderr goes to a file here instead of the journal — see the comment
+# on [program:lxpanel] in supervisord.conf. supervisord refuses to start a
+# program whose logfile it cannot create, so without this directory the panel
+# never comes up at all.
+mkdir -p /var/log/sentineldesk
 rm -f /tmp/.X0-lock /tmp/.X11-unix/X0 2>/dev/null || true
 rm -f /tmp/supervisord.pid /tmp/supervisor.sock 2>/dev/null || true
 /usr/local/bin/mkinput.sh &
