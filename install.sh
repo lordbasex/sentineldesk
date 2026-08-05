@@ -173,6 +173,20 @@ EOF
     say "credentials generated in $OPT/.env (user admin, password $pass)"
   fi
 
+  # The gamepad needs /dev/uinput and the VPN needs /dev/net/tun, and they go in
+  # ONE list. They used to be two: the heredoc wrote /dev/net/tun and a sed added
+  # /dev/uinput afterwards as a SECOND `devices:` key. That is not an override —
+  # compose refuses a duplicate mapping key outright:
+  #
+  #   mapping key "devices" already defined at line 6
+  #
+  # So every host that has /dev/uinput, which is most of them, ended up with a
+  # compose file that would not parse and an install that died on its last step.
+  # The device is still only mapped where it exists, because compose also
+  # refuses to start when a mapped device is missing.
+  DEVICES='"/dev/net/tun"'
+  [ -e /dev/uinput ] && DEVICES="$DEVICES, \"/dev/uinput:/dev/uinput\""
+
   cat > "$OPT/docker-compose.yml" <<EOF
 name: sentineldesk
 services:
@@ -200,16 +214,13 @@ services:
     # Remove both on a machine that never dials one — NET_ADMIN lets the
     # container manage its own interfaces, routes and firewall.
     cap_add: [ "NET_ADMIN" ]
-    devices: [ "/dev/net/tun" ]
+    devices: [ $DEVICES ]
     shm_size: "2g"
     restart: unless-stopped
 volumes:
   sentineldesk-home:
     name: sentineldesk-home
 EOF
-  # The gamepad needs /dev/uinput; add the device only where it exists, because
-  # compose refuses to start when a mapped device is missing.
-  [ -e /dev/uinput ] && sed -i 's|    shm_size: "2g"|    devices: [ "/dev/uinput:/dev/uinput" ]\n    shm_size: "2g"|' "$OPT/docker-compose.yml"
 
   say "starting…"
   docker compose -p sentineldesk -f "$OPT/docker-compose.yml" --env-file "$OPT/.env" up -d
