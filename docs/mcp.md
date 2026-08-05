@@ -42,7 +42,7 @@ The bridge runs **inside the container**, so the AI host launches it with
 - `-u sentineldesk` runs as the socket's owner (uid 1000).
 - The container has to be named `sentineldesk` (or adjust the name).
 
-## Available tools (106)
+## Available tools (114)
 
 **👁️ Seeing the screen**
 
@@ -54,6 +54,43 @@ The bridge runs **inside the container**, so the AI host launches it with
 | `get_pixel_color` | RGB of one pixel — assert state without an image |
 | `read_screen_text` | **OCR**: the text on screen, or in a region |
 | `find_text` | **OCR**: screen coordinates of a string, ready to click |
+| `check_errors` | Every error dialog, alert and message box on screen, with its text and buttons |
+
+`check_errors` is there because a graphical program does not fail with an exit
+code — it puts a box on the screen. Call it after launching something, or
+whenever a step did not do what it was supposed to.
+
+**🌲 The accessibility tree** — structure instead of pixels
+
+| Tool | What it does |
+|---|---|
+| `ui_tree` | Every window and widget with its role, name, text, state, coordinates and available actions |
+| `ui_find` | Elements by role, name or text — returns a `ref` for each, plus coordinates |
+| `ui_click` | Invoke an element's action by `ref`. The pointer never moves, so it cannot miss and a partly covered window does not matter |
+| `ui_set_text` | Write into an editable field by `ref`, whatever has focus |
+| `ui_get_text` | Read an element's text or label, no OCR involved |
+| `ui_focus` | Give an element keyboard focus, so `type_text` lands where intended |
+| `ui_wait_for` | Wait until an element matching role/name/text exists — the honest alternative to guessing a `wait` |
+
+This is the family to reach for before `screenshot` when the job is to *operate*
+an application rather than to look at one. A screenshot has to be interpreted;
+the tree already says what each thing is and where it is.
+
+**🌐 The browser, through DevTools** — Chromium on port 9222
+
+| Tool | What it does |
+|---|---|
+| `browser_open` | Launch Chromium with the DevTools Protocol enabled, optionally at a URL. Reports it if already running |
+| `browser_tabs` | The open tabs, with title and URL |
+| `browser_goto` | Navigate the active tab and wait for the load to finish |
+| `browser_text` | The visible text of the page, or of one CSS selector — what replaces OCR for web content |
+| `browser_click` | Click by CSS selector: exact, no coordinates |
+| `browser_type` | Type into an input or textarea by selector, firing the events a real page expects |
+| `browser_wait_for` | Wait until a selector appears |
+| `browser_eval` | Run JavaScript in the page and return the result — the most capable of the set |
+
+These drive the real DOM. Where `ui_*` reads the desktop as an accessibility
+tree, this reads a page as a document, which is both smaller and exact.
 
 **🖱️ Mouse and ⌨️ keyboard**
 
@@ -126,6 +163,21 @@ persistent root terminal.
 
 This is for interactive programs `run_command` cannot handle: `sudo`, `vim`,
 `top`, installers that ask yes/no.
+
+**🖳 Terminal on the desktop** — the one a person can watch
+
+| Tool | What it does |
+|---|---|
+| `terminal_open` | Opens a terminal **window on the screen**, visible to everyone in the room |
+| `terminal_run` | Runs a command in it and reports the output and the exit status |
+| `terminal_read` | Reads what a terminal is showing right now, plus the last exit status — **including a command a person typed** |
+
+`shell_*` is private and headless; this is the same desktop everybody is looking
+at. Use it when the work should be witnessed, and `terminal_read` when somebody
+says "look at this error" — the agent reads what actually happened instead of
+being told about it second-hand. Every interactive shell in the image reports
+its exit status, which is what makes that possible; use `sudo -E su` rather than
+plain `sudo su` to carry it into a root shell.
 
 `terminal_run` waits for the shell prompt to come back, so it reports what the
 command printed AND its exit status. When the command ends the shell instead —
@@ -206,6 +258,14 @@ Now that capture lives in a **room**, the desktop takes several participants at
 once and **one of them drives**. That changes how it is worth working with the
 MCP: the agent and the person can be on the same desktop, seeing the same thing,
 and hand control back and forth without restarting anything.
+
+**🚪 The room**
+
+| Tool | What it does |
+|---|---|
+| `room_state` | Who is here, who holds control, and whether this connection may inject input |
+| `request_control` | Ask for the desktop. **The people watching decide**: a prompt appears on their screen and this waits for the answer. No answer means no. Granted immediately when nothing is driving |
+| `release_control` | Hand the controls back when the task is done, so nobody has to take them |
 
 **The agent is arbitrated like everybody else.** Every tool that reaches XTEST —
 mouse, keyboard, gamepad, `ui_click`, `fill_form`, `terminal_run` — goes through
