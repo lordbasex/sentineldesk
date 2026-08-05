@@ -486,9 +486,23 @@ func (s *Server) toolServiceControl(args map[string]any) ([]map[string]any, bool
 	if strings.ContainsAny(name, "'\"$`;&|<>()\n\\ ") {
 		return textContent("invalid service name: %q", name), true, true
 	}
-	// supervisord runs as root and its socket is 0700, so this needs sudo.
+	// The config lives at a different path depending on how this was installed:
+	// the image puts it at supervisord.conf, install.sh writes it as
+	// sentineldesk.conf so it sits beside whatever else the host supervises.
+	// Hardcoding the container's path meant this tool — one of the 114 — failed
+	// on every native install, pointing at a file that was not there.
+	//
+	// First readable wins, and the container's path is checked first because
+	// that is the common case. supervisord runs as root with a 0700 socket, so
+	// this needs sudo either way.
+	conf := "/etc/supervisor/supervisord.conf"
+	if _, err := os.Stat(conf); err != nil {
+		if _, err := os.Stat("/etc/supervisor/sentineldesk.conf"); err == nil {
+			conf = "/etc/supervisor/sentineldesk.conf"
+		}
+	}
 	res, err := s.runElevated(
-		fmt.Sprintf("supervisorctl -c /etc/supervisor/supervisord.conf %s %s", action, name),
+		fmt.Sprintf("supervisorctl -c %s %s %s", conf, action, name),
 		true, 60000)
 	if err != nil {
 		return textContent("service_control: %v", err), true, true
