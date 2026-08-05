@@ -123,3 +123,4 @@ recordings/
 
 # Local build-version state (each machine counts its own builds)
 version.txt
+CLAUDE.md
