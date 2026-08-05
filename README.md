@@ -473,11 +473,10 @@ at all; here the desktop *is* the product. Lite means the smallest set that
 leaves nobody reaching for `apt` on their first afternoon: the shell, a browser,
 an editor, an image and document viewer, and the network tools this desktop
 mostly exists to use — `nmap`, `dig`, `iperf3`, `tcpdump`, `mtr`, `sngrep`,
-OpenVPN. Plus `git` and Go, because the machine people work from should be able
-to build the thing it runs.
+OpenVPN. Plus `git`, because everybody clones something.
 
 **Full adds what is too large or too specialised to hand everybody**:
-LibreOffice, Firefox, GIMP, Wireshark, `build-essential`, and — on amd64 —
+LibreOffice, Firefox, GIMP, Wireshark, `build-essential`, Go, and — on amd64 —
 Steam and Wine.
 
 Full is built `FROM` lite, so **anything added to lite is in both**. The two
