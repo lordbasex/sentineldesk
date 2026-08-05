@@ -326,6 +326,18 @@ make down</code></pre>
     <tr><td><code>WALLPAPER</code></td><td>—</td><td>Fixa uma imagem e para a rotação</td></tr>
   </table>
 
+  <h3 id="config-region">Relógio e teclado</h3>
+  <p>Os dois são lidos quando a área de trabalho inicia, então uma única imagem
+  serve para qualquer região e nenhum fica gravado dentro dela.</p>
+  <table>
+    <tr><th>Variável</th><th>Padrão</th><th>Descrição</th></tr>
+    <tr><td><code>TZ</code></td><td>UTC</td><td>Qualquer nome de tzdata — <code>America/Argentina/Buenos_Aires</code>, <code>Europe/Madrid</code></td></tr>
+    <tr><td><code>KEYBOARD_LAYOUT</code></td><td>us</td><td>Um código de layout do X: <code>us</code>, <code>es</code> (Espanha), <code>latam</code>, <code>pt</code>, <code>fr</code>, <code>de</code>…</td></tr>
+    <tr><td><code>KEYBOARD_VARIANT</code></td><td>—</td><td>Uma variante opcional desse layout, repassada sem alteração</td></tr>
+  </table>
+  <p>Um valor escrito errado é reportado e ignorado em vez de aplicado pela
+  metade — veja <a href="#whats-installed-region">relógio e teclado</a>.</p>
+
   <h3 id="config-session">Sessão e acesso</h3>
   <table>
     <tr><th>Variável</th><th>Padrão</th><th>Descrição</th></tr>

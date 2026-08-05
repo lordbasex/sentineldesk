@@ -315,6 +315,18 @@ make down</code></pre>
     <tr><td><code>WALLPAPER</code></td><td>—</td><td>Pin one image and stop the rotation</td></tr>
   </table>
 
+  <h3 id="config-region">Clock and keyboard</h3>
+  <p>Both are read when the desktop starts, so one image serves every region and
+  neither is baked in.</p>
+  <table>
+    <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>TZ</code></td><td>UTC</td><td>Any tzdata name — <code>America/Argentina/Buenos_Aires</code>, <code>Europe/Madrid</code></td></tr>
+    <tr><td><code>KEYBOARD_LAYOUT</code></td><td>us</td><td>An X layout code: <code>us</code>, <code>es</code> (Spain), <code>latam</code>, <code>pt</code>, <code>fr</code>, <code>de</code>…</td></tr>
+    <tr><td><code>KEYBOARD_VARIANT</code></td><td>—</td><td>An optional variant of that layout, passed through untouched</td></tr>
+  </table>
+  <p>A value that is spelled wrong is reported and ignored rather than
+  half-applied — see <a href="#whats-installed-region">clock and keyboard</a>.</p>
+
   <h3 id="config-session">Session and access</h3>
   <table>
     <tr><th>Variable</th><th>Default</th><th>Description</th></tr>
