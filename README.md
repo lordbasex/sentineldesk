@@ -453,7 +453,7 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `WEBRTC_MIN_PORT` / `WEBRTC_MAX_PORT` | — | Fixed UDP range for ICE |
 | `CLIENT_STUN` | Google's STUN | STUN handed to the browser |
 | `CLIENT_TURN_URLS` + `TURN_USER`/`TURN_PASS` | — | TURN for the browser (NAT fallback) |
-| `TZ` | `UTC` | Timezone, any tzdata name (`America/Argentina/Buenos_Aires`) |
+| `TZ` | `America/Argentina/Buenos_Aires` | Timezone, any tzdata name (`Europe/Madrid`, `UTC`…) |
 | `KEYBOARD_LAYOUT` | `us` | X layout: `us`, `es` (Spain), `latam`, `pt`, `fr`, `de`… |
 | `KEYBOARD_VARIANT` | — | Optional layout variant, passed through untouched |
 | `MCP_POLICY`, `MCP_DENY`, `MCP_ALLOW` | `full` | The MCP permission ceiling — see [docs/mcp.md](docs/mcp.md) |

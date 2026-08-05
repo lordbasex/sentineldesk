@@ -46,7 +46,7 @@ services:
       # Clock and keyboard, read at start so one image serves every region.
       # TZ: a tzdata name (America/Argentina/Buenos_Aires, Europe/Madrid…).
       # KEYBOARD_LAYOUT: an X layout code — us, es (Spain), latam, pt, fr, de…
-      - TZ=${TZ:-UTC}
+      - TZ=${TZ:-America/Argentina/Buenos_Aires}
       - KEYBOARD_LAYOUT=${KEYBOARD_LAYOUT:-us}
       - KEYBOARD_VARIANT=${KEYBOARD_VARIANT:-}
     volumes:

@@ -60,14 +60,23 @@ chmod 1777 /tmp/.X11-unix
 #
 # An unknown name is reported and ignored rather than left half-applied — a
 # clock quietly running in UTC because of a typo is worse than one that says so.
-if [ -n "${TZ:-}" ]; then
-    if [ -f "/usr/share/zoneinfo/$TZ" ]; then
-        ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime
-        echo "$TZ" > /etc/timezone
-        echo "sentineldesk: timezone $TZ ($(date '+%Z %z'))"
-    else
-        echo "sentineldesk: unknown TZ '$TZ' — staying on $(cat /etc/timezone 2>/dev/null || echo UTC)" >&2
-    fi
+#
+# The default is Buenos Aires rather than UTC. UTC is the neutral choice and it
+# is the wrong one here: nobody lives in it, so a desktop that comes up on UTC
+# shows a clock that is wrong for whoever is looking at it, and the timestamps
+# in a terminal do not line up with the ones on the machine they came from. A
+# real place is a better default than a correct abstraction, and this is where
+# the project is maintained. Anywhere else sets TZ, which is one line.
+#
+# ${TZ:-…} covers unset AND set-to-empty, so `-e TZ=` gets the default too
+# rather than falling through to whatever the image was built with.
+TZ="${TZ:-America/Argentina/Buenos_Aires}"
+if [ -f "/usr/share/zoneinfo/$TZ" ]; then
+    ln -snf "/usr/share/zoneinfo/$TZ" /etc/localtime
+    echo "$TZ" > /etc/timezone
+    echo "sentineldesk: timezone $TZ ($(date '+%Z %z'))"
+else
+    echo "sentineldesk: unknown TZ '$TZ' — staying on $(cat /etc/timezone 2>/dev/null || echo UTC)" >&2
 fi
 
 # Leftovers from the previous start. `docker run` never has them, but `docker
