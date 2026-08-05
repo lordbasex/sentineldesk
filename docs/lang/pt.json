@@ -25,6 +25,8 @@
   "home.note": "Publicado aqui, em três idiomas. O botão <strong>Docs</strong> do desktop abre este mesmo guia.",
   "home.demo.you": "Você",
   "home.demo.agent": "Agente IA",
+  "home.demo.open": "Abrir a área de trabalho interativa em tela cheia",
+  "home.demo.open.hint": "Tela cheia",
   "home.demo.chip.you": "Você está conduzindo",
   "home.demo.chip.ask": "O agente pede o controle",
   "home.demo.chip.agent": "O agente está conduzindo",

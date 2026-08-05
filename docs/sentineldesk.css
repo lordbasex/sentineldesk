@@ -200,6 +200,26 @@ header nav a[aria-current="page"] {
 
 footer .langs { background: transparent; }
 
+/* --- the repository ---------------------------------------------------------
+ * A mark, not a word: it is the only destination in the row that every reader
+ * already knows by shape, and spelling it out would cost more room than the
+ * icon does. It takes the brand's green and the brand's glow, because it goes
+ * to the product rather than to another page of this site.
+ */
+
+.ghub {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; flex: none;
+  color: var(--drive);
+  transition: filter .15s ease, transform .06s ease;
+}
+.ghub svg {
+  width: 21px; height: 21px; fill: currentColor;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--drive) 45%, transparent));
+}
+.ghub:hover { filter: brightness(1.18); }
+.ghub:active { transform: translateY(1px); }
+
 /* --- buttons ------------------------------------------------------------------
  * Two weights. The filled one is the accent, glows, and wears the notch;
  * there is at most one of it in view at a time.
@@ -353,6 +373,39 @@ h1 .accent {
     0 26px 64px -34px rgba(0,0,0,.95);
 }
 
+/* Pressing the frame opens the interactive desktop — the same thing the
+   rail's Fullscreen row does, reached from the thing it is a picture of.
+
+   Nothing here moves: the loop inside the frame is already the panel's motion,
+   and a hover lift would compete with it. What changes is the cyan, which is
+   this page's word for live. */
+.console-frame {
+  cursor: pointer;
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.console-frame:hover, .console-frame:focus-visible {
+  border-color: color-mix(in srgb, var(--cyan) 68%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(0,0,0,.5),
+    0 0 44px color-mix(in srgb, var(--cyan) 26%, transparent),
+    0 26px 64px -34px rgba(0,0,0,.95);
+}
+/* The focus ring is drawn inside rather than as an outline. Two reasons, and
+   the second is the real one: clip-path would cut the notched corner off an
+   outline, and an outline on the figure instead would enclose the state bar
+   and the caption — saying that the caption is part of the control, which it
+   is not. An inset ring follows the frame's own silhouette, notch included.
+
+   Absolutely positioned, so it is not a flex item in a flex container. */
+.console-frame:focus-visible { outline: none; }
+.console-frame::after {
+  content: ""; position: absolute; inset: 0; z-index: 4; pointer-events: none;
+  box-shadow: inset 0 0 0 2px var(--cyan);
+  opacity: 0;
+}
+.console-frame:focus-visible::after { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .console-frame { transition: none; } }
+
 /* The control signature: 3px, the full height of the frame. */
 .rail { position: relative; width: 3px; flex: none; }
 .rail::before, .rail::after { content: ""; position: absolute; inset: 0; }
@@ -383,6 +436,32 @@ h1 .accent {
       rgba(7,10,18,.12) 0%, rgba(7,10,18,.6) 90%),
     url('menu-wallpaper.webp') left center / cover no-repeat;
 }
+/* Says what pressing the frame does. Without it the panel is a picture that
+   turns out to react, which nobody discovers. It is always there, dim, and
+   only brightens — appearing on hover would hide it from every touch screen,
+   which is most of the traffic a landing page gets. pointer-events: none so
+   the whole frame stays one target. */
+.screen-open {
+  position: absolute; z-index: 3; right: 3.2%; bottom: 6%;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border-radius: 999px; pointer-events: none;
+  font-family: var(--mono); font-size: 8.5px; font-weight: 700;
+  letter-spacing: .06em; line-height: 1; white-space: nowrap;
+  color: color-mix(in srgb, var(--cyan) 78%, #E7EDEA);
+  background: rgba(7,10,18,.68);
+  border: 1px solid color-mix(in srgb, var(--cyan) 24%, transparent);
+  opacity: .74; transition: opacity .2s ease, border-color .2s ease;
+}
+.screen-open svg {
+  width: 9px; height: 9px; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round;
+}
+.console-frame:hover .screen-open,
+.console-frame:focus-visible .screen-open {
+  opacity: 1; border-color: color-mix(in srgb, var(--cyan) 58%, transparent);
+}
+@media (prefers-reduced-motion: reduce) { .screen-open { transition: none; } }
+
 /* Scanlines over the miniature: it is a streamed screen, and reads as one. */
 .screen::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;

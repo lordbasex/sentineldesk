@@ -26,6 +26,7 @@
  *   data-i18n-html="key"         same, but the value may contain markup
  *   data-i18n-title="key"        replaces the title attribute
  *   data-i18n-alt="key"          replaces the alt attribute
+ *   data-i18n-aria="key"         replaces the aria-label attribute
  *
  * Three differences from the in-container version, all forced by this being a
  * static site served from a path prefix:
@@ -88,6 +89,9 @@ export function apply(root = document) {
   });
   root.querySelectorAll('[data-i18n-alt]').forEach((el) => {
     el.alt = t(el.dataset.i18nAlt);
+  });
+  root.querySelectorAll('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria));
   });
 
   // The two things outside the body that still have to follow the language:

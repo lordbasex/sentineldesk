@@ -45,6 +45,16 @@ var BACK = {
   pt: '← Voltar ao site do projeto'
 };
 
+/* The three labels in the bar. A table in the same shape as the two above
+ * rather than a second translation mechanism — and the wording is copied from
+ * the site's own dictionaries, because the bar leads to those pages and a link
+ * that renames its destination is a link people distrust. */
+var NAV = {
+  en: { arch: 'Architecture', install: 'Installation', start: 'Get started' },
+  es: { arch: 'Arquitectura',  install: 'Instalación',  start: 'Empezar' },
+  pt: { arch: 'Arquitetura',   install: 'Instalação',   start: 'Começar' }
+};
+
 /* The two guides. Sections declare which one they belong to; this only names
    them, so adding a section is one attribute and nothing else. */
 var TRACKS = {
@@ -293,6 +303,11 @@ async function load(lang) {
   document.documentElement.lang = lang;
   document.getElementById('tagline').textContent = TAGLINE[lang] || TAGLINE.en;
   document.getElementById('back-link').textContent = BACK[lang] || BACK.en;
+
+  var nav = NAV[lang] || NAV.en;
+  document.getElementById('nav-arch').textContent = nav.arch;
+  document.getElementById('nav-install').textContent = nav.install;
+  document.getElementById('nav-start').textContent = nav.start;
 
   buildLangButtons();
   buildTOC();

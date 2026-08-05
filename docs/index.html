@@ -69,6 +69,14 @@
       <a href="arquitectura.html" data-i18n="nav.architecture">Architecture</a>
       <a href="instalacion.html" data-i18n="nav.installation">Installation</a>
       <a class="hide-sm" href="https://github.com/lordbasex/sentineldesk/blob/main/docs/mcp.md" data-i18n="nav.mcp">MCP</a>
+      <!-- The repository, as a mark rather than another word in the row: it is
+           the one destination here that everybody already recognises by shape.
+           Green like the brand, because it belongs to the product and not to
+           the page. -->
+      <a class="ghub" href="https://github.com/lordbasex/sentineldesk"
+         aria-label="GitHub" title="GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5C5.73.5.5 5.73.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56 0-.27-.01-1.01-.02-1.99-3.2.7-3.87-1.54-3.87-1.54-.53-1.34-1.29-1.69-1.29-1.69-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.11-.75.4-1.26.73-1.55-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.29 1.19-3.1-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.05 11.05 0 0 1 5.8 0c2.21-1.49 3.18-1.18 3.18-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.84 1.19 3.1 0 4.42-2.7 5.4-5.26 5.68.41.36.78 1.07.78 2.16 0 1.56-.01 2.82-.01 3.2 0 .31.21.68.8.56A11.51 11.51 0 0 0 23.5 12C23.5 5.73 18.27.5 12 .5z"/></svg>
+      </a>
       <div class="langs" data-lang-switcher role="group" aria-label="Language"></div>
       <a class="btn btn-primary btn-sm" href="instalacion.html" data-i18n="nav.start">Get started</a>
     </nav>
@@ -116,13 +124,20 @@
 
       </div>
 
-      <!-- The signature. The frame and the state bar are decorative in the
-           accessibility sense — the caption carries the whole meaning in
-           words instead, and it is translated like everything else. -->
+      <!-- The signature. Its insides are decorative in the accessibility
+           sense — the caption carries the whole meaning in words instead,
+           and it is translated like everything else.
+
+           The frame itself is not decorative: pressing it opens the
+           interactive desktop, exactly what the rail's Fullscreen row does.
+           So it takes the button role and a name, and aria-hidden moves down
+           onto the two children that really are only a picture of a desktop. -->
       <figure class="console">
-        <div class="console-frame" aria-hidden="true">
-          <div class="rail"></div>
-          <div class="screen">
+        <div class="console-frame" role="button" tabindex="0"
+             data-i18n-aria="home.demo.open"
+             aria-label="Open the interactive desktop, fullscreen">
+          <div class="rail" aria-hidden="true"></div>
+          <div class="screen" aria-hidden="true">
             <div class="panel">
               <i class="a1"></i><i class="a2"></i><i class="a3"></i><i class="a4"></i>
               <span class="spacer"></span><u class="tray"></u><b class="clock">00:31</b>
@@ -160,6 +175,15 @@
               <svg viewBox="0 0 12 17"><path d="M0 0l12 8.5-5.2.9L9 16l-2.2 1-2.9-6.1L0 14z"/></svg>
               <span data-i18n="home.demo.agent">AI agent</span>
             </div>
+
+            <!-- The affordance. Without it the frame is a picture that
+                 happens to react when pressed; with it, one quiet line says
+                 so. It sits still and only brightens, because the loop
+                 behind it is already the moving part of this panel. -->
+            <span class="screen-open">
+              <svg viewBox="0 0 12 12"><path d="M1 4.4V1h3.4M7.6 1H11v3.4M11 7.6V11H7.6M4.4 11H1V7.6"/></svg>
+              <span data-i18n="home.demo.open.hint">Open fullscreen</span>
+            </span>
           </div>
         </div>
 
@@ -991,6 +1015,13 @@ for (const w of document.querySelectorAll('.shots-wrap')) {
       wins.forEach(function (w) { notes.appendChild(w); });
     }
   }
+  // index.html#demo-fullscreen lands straight in the demo. It is the one part
+  // of this page worth sending somebody directly, and "scroll down and press
+  // the console" is not a link. Lowercased before comparing because this is a
+  // URL people type or paste, not one the page generates.
+  var DEMO_HASH = '#demo-fullscreen';
+  function atDemoHash() { return location.hash.toLowerCase() === DEMO_HASH; }
+
   function openDesk() {
     desk.hidden = false;
     dkRail(true);
@@ -1003,13 +1034,61 @@ for (const w of document.querySelectorAll('.shots-wrap')) {
   function closeDesk() {
     desk.hidden = true; dkStop(); dkRail(false);
     if (document.fullscreenElement) document.exitFullscreen().catch(function () {});
+    // Leaving #demo-fullscreen in the address bar would reopen the demo on the
+    // next reload and put a state the visitor has just dismissed one Back press
+    // away. replaceState rather than assigning location.hash, which would add a
+    // history entry of its own.
+    if (atDemoHash()) history.replaceState(null, '', location.pathname + location.search);
   }
+  // Leaving fullscreen by any route the page did not initiate — F11, the
+  // browser's own Escape — closes the desk. It calls closeDesk rather than
+  // repeating its body: exitFullscreen is already guarded on
+  // document.fullscreenElement, which is null by the time this branch runs.
   document.addEventListener('fullscreenchange', function () {
-    if (!document.fullscreenElement && !desk.hidden) { desk.hidden = true; dkStop(); dkRail(false); }
+    if (!document.fullscreenElement && !desk.hidden) closeDesk();
   });
   $('rlx-full').addEventListener('click', function () {
     if (desk.hidden) openDesk(); else closeDesk();
   });
+
+  // The hero console opens the same desktop. It is the picture of the thing,
+  // so pressing it should reach the thing — and it is a far larger target than
+  // a row in a simulated rail nobody has been told is real yet.
+  //
+  // openDesk rather than the toggle: while the desktop is up it covers the
+  // page, so a press here can only ever mean open. role="button" carries the
+  // semantics and the keys are wired by hand, which is the price of not using
+  // a real <button> — one would bring its own box model into a frame whose
+  // entire job is to look like a screen.
+  var cframe = document.querySelector('.console-frame');
+  if (cframe) {
+    cframe.addEventListener('click', function () {
+      if (desk.hidden) openDesk();
+    });
+    cframe.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' && e.key !== ' ' && e.key !== 'Spacebar') return;
+      e.preventDefault();   // Space would scroll the page out from under it
+      if (desk.hidden) openDesk();
+    });
+  }
+
+  // The deep link, on arrival and on every later change to the fragment — the
+  // second so an in-page link to #demo-fullscreen works, and so does pressing
+  // Back into it.
+  //
+  // Worth knowing which of the two goes truly fullscreen: on load the browser
+  // withholds user activation, so requestFullscreen is refused and the desktop
+  // opens as a full-page overlay — which is what it looks like in fullscreen
+  // anyway, so the link still does what it promises. Arriving by hashchange
+  // from a pressed link carries activation and does go fullscreen.
+  function openFromHash() {
+    if (!atDemoHash() || !desk.hidden) return;
+    openDesk();
+    $('dk-exit').focus();   // a keyboard arrival starts on the way out
+  }
+  window.addEventListener('hashchange', openFromHash);
+  openFromHash();
+
   // Window management: drag by the title bar, raise on press, close/minimise.
   function dkRaise(win) { win.parentNode.appendChild(win); }
   document.querySelectorAll('#rlx-desk .dk-win').forEach(function (win) {
@@ -1064,7 +1143,10 @@ for (const w of document.querySelectorAll('.shots-wrap')) {
   $('rlx-hide').addEventListener('click', function () { setHidden(true); });
   $('rlx-handle').addEventListener('click', function () { setHidden(false); });
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !desk.hidden && !document.fullscreenElement) { desk.hidden = true; dkStop(); dkRail(false); return; }
+    // closeDesk rather than its body inlined a third time: it is also what
+    // drops #demo-fullscreen from the address bar, and Escape is the way most
+    // people will leave the demo.
+    if (e.key === 'Escape' && !desk.hidden && !document.fullscreenElement) { closeDesk(); return; }
     if (e.key === 'Escape' && !$('rlx-fm').hidden) { $('rlx-fm').hidden = true; return; }
     if (e.key === 'º' || e.key === '\u0060' || e.key === '~') setHidden(rail.dataset.h !== '1');
   });

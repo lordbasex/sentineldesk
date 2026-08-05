@@ -25,6 +25,8 @@
   "home.note": "Published here, in three languages. The desktop's <strong>Docs</strong> button opens this same guide.",
   "home.demo.you": "You",
   "home.demo.agent": "AI agent",
+  "home.demo.open": "Open the interactive desktop, fullscreen",
+  "home.demo.open.hint": "Open fullscreen",
   "home.demo.chip.you": "You are driving",
   "home.demo.chip.ask": "AI agent is asking for control",
   "home.demo.chip.agent": "AI agent is driving",

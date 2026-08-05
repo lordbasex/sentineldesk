@@ -25,6 +25,8 @@
   "home.note": "Publicada acá, en tres idiomas. El botón <strong>Docs</strong> del escritorio abre esta misma guía.",
   "home.demo.you": "Vos",
   "home.demo.agent": "Agente IA",
+  "home.demo.open": "Abrir el escritorio interactivo a pantalla completa",
+  "home.demo.open.hint": "Pantalla completa",
   "home.demo.chip.you": "Estás manejando",
   "home.demo.chip.ask": "El agente pide el control",
   "home.demo.chip.agent": "Maneja el agente",
