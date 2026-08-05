@@ -65,7 +65,7 @@
   <table>
     <tr><th>Camada</th><th>O que usa</th></tr>
     <tr><td>Área de trabalho</td><td>Xvfb, Openbox, LXPanel, pcmanfm; Chromium,
-      VLC, lxterminal, TigerVNC, FreeRDP, Steam</td></tr>
+      VLC, lxterminal, TigerVNC, FreeRDP</td></tr>
     <tr><td>Captura</td><td><code>ximagesrc</code> com rastreamento de dano do X,
       um único pipeline compartilhado por toda a sala</td></tr>
     <tr><td>Vídeo</td><td>NVENC → VA-API → x264 → VP8, escolhido na
@@ -160,7 +160,9 @@
       hardware</a>.</li>
     <li><b>/dev/uinput</b> no host se quiser que o controle do navegador chegue
       à área de trabalho. Sem isso, todo o resto continua funcionando.</li>
-    <li><b>amd64</b> para o Steam. O resto roda também em arm64.</li>
+    <li><b>amd64</b> para o Steam e o Wine, que estão apenas na
+      <a href="#install-images">imagem full</a>. Todo o resto roda também em
+      arm64, nas duas imagens.</li>
   </ul>
 
   <h3 id="install-run">Três formas de iniciar</h3>
@@ -1023,12 +1025,16 @@ lsof -nP -iUDP:5000</code></pre>
   tarde: um navegador, um editor de texto, visualizadores de imagens e
   documentos, gerenciador de arquivos compactados, calculadora e monitor de
   processos, mais as ferramentas de rede para as quais este desktop costuma
-  existir — nmap, dig, iperf3, tcpdump, mtr, sngrep e um cliente OpenVPN. Git e
-  Go também estão lá, para que a máquina de onde você trabalha possa compilar o
-  que ela mesma executa.</p>
+  existir — nmap, dig, iperf3, tcpdump, mtr, sngrep e um cliente OpenVPN. Git
+  também está lá, porque todo mundo clona alguma coisa.</p>
 
-  <p><b>Full</b> soma LibreOffice, Firefox, GIMP, Wireshark e um ambiente de
-  compilação, e em máquinas Intel também Steam e Wine.</p>
+  <p><b>Full</b> soma LibreOffice, Firefox, GIMP, Wireshark, um ambiente de
+  compilação e Go, e em máquinas Intel também Steam e Wine.</p>
+
+  <p>Go estar na full e não na lite é de propósito, mesmo este projeto sendo
+  escrito em Go. Um toolchain são 250 MB para quem nunca vai digitar
+  <code>go</code>, e «todo mundo clona alguma coisa» é uma afirmação que se
+  sustenta para o <code>git</code> e não para um compilador.</p>
 
   <div class="note">
     <b>Full contém lite</b>

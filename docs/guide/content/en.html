@@ -63,7 +63,7 @@
   <table>
     <tr><th>Layer</th><th>What it uses</th></tr>
     <tr><td>Desktop</td><td>Xvfb, Openbox, LXPanel, pcmanfm; Chromium, VLC,
-      lxterminal, TigerVNC, FreeRDP, Steam</td></tr>
+      lxterminal, TigerVNC, FreeRDP</td></tr>
     <tr><td>Capture</td><td><code>ximagesrc</code> with X DAMAGE tracking, one
       shared pipeline for the whole room</td></tr>
     <tr><td>Video</td><td>NVENC → VA-API → x264 → VP8, chosen at startup by
@@ -153,7 +153,9 @@
       acceleration</a>.</li>
     <li><b>/dev/uinput</b> on the host if you want the browser's gamepad to
       reach the desktop. Without it everything else still works.</li>
-    <li><b>amd64</b> for Steam. Everything else runs on arm64 too.</li>
+    <li><b>amd64</b> for Steam and Wine, which are in the
+      <a href="#install-images">full image</a> only. Everything else runs on
+      arm64 too, in both images.</li>
   </ul>
 
   <h3 id="install-run">Three ways to start it</h3>
@@ -1009,11 +1011,15 @@ lsof -nP -iUDP:5000</code></pre>
   browser, a text editor, image and document viewers, an archive manager, a
   calculator and a task manager, plus the network toolbox this desktop mostly
   exists to use — nmap, dig, iperf3, tcpdump, mtr, sngrep and an OpenVPN client.
-  Git and Go are there too, so the machine you work from can build the thing it
-  runs.</p>
+  Git is there too, because everybody clones something.</p>
 
-  <p><b>Full</b> adds LibreOffice, Firefox, GIMP, Wireshark and a compiler
-  toolchain, and on Intel machines also Steam and Wine.</p>
+  <p><b>Full</b> adds LibreOffice, Firefox, GIMP, Wireshark, a compiler
+  toolchain and Go, and on Intel machines also Steam and Wine.</p>
+
+  <p>Go sits in full rather than lite deliberately, even though this project is
+  written in it. A toolchain is a quarter of a gigabyte for people who will
+  never type <code>go</code>, and "everybody clones something" is a claim that
+  holds for <code>git</code> and not for a compiler.</p>
 
   <div class="note">
     <b>Full contains lite</b>

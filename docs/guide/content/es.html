@@ -65,7 +65,7 @@
   <table>
     <tr><th>Capa</th><th>Qué usa</th></tr>
     <tr><td>Escritorio</td><td>Xvfb, Openbox, LXPanel, pcmanfm; Chromium, VLC,
-      lxterminal, TigerVNC, FreeRDP, Steam</td></tr>
+      lxterminal, TigerVNC, FreeRDP</td></tr>
     <tr><td>Captura</td><td><code>ximagesrc</code> con seguimiento de daño de X,
       un solo pipeline compartido por toda la sala</td></tr>
     <tr><td>Video</td><td>NVENC → VA-API → x264 → VP8, elegido al arrancar
@@ -157,7 +157,9 @@
       hardware</a>.</li>
     <li><b>/dev/uinput</b> en el host si querés que el joystick del navegador
       llegue al escritorio. Sin eso, todo lo demás igual funciona.</li>
-    <li><b>amd64</b> para Steam. El resto corre también en arm64.</li>
+    <li><b>amd64</b> para Steam y Wine, que están solamente en la
+      <a href="#install-images">imagen full</a>. Todo lo demás corre también en
+      arm64, en las dos imágenes.</li>
   </ul>
 
   <h3 id="install-run">Tres formas de arrancarlo</h3>
@@ -1022,12 +1024,16 @@ lsof -nP -iUDP:5000</code></pre>
   la primera tarde: un navegador, un editor de texto, visores de imágenes y
   documentos, gestor de archivos comprimidos, calculadora y monitor de procesos,
   más las herramientas de red para las que este escritorio suele existir — nmap,
-  dig, iperf3, tcpdump, mtr, sngrep y un cliente OpenVPN. También están Git y Go,
-  así la máquina desde la que trabajás puede compilar lo que ella misma
-  ejecuta.</p>
+  dig, iperf3, tcpdump, mtr, sngrep y un cliente OpenVPN. También está Git,
+  porque todo el mundo clona algo.</p>
 
-  <p><b>Full</b> suma LibreOffice, Firefox, GIMP, Wireshark y un entorno de
-  compilación, y en máquinas Intel también Steam y Wine.</p>
+  <p><b>Full</b> suma LibreOffice, Firefox, GIMP, Wireshark, un entorno de
+  compilación y Go, y en máquinas Intel también Steam y Wine.</p>
+
+  <p>Que Go esté en full y no en lite es a propósito, aunque este proyecto esté
+  escrito en Go. Un toolchain son 250 MB para gente que nunca va a escribir
+  <code>go</code>, y «todo el mundo clona algo» es una afirmación que se sostiene
+  para <code>git</code> y no para un compilador.</p>
 
   <div class="note">
     <b>Full contiene a lite</b>
