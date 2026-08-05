@@ -169,8 +169,9 @@
 <pre><code>git clone https://github.com/lordbasex/sentineldesk.git
 cd sentineldesk
 make up</code></pre>
-      <p><code>make up</code> construye la imagen y levanta el stack. Sin
-      make:</p>
+      <p><code>make up</code> construye <b>las dos variantes de la imagen</b> y
+      levanta la lite — mirá <a href="#install-images">las dos imágenes</a> más
+      abajo. Sin make:</p>
 <pre><code>docker compose -p sentineldesk -f deploy/docker-compose.yml up -d --build</code></pre>
       <p>Pasá siempre <code>-p sentineldesk</code>. Si no, Compose le pone al
       proyecto el nombre del directorio donde está el archivo, y mover el
@@ -227,14 +228,54 @@ make up</code></pre>
       los assets del escritorio.</p>
 <pre><code># chequeo rápido de tipos en el host, sin contenedor
 go build ./...
-# construir la imagen
+# construir las dos variantes
 make image
-# o, sin make
-docker build -f deploy/Dockerfile -t sentineldesk:latest .</code></pre>
+# o solo una de ellas
+make image-lite
+make image-full
+# o, sin make — ojo con el --target
+docker build -f deploy/Dockerfile --target desktop -t sentineldesk:latest .</code></pre>
+      <p><code>--target desktop</code> no es opcional. La última etapa del
+      Dockerfile es <code>full</code>, así que omitirlo construye LibreOffice,
+      Firefox, GIMP, Wireshark y todo lo demás — unos 2,5 GB — y después le pone
+      la etiqueta <code>sentineldesk:latest</code>, un nombre que en todos los
+      demás lugares significa lite.</p>
       <p>La interfaz web va embebida con <code>go:embed</code>, así que tocar
       cualquier cosa dentro de <code>internal/webui/assets/</code> obliga a
       reconstruir la imagen — el cambio no aparece recargando la página.</p>
     </div>
+  </div>
+
+  <h3 id="install-images">Las dos imágenes</h3>
+
+  <p>Un solo Dockerfile produce las dos. <b>Lite</b> es la de por defecto y es a
+  la que apunta <code>:latest</code>:</p>
+
+  <table>
+    <tr><th>Etiqueta</th><th>También</th><th>Qué es</th></tr>
+    <tr><td><code>sentineldesk:&lt;versión&gt;-lite</code></td>
+        <td><code>:latest</code>, <code>:lite</code></td>
+        <td>El escritorio y las herramientas que alguien necesita adentro. La de
+          por defecto</td></tr>
+    <tr><td><code>sentineldesk:&lt;versión&gt;-full</code></td>
+        <td><code>:full</code></td>
+        <td>Suma LibreOffice, Firefox, GIMP, Wireshark, un toolchain de
+          compilación y Go; en amd64 también Steam y Wine</td></tr>
+  </table>
+
+  <p>Para correr la full, construila y apuntá a esa etiqueta — con
+  <code>docker run</code> es una palabra, y con compose es la línea
+  <code>image:</code> del archivo:</p>
+
+<pre><code>make image-full
+docker run -d --name sentineldesk … sentineldesk:full</code></pre>
+
+  <div class="note">
+    <b>La full está construida encima de la lite</b>
+    <p>Así que todo lo que tiene una está en la otra, y las dos comparten todas
+    las capas hasta el punto donde se separan: una máquina que ya tiene la lite
+    descarga solamente la diferencia. <a href="#whats-installed">Qué viene
+    instalado</a> recorre qué lleva cada una y por qué.</p>
   </div>
 
   <h3 id="install-first-run">La primera vez</h3>
