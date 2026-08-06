@@ -55,6 +55,15 @@ var NAV = {
   pt: { arch: 'Arquitetura',   install: 'Instalação',   start: 'Começar' }
 };
 
+/* The search box. Placeholder and the "nothing matched" line, per language —
+   the only two strings it needs, because everything else it shows is the
+   document's own headings. */
+var FIND = {
+  en: { ph: 'Search\u2026', none: 'Nothing matches ' },
+  es: { ph: 'Buscar\u2026', none: 'Nada coincide con ' },
+  pt: { ph: 'Buscar\u2026', none: 'Nada corresponde a ' }
+};
+
 /* The two guides. Sections declare which one they belong to; this only names
    them, so adding a section is one attribute and nothing else. */
 var TRACKS = {
@@ -138,6 +147,115 @@ function buildTOC() {
     toc.appendChild(a);
 
     subs.forEach(function (h3) { toc.appendChild(tocLink(h3.id, h3.textContent)); });
+  });
+}
+
+/* What the search reads.
+ *
+ * Built from the rendered document rather than kept as a separate list, so it
+ * cannot fall behind the text: a section added to the HTML is searchable with
+ * no second place to update.
+ *
+ * Each entry carries its heading AND the prose under it, up to the next heading
+ * at the same level or higher. That second part is the reason this is worth
+ * having at all — somebody looking for "wallpaper" or "uid" is looking for a
+ * word that appears in a paragraph, not in a title, which is exactly what the
+ * browser\u2019s own find cannot lead them to across a collapsed page.
+ */
+var searchIndex = [];
+
+/* Both the text and the query go through this, so they meet in the middle.
+ *
+ * Accents come off because a Spanish or Portuguese reader typing "instalacion"
+ * is looking for "instalación" and should not have to prove it; apostrophes go
+ * entirely because the document writes "Let\u2019s Encrypt" with a typographic
+ * one and nobody types that. Measured against the real text before deciding:
+ * "lets encrypt" found nothing until this existed. */
+function normalise(t) {
+  return t.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/[\u2018\u2019\u02bc']/g, '');
+}
+
+function buildSearchIndex() {
+  searchIndex = [];
+  document.querySelectorAll('#content section[id]').forEach(function (sec) {
+    var heading = sec.querySelector(':scope > h2') || sec.querySelector(':scope > h1');
+    if (!heading) return;
+    // The section's own text stops where its first subsection starts.
+    var own = '';
+    for (var n = heading.nextElementSibling; n; n = n.nextElementSibling) {
+      if (/^H[1-3]$/.test(n.tagName)) break;
+      own += ' ' + n.textContent;
+    }
+    searchIndex.push({ id: sec.id, text: normalise(heading.textContent + own) });
+
+    sec.querySelectorAll(':scope > h3[id]').forEach(function (h3) {
+      var t = h3.textContent;
+      for (var m = h3.nextElementSibling; m; m = m.nextElementSibling) {
+        if (/^H[1-3]$/.test(m.tagName)) break;   // h4 keeps counting: it is part of this
+        t += ' ' + m.textContent;
+      }
+      searchIndex.push({ id: h3.id, text: normalise(t) });
+    });
+  });
+}
+
+/* Filtering the table of contents rather than replacing it with a result list:
+   the answer stays in the place the reader already knows how to read, and
+   clearing the box puts everything back exactly as it was. */
+function applySearch(q) {
+  var toc = document.getElementById('toc');
+  var empty = document.getElementById('search-empty');
+  q = normalise((q || '').trim());
+
+  if (!q) {
+    toc.querySelectorAll('a, .track').forEach(function (el) { el.hidden = false; });
+    empty.hidden = true;
+    return;
+  }
+
+  var hits = {};
+  searchIndex.forEach(function (e) { if (e.text.indexOf(q) !== -1) hits[e.id] = true; });
+
+  var found = 0;
+  toc.querySelectorAll('a').forEach(function (a) {
+    var on = !!hits[a.dataset.target];
+    a.hidden = !on;
+    if (on) found++;
+  });
+  // A track heading with nothing under it any more is noise.
+  toc.querySelectorAll('.track').forEach(function (h) {
+    var any = false;
+    for (var n = h.nextElementSibling; n && !n.classList.contains('track'); n = n.nextElementSibling) {
+      if (n.tagName === 'A' && !n.hidden) { any = true; break; }
+    }
+    h.hidden = !any;
+  });
+
+  empty.hidden = found > 0;
+  if (!found) empty.textContent = (FIND[current] || FIND.en).none + '\u201c' + q + '\u201d';
+}
+
+/* Wired once the content is in. The placeholder follows the language like every
+   other string here, and Escape clears — a search box you cannot get out of
+   without reaching for the mouse is one people stop using. */
+function wireSearch() {
+  var box = document.getElementById('search');
+  if (!box) return;
+  box.placeholder = (FIND[current] || FIND.en).ph;
+  if (box.dataset.wired) { applySearch(box.value); return; }
+  box.dataset.wired = '1';
+  box.addEventListener('input', function () { applySearch(box.value); });
+  box.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { box.value = ''; applySearch(''); box.blur(); }
+  });
+  // "/" focuses it, the way every documentation site people already use does.
+  document.addEventListener('keydown', function (e) {
+    if (e.key === '/' && document.activeElement !== box &&
+        !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+      e.preventDefault(); box.focus();
+    }
   });
 }
 
@@ -311,6 +429,8 @@ async function load(lang) {
 
   buildLangButtons();
   buildTOC();
+  buildSearchIndex();
+  wireSearch();
   buildTabs();
   addCopyButtons();
   watchSections();
