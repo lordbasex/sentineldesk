@@ -41,6 +41,46 @@ stage 1 rather than worked around there in stage 2.
 **Stage 1** — this document — is the work inside SentinelDesk that has to happen
 first. **Stage 2** is building the agent.
 
+### The invariant: one desktop, shared
+
+Everything below serves this and nothing may break it.
+
+SentinelDesk is not a desktop with an agent bolted on, and the agent is not a
+tenant with its own screen. It is **one operating system that people and an AI
+occupy at the same time**, seeing the same pixels, and coordinating over who
+drives. MCP is the agentic half of that — the way the AI reaches the same X
+display the humans are watching — not a side door into a private machine.
+
+Concretely, and all of it is already true in the code:
+
+- **The agent is a room member like anyone else.** Stable id `agent`, a name in
+  the participant list, a pointer marker on screen. What it does is visible
+  while it does it, in everyone's stream and in the recording.
+- **Control is claimed, never assumed — by either plane.** With the controls
+  free the agent still asks, and `request_control` grants immediately, so the
+  cost is one call and what it buys is that no handover is invisible. Releasing
+  leaves control free rather than passing it to somebody.
+- **Holding control is not permission.** While it drives, the agent can do
+  exactly what `MCP_POLICY` allows and nothing beyond it. The desktop being
+  under its hand does not widen the catalogue.
+- **Several agents can work inside the one held session.** Every MCP connection
+  shares the identity `agent`, `mayInject` tests the room's controller rather
+  than the connection, and each request runs in its own goroutine. So a runtime
+  can fan out sub-agents across connections and they all act under one claim,
+  as one participant, with one turn at the controls.
+
+**Stage 2 must not weaken any of these to make the runtime simpler.** Three
+consequences follow from the last point that the runtime owns, because the
+server deliberately will not:
+
+- *Nothing serialises concurrent agents.* Two sub-agents typing at once
+  interleave keystrokes into the same X display. Deciding what may run in
+  parallel is the runtime's job.
+- *One `release_control` releases for all of them.* There is a single claim, so
+  a sub-agent finishing its part can pull the desktop out from under the others.
+- *The action log cannot yet tell them apart.* That is §5.3, and this is why it
+  matters more than the emergency gate it was listed for.
+
 ### Why stage 1 exists at all
 
 Because the agent's quality is bounded by the catalogue's. The runtime's
@@ -122,9 +162,11 @@ forces stage 2 to either hardcode something the server knows or lie to the user.
 
 **This is the most important item in this document.**
 
-The agent loop has to sequence three distinct things for an interactive action:
-approve the call, acquire the desktop, then execute. To do that it must know,
-*before* calling, whether a tool is one the server will gate. Today it cannot:
+The room gate is not an obstacle to route around — it is the invariant in §1,
+and the runtime has to cooperate with it deliberately. That means sequencing
+three distinct things for an interactive action: approve the call, acquire the
+desktop, then execute. To do that it must know, *before* calling, whether a tool
+is one the server will gate. Today it cannot:
 
 - `injectsInput()` in `internal/mcp/mcp.go` is a `switch` statement, not data.
 - `tools/list` does not publish it. The annotations added in `3f1ee86` carry
@@ -290,14 +332,28 @@ something can actually change the catalogue at runtime.
 
 ### 5.3 Connections have no identity
 
-Emergency Stop is supposed to block the Agent Runtime's calls at the MCP
+Two things need this, and the second is the one that makes it worth doing.
+
+**Emergency Stop** is supposed to block the Agent Runtime's calls at the MCP
 boundary while leaving external MCP clients alone. There is nothing to
 distinguish one connection from another — `serve()` holds a policy and nothing
 else.
 
+**Attribution across concurrent agents.** Every MCP connection shares the room
+identity `agent`, which is what lets a runtime fan sub-agents out under one
+claim (§1). The cost is that the action log records "the agent did X" with no
+way to say which one, so an audit of a run with four sub-agents is four
+interleaved streams with no thread to pull. That gets worse the more the runtime
+parallelises, and it cannot be reconstructed after the fact.
+
 **Fix.** Let `initialize` record its `clientInfo`, give each connection an id,
-and let the daemon refuse `tools/call` from a nominated connection. This is
-small, and doing it before there are two clients is much easier than after.
+carry that id into the action log entry, and let the daemon refuse `tools/call`
+from a nominated connection. This is small, and doing it before there are
+several concurrent clients is much easier than after.
+
+Note what this does **not** change: the connection id is for auditing and the
+emergency gate. It must not become a second room identity, or the property that
+several agents act as one participant is gone.
 
 ### 5.4 Catalogue metadata stops at risk and category
 
@@ -336,7 +392,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | 3 | Structured denial kinds in `tools/call` | Blocks the loop's state machine (§4.2) | small |
 | 4 | Thread `context.Context` through `dispatch`; honour `notifications/cancelled` | Blocks honest cancel (§4.3) | medium |
 | 5 | Audit which tools ignore cancellation; publish the list | Without it, step 4 is a half-truth | medium |
-| 6 | Connection identity from `initialize` | Needed for the emergency gate; cheap before there are two clients | small |
+| 6 | Connection identity from `initialize`, carried into the action log | Emergency gate, and attribution once sub-agents run concurrently (§5.3) | small |
 | 7 | `notifications/progress` for the long tools | Timeline quality | medium |
 
 Steps 1–3 are a day. They are also the ones that unblock the most of stage 2.
