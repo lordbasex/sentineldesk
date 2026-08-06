@@ -557,7 +557,15 @@ func (s *Server) serve(conn net.Conn) {
 			}
 			_ = json.Unmarshal(req.Params, &p)
 			policyMu.Lock()
-			connPolicy = s.policy.Restrict(p.Level, p.Deny, p.Allow)
+			// From where this connection stands, not from the daemon's
+			// ceiling. Restricting from s.policy each time started every
+			// request afresh at the top, so a connection that had dropped
+			// itself to readonly could ask for full and get it — the one
+			// thing this method promises cannot happen. Chaining from the
+			// current policy makes it monotonic: Restrict already refuses a
+			// level above its own, accumulates denials and intersects
+			// allow-lists.
+			connPolicy = connPolicy.Restrict(p.Level, p.Deny, p.Allow)
 			applied := connPolicy.Describe()
 			policyMu.Unlock()
 			if req.ID != nil {

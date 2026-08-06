@@ -143,11 +143,11 @@ def check_identity(c, client, container, sock):
     client.call("wait", {"ms": 1})
     log, _ = client.call("action_log", {"limit": 5})
     try:
-        entries = json.loads(log)
-    except json.JSONDecodeError:
-        c.ok("action_log is JSON", False, log[:200])
+        entries = json.loads(log).get("entries", [])
+    except (json.JSONDecodeError, AttributeError):
+        c.ok("action_log is JSON with entries", False, log[:200])
         return
-    recent = [e for e in entries if e.get("tool") == "wait"]
+    recent = [e for e in entries if isinstance(e, dict) and e.get("tool") == "wait"]
     c.ok("the action log names the connection",
          bool(recent) and recent[-1].get("conn") == client.connection_id,
          f"entry: {recent[-1] if recent else None}")
@@ -224,7 +224,14 @@ def check_room(c, client):
     c.ok("an input tool is refused before control is asked for",
          denial_of(client, "mouse_move", {"x": 10, "y": 10}) == "room")
 
-    out, err = client.call("request_control", {"timeout_ms": 5000}, timeout=20)
+    # With a person watching, request_control asks them and waits. That is the
+    # design working, not a failure, so say so rather than reporting a red cross
+    # for somebody having a browser open.
+    if state.get("humans_present"):
+        print("      (someone is watching — answer the prompt in the browser, "
+              "or close it and run this again)")
+
+    out, err = client.call("request_control", {"timeout_ms": 8000}, timeout=25)
     granted = not err
     c.ok("request_control is granted when nothing is driving", granted, out[:200])
     if granted:
@@ -271,10 +278,12 @@ def check_cancellation(c, client):
 def check_progress(c, client):
     c.section("Progress")
     before = len(client.notifications)
+    # Long enough for several ticks at the two-second interval, so a single
+    # missed one does not decide the result.
     out, err = client.call(
         "run_command",
-        {"command": "echo starting; sleep 3; echo done", "timeout_ms": 20000},
-        timeout=40, progress_token="stage1-progress")
+        {"command": "echo starting; sleep 6; echo done", "timeout_ms": 30000},
+        timeout=60, progress_token="stage1-progress")
     c.ok("the command ran", not err, out[:200])
 
     notes = client.notifications[before:]
@@ -290,9 +299,11 @@ def check_progress(c, client):
         c.ok("the message carries the command's own output",
              "starting" in messages or "done" in messages, messages[:200])
 
-    # And nothing at all for a client that did not ask.
+    # And nothing at all for a client that did not ask. Long enough that the
+    # interval would certainly have fired, so silence means the opt-in works
+    # rather than that the command was too quick to report on.
     before = len(client.notifications)
-    client.call("run_command", {"command": "sleep 2", "timeout_ms": 20000}, timeout=30)
+    client.call("run_command", {"command": "sleep 5", "timeout_ms": 30000}, timeout=60)
     quiet = [n for n in client.notifications[before:]
              if n.get("method") == "notifications/progress"]
     c.ok("no progress is sent to a call that did not ask for it", not quiet,

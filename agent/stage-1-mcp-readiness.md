@@ -612,3 +612,41 @@ parity test against the old behaviour, watch it fail, and "fix" the code back.
 The two documents also assume a single distributed binary with an
 `-agent-runtime` mode. That is now superseded: `sentineldesk-agent` is a second
 binary. Section 7.1 and 7.2 cover what that changes.
+
+---
+
+## 9. Verifying it against a real desktop
+
+`make test` checks the catalogue against itself and the JSON-RPC path over an
+in-memory pipe. That is what makes it cheap and runnable anywhere, and it is
+also exactly what it cannot tell you: whether any of it holds against a running
+container.
+
+`tools/stage1-check.py` closes that gap. It speaks the protocol the way an AI
+host does — through `sentineldesk -mcp-stdio` into a live container — and checks
+the catalogue and its annotations, connection identity reaching the action log,
+`tool_search`, every denial kind, the room gate refusing then granting then
+closing again, cancellation answered at once, and progress arriving only for a
+call that asked for it.
+
+```bash
+make up
+python3 tools/stage1-check.py -v
+```
+
+**It earned its place on the first run.** Forty-one of forty-two checks passed;
+the one that failed said a connection could **widen** its own policy — the exact
+opposite of what `sentineldesk/policy` promises, and the property that makes it
+safe to hand an agent a restricted endpoint.
+
+`Restrict` was correct. `serve` called it on the *daemon's* policy every time,
+so each request started afresh at the ceiling: a connection that had dropped
+itself to `readonly` could ask for `full` and be given it. The unit test for
+`Restrict` passed throughout, because the method was never the problem — the
+caller was. Fixed by chaining from the connection's current policy, with two
+tests that fail against the old behaviour.
+
+The lesson is worth carrying into stage 2: a unit test on a security primitive
+proves the primitive, not the system that uses it. The runtime will restrict its
+own MCP connection at handshake, and that restriction was decorative for as long
+as this bug existed.

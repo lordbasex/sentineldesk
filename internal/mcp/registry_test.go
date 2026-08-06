@@ -640,6 +640,50 @@ func TestDenialKindUnknownToolAtEveryLevel(t *testing.T) {
 	}
 }
 
+// TestAConnectionCannotWidenItself is the invariant the whole restriction
+// mechanism exists for, checked where it is actually used rather than on the
+// method in isolation.
+//
+// Restrict itself was always correct. serve called it on the DAEMON's policy
+// every time, so each request started afresh at the ceiling and a connection
+// that had dropped itself to readonly could ask for full and be given it. The
+// unit test for Restrict passed throughout; it took a live check against a real
+// desktop to notice, because the bug was in the caller.
+func TestAConnectionCannotWidenItself(t *testing.T) {
+	c := newSession(t, testServer(t))
+
+	applied := c.call("sentineldesk/policy", map[string]any{"level": "readonly"})
+	if applied["level"] != "readonly" {
+		t.Fatalf("restricting to readonly gave %v", applied["level"])
+	}
+
+	for _, level := range []string{"full", "safe"} {
+		applied = c.call("sentineldesk/policy", map[string]any{"level": level})
+		if applied["level"] != "readonly" {
+			t.Errorf("asking for %s from readonly gave %v", level, applied["level"])
+		}
+	}
+	// And the ceiling really is enforced, not just reported.
+	if got := c.denialOf("run_command", map[string]any{"command": "true"}); got != string(denialPolicy) {
+		t.Errorf("run_command after asking for full: kind %q, want %q", got, denialPolicy)
+	}
+}
+
+// TestRestrictionsAccumulate: denials add up across calls rather than replacing
+// each other, which is the same monotonicity from the other direction.
+func TestRestrictionsAccumulate(t *testing.T) {
+	c := newSession(t, testServer(t))
+	c.call("sentineldesk/policy", map[string]any{"deny": "ui_*"})
+	c.call("sentineldesk/policy", map[string]any{"deny": "browser_*"})
+
+	if got := c.denialOf("ui_tree", nil); got != string(denialPolicy) {
+		t.Errorf("the first denial was forgotten: ui_tree kind %q", got)
+	}
+	if got := c.denialOf("browser_tabs", nil); got != string(denialPolicy) {
+		t.Errorf("the second denial did not take: browser_tabs kind %q", got)
+	}
+}
+
 // TestDenialKindPolicy also proves the separation holds the other way: a tool
 // that exists but is hidden by the level reports policy, not unknown_tool.
 func TestDenialKindPolicy(t *testing.T) {
