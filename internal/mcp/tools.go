@@ -28,14 +28,23 @@ import (
 	"time"
 )
 
-// toolDef is one entry in the MCP catalogue: name, description, input schema.
+// toolDef is one entry in the MCP catalogue: name, description, input schema
+// and what the tool is allowed to do to the machine.
 type toolDef struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	InputSchema json.RawMessage `json:"inputSchema"`
+
+	// Risk is mandatory. It drives the MCP_POLICY levels and the annotations
+	// published in tools/list, and it lives here rather than in a table
+	// elsewhere so that adding a tool and classifying it are the same edit —
+	// see registry.go for what the separation used to cost. The zero value is
+	// riskUnset and fails at startup; there is no safe default to fall back on,
+	// because the two plausible ones point in opposite directions.
+	Risk riskLevel `json:"-"`
 }
 
-// --- helpers de JSON Schema ----------------------------------------------
+// --- JSON Schema helpers -------------------------------------------------
 
 func schema(props map[string]any, required ...string) json.RawMessage {
 	m := map[string]any{"type": "object", "properties": props}
@@ -55,6 +64,7 @@ func (s *Server) buildTools() []toolDef {
 	base := []toolDef{
 		{
 			Name:        "screenshot",
+			Risk:        riskRead,
 			Description: "Capture the current desktop screen. destination: inline (default) returns the PNG to you; container writes it to a file on the desktop; download makes the browser of whoever is watching save it on their own machine. The capture is identical in all three — it comes straight from the X framebuffer, with no compression loss.",
 			InputSchema: schema(map[string]any{
 				"destination": pStr("inline | container | download (default inline)"),
@@ -63,11 +73,13 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "mouse_move",
+			Risk:        riskWrite,
 			Description: "Move the mouse pointer to absolute screen coordinates (x, y).",
 			InputSchema: schema(map[string]any{"x": pInt("X coordinate"), "y": pInt("Y coordinate")}, "x", "y"),
 		},
 		{
 			Name:        "mouse_click",
+			Risk:        riskWrite,
 			Description: "Click a mouse button. Optionally move to (x, y) first. button: 1=left (default), 2=middle, 3=right. Set double=true for a double click.",
 			InputSchema: schema(map[string]any{
 				"x": pInt("optional X to move to first"), "y": pInt("optional Y to move to first"),
@@ -76,16 +88,19 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "type_text",
+			Risk:        riskWrite,
 			Description: "Type a string of text into the focused window (handles any character, including accents).",
 			InputSchema: schema(map[string]any{"text": pStr("text to type")}, "text"),
 		},
 		{
 			Name:        "key_combo",
+			Risk:        riskWrite,
 			Description: "Press a key or key combination using X keysym names, e.g. 'Return', 'Escape', 'ctrl+c', 'alt+Tab', 'super+d', 'ctrl+shift+t'.",
 			InputSchema: schema(map[string]any{"keys": pStr("key or combo, e.g. ctrl+c")}, "keys"),
 		},
 		{
 			Name:        "launch_app",
+			Risk:        riskDanger,
 			Description: "Launch a program on the desktop (runs detached, does not block). Pass the command line, e.g. 'firefox-esr', 'lxterminal', 'chromium https://example.com'. Set as_root:true for administration GUIs that need privileges (a file manager on /etc, gparted, synaptic).",
 			InputSchema: schema(map[string]any{
 				"command": pStr("command line to run"),
@@ -94,16 +109,19 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "list_windows",
+			Risk:        riskRead,
 			Description: "List all open windows: window id, desktop, geometry (x,y,w,h), class and title. Use the id with activate_window/close_window.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "activate_window",
+			Risk:        riskWrite,
 			Description: "Focus and raise a window by its id (from list_windows).",
 			InputSchema: schema(map[string]any{"id": pStr("window id, e.g. 0x02000007")}, "id"),
 		},
 		{
 			Name:        "run_command",
+			Risk:        riskDanger,
 			Description: "Run a shell command inside the desktop and return stdout, stderr and exit code. Full control of the container — use for diagnostics and automation. Set as_root:true to run it through passwordless sudo (edit /etc, manage services, install things).",
 			InputSchema: schema(map[string]any{
 				"command": pStr("shell command"), "timeout_ms": pInt("timeout in ms (default 15000)"),
@@ -112,11 +130,13 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "wait",
+			Risk:        riskRead,
 			Description: "Sleep for the given number of milliseconds (give the UI time to react before the next action).",
 			InputSchema: schema(map[string]any{"ms": pInt("milliseconds to wait")}, "ms"),
 		},
 		{
 			Name:        "start_recording",
+			Risk:        riskWrite,
 			Description: "Start recording the screen (and optionally audio) to a video file, in parallel with the live stream. container: mp4 (default, H.264+AAC), webm (VP8+Opus) or mkv. Returns the output path.",
 			InputSchema: schema(map[string]any{
 				"container":   pStr("mp4 | webm | mkv (default mp4)"),
@@ -128,6 +148,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "stop_recording",
+			Risk:        riskWrite,
 			Description: "Stop the current recording, finalize the file cleanly and return its path and size in bytes. destination overrides the one chosen at start: download hands the finished file to the browser of whoever is watching.",
 			InputSchema: schema(map[string]any{
 				"destination": pStr("container | download"),
@@ -135,25 +156,30 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "get_recording_status",
+			Risk:        riskRead,
 			Description: "Report whether a recording is in progress, with elapsed seconds, current size and path.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "list_recordings",
+			Risk:        riskRead,
 			Description: "List the recorded video files (path, size, modified time).",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "get_clipboard",
+			Risk:        riskRead,
 			Description: "Read the desktop clipboard (X CLIPBOARD selection) as text.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "set_clipboard",
+			Risk:        riskWrite,
 			Description: "Write text to the desktop clipboard (so it can be pasted with Ctrl+V).",
 			InputSchema: schema(map[string]any{"text": pStr("text to place on the clipboard")}, "text"),
 		},
 	}
+	base = append(base, s.buildRegistryTools()...)
 	base = append(base, s.buildAdvancedTools()...)
 	base = append(base, s.buildUITools()...)
 	base = append(base, s.buildSysTools()...)
@@ -167,10 +193,15 @@ func (s *Server) buildTools() []toolDef {
 // --- despacho -------------------------------------------------------------
 
 // dispatch runs a tool and returns its MCP content plus an error flag.
-func (s *Server) dispatch(name string, rawArgs json.RawMessage) ([]map[string]any, bool) {
+func (s *Server) dispatch(name string, rawArgs json.RawMessage, policy *Policy) ([]map[string]any, bool) {
 	args := map[string]any{}
 	if len(rawArgs) > 0 {
 		_ = json.Unmarshal(rawArgs, &args)
+	}
+	// The catalogue asking about itself. It comes first because it is the one
+	// tool whose answer depends on the caller's policy rather than the desktop.
+	if content, isErr, handled := s.dispatchRegistry(name, args, policy); handled {
+		return content, isErr
 	}
 	// Sharing the desktop: these answer about the room rather than touching it.
 	if out, isErr, handled := s.callTerminal(name, args); handled {
@@ -224,7 +255,7 @@ func (s *Server) dispatch(name string, rawArgs json.RawMessage) ([]map[string]an
 		s.clip.Set(argStr(args, "text"))
 		return textContent("clipboard set"), false
 	}
-	// Tools avanzados (ventanas, procesos, OCR, gamepad, archivos, streaming)
+	// Advanced tools: windows, processes, OCR, gamepad, files, streaming
 	if content, isErr, handled := s.dispatchAdvanced(name, args); handled {
 		return content, isErr
 	}
@@ -236,7 +267,7 @@ func (s *Server) dispatch(name string, rawArgs json.RawMessage) ([]map[string]an
 	if content, isErr, handled := s.dispatchBrowser(name, args); handled {
 		return content, isErr
 	}
-	// Terminal persistente, SSH y ventanas a bajo nivel
+	// Persistent terminal, SSH and low-level windows
 	if content, isErr, handled := s.dispatchSys(name, args); handled {
 		return content, isErr
 	}

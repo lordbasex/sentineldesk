@@ -13,7 +13,7 @@
 
 package mcp
 
-// Tools MCP avanzados (P1/P2): ventanas, escritorios, procesos, mouse fino,
+// Advanced MCP tools: windows, desktops, processes, fine-grained mouse,
 // screen, OCR, gamepad, files, audio and re-streaming.
 
 import (
@@ -31,14 +31,16 @@ import (
 
 func (s *Server) buildAdvancedTools() []toolDef {
 	return []toolDef{
-		// ---- ventanas ----
+		// ---- windows ----
 		{
 			Name:        "get_active_window",
+			Risk:        riskRead,
 			Description: "Get the currently focused window: id, title, class and geometry.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "move_window",
+			Risk:        riskWrite,
 			Description: "Move a window to absolute screen coordinates.",
 			InputSchema: schema(map[string]any{
 				"id": pStr("window id from list_windows"), "x": pInt("X"), "y": pInt("Y"),
@@ -46,6 +48,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "resize_window",
+			Risk:        riskWrite,
 			Description: "Resize a window to the given width and height in pixels.",
 			InputSchema: schema(map[string]any{
 				"id": pStr("window id"), "width": pInt("width"), "height": pInt("height"),
@@ -53,31 +56,37 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "close_window",
+			Risk:        riskWrite,
 			Description: "Close a window gracefully (like clicking its X button).",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "minimize_window",
+			Risk:        riskWrite,
 			Description: "Minimize (iconify) a window.",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "maximize_window",
+			Risk:        riskWrite,
 			Description: "Maximize a window (both directions).",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "restore_window",
+			Risk:        riskWrite,
 			Description: "Un-maximize a window back to its previous size.",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "fullscreen_window",
+			Risk:        riskWrite,
 			Description: "Toggle fullscreen on a window.",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "set_window_desktop",
+			Risk:        riskWrite,
 			Description: "Move a window to another virtual desktop (workspace).",
 			InputSchema: schema(map[string]any{
 				"id": pStr("window id"), "desktop": pInt("desktop number, 0-based"),
@@ -85,6 +94,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "wait_for_window",
+			Risk:        riskRead,
 			Description: "Wait until a window whose title or class contains the given text appears. Returns its info, or an error on timeout. Use after launch_app instead of guessing a wait time.",
 			InputSchema: schema(map[string]any{
 				"match": pStr("substring of the title or class"), "timeout_ms": pInt("timeout (default 15000)"),
@@ -93,22 +103,26 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- escritorios ----
 		{
 			Name:        "list_desktops",
+			Risk:        riskRead,
 			Description: "List the virtual desktops (workspaces): number, name and which one is current.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "switch_desktop",
+			Risk:        riskWrite,
 			Description: "Switch to another virtual desktop (workspace) by number.",
 			InputSchema: schema(map[string]any{"desktop": pInt("desktop number, 0-based")}, "desktop"),
 		},
 		// ---- procesos ----
 		{
 			Name:        "list_processes",
+			Risk:        riskRead,
 			Description: "List running processes with pid, cpu%, mem% and command. Optionally filter by a substring.",
 			InputSchema: schema(map[string]any{"filter": pStr("optional substring to filter by")}),
 		},
 		{
 			Name:        "kill_process",
+			Risk:        riskDanger,
 			Description: "Terminate a process by pid, or every process matching a name.",
 			InputSchema: schema(map[string]any{
 				"pid": pInt("process id"), "name": pStr("process name (pkill)"), "force": pBool("send SIGKILL instead of SIGTERM"),
@@ -116,17 +130,20 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "is_running",
+			Risk:        riskRead,
 			Description: "Check whether a process matching the given name is running; returns the matching pids.",
 			InputSchema: schema(map[string]any{"name": pStr("process name")}, "name"),
 		},
 		{
 			Name:        "list_installed_apps",
+			Risk:        riskRead,
 			Description: "List the graphical applications installed on the desktop (from .desktop entries): name and command.",
 			InputSchema: schema(map[string]any{}),
 		},
 		// ---- mouse fino ----
 		{
 			Name:        "mouse_drag",
+			Risk:        riskWrite,
 			Description: "Drag with the mouse from one point to another (press, move, release).",
 			InputSchema: schema(map[string]any{
 				"x1": pInt("start X"), "y1": pInt("start Y"), "x2": pInt("end X"), "y2": pInt("end Y"),
@@ -135,6 +152,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "mouse_scroll",
+			Risk:        riskWrite,
 			Description: "Scroll the mouse wheel. Positive dy scrolls down, negative up.",
 			InputSchema: schema(map[string]any{
 				"dy": pInt("vertical clicks"), "dx": pInt("horizontal clicks"),
@@ -142,22 +160,26 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "get_mouse_position",
+			Risk:        riskRead,
 			Description: "Get the current mouse pointer position.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "mouse_down",
+			Risk:        riskWrite,
 			Description: "Press and hold a mouse button (pair with mouse_up).",
 			InputSchema: schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
 		},
 		{
 			Name:        "mouse_up",
+			Risk:        riskWrite,
 			Description: "Release a mouse button.",
 			InputSchema: schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
 		},
 		// ---- screen ----
 		{
 			Name:        "screenshot_region",
+			Risk:        riskRead,
 			Description: "Capture only a rectangular region of the screen as PNG. Cheaper than a full screenshot when you only need part of the screen.",
 			InputSchema: schema(map[string]any{
 				"x": pInt("left"), "y": pInt("top"), "width": pInt("width"), "height": pInt("height"),
@@ -165,17 +187,20 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "get_screen_info",
+			Risk:        riskRead,
 			Description: "Get screen resolution, colour depth and the number of virtual desktops.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "get_pixel_color",
+			Risk:        riskRead,
 			Description: "Read the RGB colour of a single pixel on screen (useful to assert UI state cheaply).",
 			InputSchema: schema(map[string]any{"x": pInt("X"), "y": pInt("Y")}, "x", "y"),
 		},
 		// ---- OCR ----
 		{
 			Name:        "read_screen_text",
+			Risk:        riskRead,
 			Description: "OCR the screen (or a region) and return the text found. Use it to read what is on screen without sending an image.",
 			InputSchema: schema(map[string]any{
 				"x": pInt("optional region left"), "y": pInt("optional region top"),
@@ -185,6 +210,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "find_text",
+			Risk:        riskRead,
 			Description: "OCR the screen and return the screen coordinates of every occurrence of the given text, so you can click on it.",
 			InputSchema: schema(map[string]any{
 				"text": pStr("text to look for (case-insensitive)"),
@@ -194,6 +220,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- gamepad ----
 		{
 			Name:        "gamepad_button",
+			Risk:        riskWrite,
 			Description: "Press or release a virtual gamepad button. Index follows the W3C Gamepad API: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 8=Select 9=Start 10=L3 11=R3 12=Up 13=Down 14=Left 15=Right 16=Guide.",
 			InputSchema: schema(map[string]any{
 				"index": pInt("button index 0-16"), "down": pBool("true=press, false=release"),
@@ -201,6 +228,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "gamepad_tap",
+			Risk:        riskWrite,
 			Description: "Press and immediately release a gamepad button (a single 'tap', e.g. to confirm a menu).",
 			InputSchema: schema(map[string]any{
 				"index": pInt("button index 0-16"), "hold_ms": pInt("hold time, default 80"),
@@ -208,6 +236,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "gamepad_axis",
+			Risk:        riskWrite,
 			Description: "Move a virtual gamepad stick. axis: 0=left X, 1=left Y, 2=right X, 3=right Y. value between -1 and 1.",
 			InputSchema: schema(map[string]any{
 				"axis": pInt("0=LX 1=LY 2=RX 3=RY"), "value": map[string]any{"type": "number", "description": "-1..1"},
@@ -215,15 +244,17 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "gamepad_state",
+			Risk:        riskWrite,
 			Description: "Set the full gamepad state at once: array of button values (0/1) and array of axis values (-1..1).",
 			InputSchema: schema(map[string]any{
 				"buttons": map[string]any{"type": "array", "items": map[string]any{"type": "number"}, "description": "button values"},
 				"axes":    map[string]any{"type": "array", "items": map[string]any{"type": "number"}, "description": "axis values"},
 			}),
 		},
-		// ---- archivos ----
+		// ---- files ----
 		{
 			Name:        "read_file",
+			Risk:        riskRead,
 			Description: "Read a text file from the desktop filesystem. Set as_root:true for files the desktop user cannot read (/etc/shadow, another user's home).",
 			InputSchema: schema(map[string]any{
 				"path": pStr("absolute path"), "max_bytes": pInt("truncate after N bytes (default 100000)"),
@@ -232,6 +263,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "write_file",
+			Risk:        riskDanger,
 			Description: "Write (or create) a text file on the desktop filesystem. Set as_root:true to write outside the home directory (/etc, /usr/local/bin, a systemd or supervisor unit).",
 			InputSchema: schema(map[string]any{
 				"path": pStr("absolute path"), "content": pStr("file content"), "append": pBool("append instead of overwrite"),
@@ -241,6 +273,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "list_directory",
+			Risk:        riskRead,
 			Description: "List the entries of a directory with size and type. Set as_root:true for directories the desktop user cannot enter.",
 			InputSchema: schema(map[string]any{
 				"path": pStr("absolute path"), "as_root": pBool("list with root privileges (default false)"),
@@ -249,11 +282,13 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- audio ----
 		{
 			Name:        "get_audio_state",
+			Risk:        riskRead,
 			Description: "Get the default audio sink, its volume and whether it is muted.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "set_volume",
+			Risk:        riskWrite,
 			Description: "Set the desktop output volume (0-150 percent) and/or mute state.",
 			InputSchema: schema(map[string]any{
 				"percent": pInt("volume percent"), "mute": pBool("mute on/off"),
@@ -262,6 +297,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- re-streaming ----
 		{
 			Name: "start_restream",
+			Risk: riskDanger,
 			Description: "Also send the desktop to an external destination: rtmp:// or rtmps:// " +
 				"for YouTube/Twitch/Facebook, srt:// or udp:// for a VLC or OBS you run " +
 				"yourself. It forwards the picture the room is already encoding, so the " +
@@ -281,6 +317,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "stop_restream",
+			Risk:        riskDanger,
 			Description: "Stop sending to an external destination.",
 			InputSchema: schema(map[string]any{
 				"id": pStr("which destination (its platform name); omit to stop them all"),
@@ -288,6 +325,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name: "list_restreams",
+			Risk: riskRead,
 			Description: "Which external destinations this desktop is currently being sent to. " +
 				"Stream keys come back redacted.",
 			InputSchema: schema(map[string]any{}),
@@ -295,6 +333,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- info ----
 		{
 			Name:        "get_desktop_info",
+			Risk:        riskRead,
 			Description: "Overall desktop status: window manager, resolution, uptime, load, memory, video encoder in use and whether joystick/recording are available.",
 			InputSchema: schema(map[string]any{}),
 		},
@@ -306,7 +345,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 // dispatch() can fall through to the next group when it was not.
 func (s *Server) dispatchAdvanced(name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
-	// ---- ventanas ----
+	// ---- windows ----
 	case "get_active_window":
 		c, e := s.toolActiveWindow()
 		return c, e, true
@@ -436,7 +475,7 @@ func (s *Server) dispatchAdvanced(name string, args map[string]any) ([]map[strin
 		}
 		s.joystick.Apply(floatSlice(args["buttons"]), floatSlice(args["axes"]))
 		return textContent("gamepad state applied"), false, true
-	// ---- archivos ----
+	// ---- files ----
 	case "read_file":
 		asRoot, _ := args["as_root"].(bool)
 		c, e := s.toolReadFile(argStr(args, "path"), argInt(args, "max_bytes"), asRoot)
@@ -779,7 +818,7 @@ func (s *Server) toolFindText(args map[string]any) ([]map[string]any, bool) {
 	return jsonContent(hits), false
 }
 
-// --- archivos --------------------------------------------------------------
+// --- files --------------------------------------------------------------
 
 func (s *Server) toolReadFile(path string, maxBytes int, asRoot bool) ([]map[string]any, bool) {
 	if maxBytes <= 0 {

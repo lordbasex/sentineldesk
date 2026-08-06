@@ -53,6 +53,7 @@ func (s *Server) buildNextTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "set_resolution",
+			Risk:        riskDanger,
 			Description: "Change the desktop resolution WITHOUT restarting anything. Use a smaller one for vision tasks (screenshots above ~1280 wide lose detail when the model rescales them) and the full size for real work. It can only shrink below the size the X server reserved at boot; get_screen_info reports that maximum.",
 			InputSchema: schema(map[string]any{
 				"width": pInt("width in pixels"), "height": pInt("height in pixels"),
@@ -60,6 +61,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "wait_for_idle",
+			Risk:        riskRead,
 			Description: "Wait until the desktop actually settles: the screen stops changing AND the CPU calms down. Use this instead of guessing a `wait` after launching an app, loading a page or starting an install — it returns as soon as things are quiet, and reports why it stopped.",
 			InputSchema: schema(map[string]any{
 				"timeout_ms": pInt("give up after this long (default 15000)"),
@@ -70,6 +72,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "open_app_and_wait",
+			Risk:        riskDanger,
 			Description: "Launch a program, wait for its window to appear, focus it and wait for it to finish drawing — all in ONE call instead of launch_app + wait_for_window + activate_window + wait. Returns the window that appeared.",
 			InputSchema: schema(map[string]any{
 				"command":    pStr("command line, e.g. 'lxterminal' or 'chromium https://example.com'"),
@@ -80,6 +83,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "fill_form",
+			Risk:        riskWrite,
 			Description: "Fill several fields of a dialog or form in one call, by accessibility name — no clicking or tabbing between them. Optionally press a button at the end. Far more reliable than typing blind.",
 			InputSchema: schema(map[string]any{
 				"fields": map[string]any{
@@ -92,6 +96,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "ui_diff",
+			Risk:        riskRead,
 			Description: "Report ONLY what changed in the accessibility tree since the last call: widgets that appeared, vanished, or whose text or state changed. Use it instead of re-reading the whole tree (or taking a screenshot) after every action — the answer is a fraction of the size, so you can check the screen constantly instead of occasionally. The first call just records the baseline.",
 			InputSchema: schema(map[string]any{
 				"reset": pBool("discard the baseline and start over (default false)"),
@@ -99,6 +104,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "action_log",
+			Risk:        riskRead,
 			Description: "Read the log of MCP calls made so far: time, tool, arguments, whether it succeeded and how long it took. While a recording is running each entry also carries its position inside the video, so the .mp4 is indexed by action and can be audited or replayed.",
 			InputSchema: schema(map[string]any{
 				"limit":  pInt("how many recent entries (default 50)"),
@@ -108,6 +114,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_create",
+			Risk:        riskWrite,
 			Description: "Save a restore point of the desktop: the home directory plus the list of installed packages. Take one before anything risky — installing a driver, editing /etc, running an installer — so snapshot_restore can undo it.",
 			InputSchema: schema(map[string]any{
 				"name": pStr("short name, e.g. 'before-driver'"),
@@ -116,11 +123,13 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_list",
+			Risk:        riskRead,
 			Description: "List the restore points with their size, date and note.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "snapshot_restore",
+			Risk:        riskDanger,
 			Description: "Roll the home directory back to a restore point. Reports which packages were installed after the snapshot so you can remove them too. Does NOT touch files outside the home.",
 			InputSchema: schema(map[string]any{
 				"name": pStr("snapshot name"),
@@ -128,6 +137,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_delete",
+			Risk:        riskDanger,
 			Description: "Delete a restore point.",
 			InputSchema: schema(map[string]any{"name": pStr("snapshot name")}, "name"),
 		},

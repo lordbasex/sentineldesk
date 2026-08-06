@@ -205,11 +205,13 @@ func (s *Server) buildRootTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "sudo_status",
+			Risk:        riskRead,
 			Description: "Report what privilege escalation is available inside the desktop: passwordless sudo, su with a root password, pkexec/polkit, and the current user's groups. Call it first when an action needs root and you want to know how to get there.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "install_packages",
+			Risk:        riskDanger,
 			Description: "Install Debian packages with apt (as root). Use it to add whatever the task needs — an editor, a compiler, a game, a driver. Returns the apt log and the version actually installed for each package.",
 			InputSchema: schema(map[string]any{
 				"packages":   pStrArray("package names, e.g. [\"gimp\",\"inkscape\"]"),
@@ -219,6 +221,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "remove_packages",
+			Risk:        riskDanger,
 			Description: "Uninstall Debian packages with apt (as root). purge=true also deletes their configuration.",
 			InputSchema: schema(map[string]any{
 				"packages": pStrArray("package names"),
@@ -227,6 +230,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "search_packages",
+			Risk:        riskRead,
 			Description: "Search the Debian archive by name/description and report, for each hit, whether it is already installed and which version is available. Use before install_packages to pick the right package name.",
 			InputSchema: schema(map[string]any{
 				"query": pStr("search terms"),
@@ -235,6 +239,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "service_control",
+			Risk:        riskDanger,
 			Description: "Manage the desktop's own services through supervisor: X server, PulseAudio, the window manager, the accessibility bus, the WebRTC server. action: status (default), start, stop, restart. Omit `name` to act on everything. Restarting sentineldesk-server drops the live WebRTC session.",
 			InputSchema: schema(map[string]any{
 				"name":   pStr("service: xvfb, pulseaudio, dbus-session, at-spi, openbox, sentineldesk-server… (omit for all)"),

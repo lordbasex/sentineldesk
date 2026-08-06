@@ -77,6 +77,7 @@ func (s *Server) roomTools() []toolDef {
 	return []toolDef{
 		{
 			Name: "room_state",
+			Risk: riskRead,
 			Description: "Who else is on this desktop right now: participants, " +
 				"who holds control, and whether you may inject input. Call this " +
 				"before acting when you might be sharing the session with a person.",
@@ -84,6 +85,7 @@ func (s *Server) roomTools() []toolDef {
 		},
 		{
 			Name: "request_control",
+			Risk: riskWrite,
 			Description: "Ask the people watching for control of the desktop so you " +
 				"can move the mouse and type. THEY DECIDE: a prompt appears on their " +
 				"screen and this waits for the answer. No answer means no. With the " +
@@ -95,6 +97,7 @@ func (s *Server) roomTools() []toolDef {
 		},
 		{
 			Name: "release_control",
+			Risk: riskWrite,
 			Description: "Hand control back to the people watching. Do this when you " +
 				"finish a task, so a person does not have to take it from you.",
 			InputSchema: schema(map[string]any{}),

@@ -42,45 +42,27 @@ import (
 )
 
 // --- tool classification -----------------------------------------------------
-
-// readOnlyTools observe without changing anything. They are the only ones that
-// survive
-// MCP_POLICY=readonly.
-var readOnlyTools = map[string]bool{
-	"screenshot": true, "screenshot_region": true, "get_screen_info": true,
-	"get_pixel_color": true, "read_screen_text": true, "find_text": true,
-	"get_mouse_position": true, "get_active_window": true, "list_windows": true,
-	"list_desktops": true, "list_processes": true, "is_running": true,
-	"list_installed_apps": true, "read_file": true, "list_directory": true,
-	"get_clipboard": true, "get_audio_state": true, "get_desktop_info": true,
-	"get_recording_status": true, "list_recordings": true, "wait": true,
-	"ui_tree": true, "ui_find": true, "ui_get_text": true, "ui_wait_for": true,
-	"ui_diff": true, "browser_text": true, "browser_tabs": true,
-	"window_properties": true, "window_hierarchy": true, "wait_for_window": true,
-	"wait_for_idle": true, "shell_list": true, "ssh_list": true, "ssh_tunnels": true,
-	"ssh_list_remote": true, "sudo_status": true, "search_packages": true,
-	"action_log": true, "snapshot_list": true, "list_restreams": true,
-}
-
-// dangerousTools run code, touch the system, or move data outward. These are the
-// ones MCP_POLICY=safe removes.
-var dangerousTools = map[string]bool{
-	"run_command": true, "launch_app": true, "kill_process": true,
-	"write_file": true, "browser_eval": true,
-	"shell_open": true, "shell_exec": true, "shell_input": true, "shell_close": true,
-	"ssh_connect": true, "ssh_exec": true, "ssh_upload": true, "ssh_download": true,
-	"ssh_tunnel_local": true, "ssh_tunnel_remote": true, "ssh_tunnel_close": true,
-	"ssh_keygen": true, "ssh_copy_id": true, "ssh_disconnect": true,
-	"install_packages": true, "remove_packages": true, "service_control": true,
-	"set_resolution": true, "snapshot_restore": true, "snapshot_delete": true,
-	"start_restream": true, "stop_restream": true,
-}
+//
+// There used to be two hand-written maps here, readOnlyTools and dangerousTools,
+// listing tool names by risk. They were three hundred lines from the toolDefs
+// they described and nothing tied one to the other, so the catalogue grew and
+// the maps did not: by the time they were compared, forty-six of the hundred and
+// fourteen tools appeared in neither, which meant refused under readonly and
+// allowed under safe with no way to notice either. terminal_run was one of them.
+//
+// The classification now lives on the toolDef, in registry.go, and Policy reads
+// it through the index below. Nothing else changed about how the levels behave.
 
 // Policy decides whether a tool may run.
 type Policy struct {
 	level string   // full | safe | readonly
 	deny  []string // patterns (prefix match with *)
 	allow []string // when non-empty, an exclusive allow-list
+
+	// risk is the catalogue's classification, injected once the tools are
+	// built. A Policy with no index cannot answer the level questions, so it
+	// refuses them rather than guessing — see Allowed.
+	risk riskIndex
 }
 
 func NewPolicy() *Policy {
@@ -134,13 +116,26 @@ func (p *Policy) Allowed(name string, args map[string]any) (bool, string) {
 			return false, fmt.Sprintf("MCP_ALLOW is set and does not include %q", name)
 		}
 	}
+	if p.level == "full" {
+		return true, ""
+	}
+
+	// Everything below full is a question about risk, and risk comes from the
+	// catalogue. A name that is not in it gets refused rather than waved
+	// through: dispatch would reject it anyway, and of the two ways to be wrong
+	// here, only one of them grants something.
+	risk, known := p.risk[name]
+	if !known {
+		return false, fmt.Sprintf("%q is not in the tool catalogue", name)
+	}
+
 	switch p.level {
 	case "readonly":
-		if !readOnlyTools[name] {
+		if risk != riskRead {
 			return false, fmt.Sprintf("MCP_POLICY=readonly: %q changes the system", name)
 		}
 	case "safe":
-		if dangerousTools[name] {
+		if risk == riskDanger {
 			return false, fmt.Sprintf("MCP_POLICY=safe: %q runs code or touches the system", name)
 		}
 		// as_root escalates even when the tool itself is harmless.
@@ -159,7 +154,7 @@ var levelRank = map[string]int{"full": 2, "safe": 1, "readonly": 0}
 // is what makes it possible to hand an agent a read-only connection to the very
 // same daemon you are using with full access.
 func (p *Policy) Restrict(level, deny, allow string) *Policy {
-	out := &Policy{level: p.level}
+	out := &Policy{level: p.level, risk: p.risk}
 	out.deny = append(append([]string{}, p.deny...), splitPatterns(deny)...)
 
 	if level = strings.ToLower(strings.TrimSpace(level)); level != "" {

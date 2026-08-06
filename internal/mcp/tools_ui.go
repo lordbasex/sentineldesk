@@ -38,6 +38,7 @@ func (s *Server) buildUITools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "ui_tree",
+			Risk:        riskRead,
 			Description: "Read the ACCESSIBILITY TREE of the desktop: every window and widget with its role, name, text, state, screen coordinates and the actions it accepts. This is how you SEE what is on screen as structured data instead of taking a screenshot and guessing. Prefer this over `screenshot` whenever you need to operate an application. Use interactive=true to keep only the parts you can act on.",
 			InputSchema: schema(map[string]any{
 				"app":         pStr("only this application (substring of its name)"),
@@ -48,6 +49,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:        "ui_find",
+			Risk:        riskRead,
 			Description: "Find UI elements by role, name or text — e.g. the button called 'Sign in', or every text entry. Returns each match with its `ref` (use it with ui_click / ui_set_text) plus its screen coordinates. This replaces OCR + find_text for real applications.",
 			InputSchema: schema(map[string]any{
 				"role":  pStr("role, e.g. 'push button', 'entry', 'menu item', 'link'"),
@@ -59,6 +61,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:        "ui_click",
+			Risk:        riskWrite,
 			Description: "Invoke an element's action DIRECTLY by its ref (from ui_find/ui_tree) — presses the button, opens the menu, toggles the checkbox. The pointer never moves, so it cannot miss and it does not matter if the window is partly covered.",
 			InputSchema: schema(map[string]any{
 				"ref":    pStr("element ref, e.g. '2/0/3/1'"),
@@ -67,6 +70,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:        "ui_set_text",
+			Risk:        riskWrite,
 			Description: "Write text straight into an editable field by ref, replacing its content. Unlike type_text this does not depend on which window has focus.",
 			InputSchema: schema(map[string]any{
 				"ref": pStr("element ref of the entry/text field"), "text": pStr("text to set"),
@@ -74,16 +78,19 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:        "ui_get_text",
+			Risk:        riskRead,
 			Description: "Read the text/label of an element by ref (no OCR involved).",
 			InputSchema: schema(map[string]any{"ref": pStr("element ref")}, "ref"),
 		},
 		{
 			Name:        "ui_focus",
+			Risk:        riskWrite,
 			Description: "Give keyboard focus to an element by ref (then type_text goes where you want).",
 			InputSchema: schema(map[string]any{"ref": pStr("element ref")}, "ref"),
 		},
 		{
 			Name:        "ui_wait_for",
+			Risk:        riskRead,
 			Description: "Wait until a UI element matching role/name/text exists — the reliable way to wait for a dialog, a page or a button to appear, instead of guessing a `wait` duration.",
 			InputSchema: schema(map[string]any{
 				"name": pStr("accessible name (substring)"), "role": pStr("role"),
@@ -206,36 +213,43 @@ func (s *Server) buildBrowserTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "browser_open",
+			Risk:        riskWrite,
 			Description: "Launch Chromium with the DevTools Protocol enabled (port 9222) so the other browser_* tools can drive the real DOM. Optionally opens a URL. If it is already running this just reports it.",
 			InputSchema: schema(map[string]any{"url": pStr("optional URL to open")}),
 		},
 		{
 			Name:        "browser_tabs",
+			Risk:        riskRead,
 			Description: "List the open browser tabs with their title and URL.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
 			Name:        "browser_goto",
+			Risk:        riskWrite,
 			Description: "Navigate the active tab to a URL and wait for the load to finish.",
 			InputSchema: schema(map[string]any{"url": pStr("URL")}, "url"),
 		},
 		{
 			Name:        "browser_eval",
+			Risk:        riskDanger,
 			Description: "Run JavaScript in the page and return the result. The most powerful browser tool: you can read anything from the DOM without screenshots.",
 			InputSchema: schema(map[string]any{"expression": pStr("JavaScript expression")}, "expression"),
 		},
 		{
 			Name:        "browser_click",
+			Risk:        riskWrite,
 			Description: "Click an element in the page by CSS selector — exact, no coordinates involved.",
 			InputSchema: schema(map[string]any{"selector": pStr("CSS selector, e.g. '#login-btn' or 'button.primary'")}, "selector"),
 		},
 		{
 			Name:        "browser_type",
+			Risk:        riskWrite,
 			Description: "Type text into an input/textarea selected by CSS selector (fires the events a real page expects).",
 			InputSchema: schema(map[string]any{"selector": pStr("CSS selector"), "text": pStr("text")}, "selector", "text"),
 		},
 		{
 			Name:        "browser_text",
+			Risk:        riskRead,
 			Description: "Get the visible text of the page, or of the element matching a CSS selector. This is what replaces OCR for web content.",
 			InputSchema: schema(map[string]any{
 				"selector":  pStr("optional CSS selector (default: whole page)"),
@@ -244,6 +258,7 @@ func (s *Server) buildBrowserTools() []toolDef {
 		},
 		{
 			Name:        "browser_wait_for",
+			Risk:        riskRead,
 			Description: "Wait until an element matching a CSS selector appears in the page.",
 			InputSchema: schema(map[string]any{
 				"selector": pStr("CSS selector"), "timeout_ms": pInt("timeout, default 15000"),
@@ -269,7 +284,7 @@ func (s *Server) dispatchBrowser(name string, args map[string]any) ([]map[string
 		return jsonContent(tabs), false, true
 	case "browser_goto":
 		c, e := s.cdpEvalReport(fmt.Sprintf(
-			"(()=>{location.href=%s; return 'navegando a '+%s})()",
+			"(()=>{location.href=%s; return 'navigating to '+%s})()",
 			jsStr(argStr(args, "url")), jsStr(argStr(args, "url"))))
 		return c, e, true
 	case "browser_eval":
@@ -319,7 +334,7 @@ func (s *Server) dispatchBrowser(name string, args map[string]any) ([]map[string
 			}
 			time.Sleep(300 * time.Millisecond)
 		}
-		return textContent("timeout esperando %s", sel), true, true
+		return textContent("timed out waiting for %s", sel), true, true
 	}
 	return nil, false, false
 }
@@ -327,7 +342,7 @@ func (s *Server) dispatchBrowser(name string, args map[string]any) ([]map[string
 func (s *Server) toolBrowserOpen(url string) ([]map[string]any, bool) {
 	if targets, err := cdpTargets(); err == nil && len(targets) > 0 {
 		if url != "" {
-			return s.cdpEvalReport(fmt.Sprintf("(()=>{location.href=%s; return 'navegando'})()", jsStr(url)))
+			return s.cdpEvalReport(fmt.Sprintf("(()=>{location.href=%s; return 'navigating'})()", jsStr(url)))
 		}
 		return textContent("the browser is already open with CDP (%d tabs)", len(targets)), false
 	}

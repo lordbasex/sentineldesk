@@ -104,6 +104,11 @@ type Server struct {
 	recDestination string
 	tools          []toolDef
 
+	// discovery trims tools/list to the core set, read once at startup because
+	// the environment does not change under a running process and re-reading it
+	// per request would only invite it to disagree with itself.
+	discovery bool
+
 	uiMu   sync.Mutex
 	uiLast map[string]uiNode // last snapshot of the tree, for ui_diff
 
@@ -114,18 +119,27 @@ type Server struct {
 
 func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *desktop.Joystick, clip *desktop.Clipboard, rec *media.Recorder) *Server {
 	s := &Server{
-		cfg:      cfg,
-		display:  cfg.Display,
-		injector: injector,
-		joystick: joystick,
-		clip:     clip,
-		recorder: rec,
-		shells:   shell.NewShellManager(),
-		sshm:     shell.NewSSHManager(),
-		policy:   NewPolicy(),
-		actions:  NewActionLog(),
+		cfg:       cfg,
+		display:   cfg.Display,
+		injector:  injector,
+		joystick:  joystick,
+		clip:      clip,
+		recorder:  rec,
+		shells:    shell.NewShellManager(),
+		sshm:      shell.NewSSHManager(),
+		policy:    NewPolicy(),
+		actions:   NewActionLog(),
+		discovery: discoveryEnabled(),
 	}
 	s.tools = s.buildTools()
+	// A tool defined without a risk level is a permission decision nobody made.
+	// Refusing to start is loud, and the failure it replaces was not: the tool
+	// simply behaved as though someone had classified it, in whichever
+	// direction the missing entry happened to imply.
+	if err := validateCatalogue(s.tools); err != nil {
+		log.Fatalf("mcp: %v", err)
+	}
+	s.policy.risk = buildRiskIndex(s.tools)
 	return s
 }
 
@@ -245,7 +259,14 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy)
 	case "tools/list":
 		// Advertise only what this connection may use. Offering a tool that
 		// will be refused is an invitation to walk into a wall.
-		write(rpcResponse{ID: req.ID, Result: map[string]any{"tools": policy.Filter(s.tools)}})
+		//
+		// With MCP_DISCOVERY on, narrow it further to the core set and let
+		// tool_search surface the rest on demand. Note the difference between
+		// the two filters: policy decides what may be CALLED and applies again
+		// in handleToolCall, while discovery only decides what is MENTIONED
+		// here. A tool left out by discovery still runs if the model names it,
+		// which is what makes searching for one worth doing.
+		write(rpcResponse{ID: req.ID, Result: map[string]any{"tools": s.listedTools(policy)}})
 	case "tools/call":
 		s.handleToolCall(req, write, policy)
 	default:
@@ -302,7 +323,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	}
 
 	start := time.Now()
-	content, isErr := s.dispatch(params.Name, params.Arguments)
+	content, isErr := s.dispatch(params.Name, params.Arguments, policy)
 	entry.Millis = time.Since(start).Milliseconds()
 	entry.OK = !isErr
 	s.actions.Add(entry)

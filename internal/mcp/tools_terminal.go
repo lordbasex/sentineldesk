@@ -57,6 +57,7 @@ func (s *Server) terminalTools() []toolDef {
 	return []toolDef{
 		{
 			Name: "terminal_run",
+			Risk: riskDanger,
 			Description: "Type a command into a terminal window ON THE DESKTOP, wait " +
 				"for it to finish, and return what it printed. Use this instead of " +
 				"run_command when a person is watching: they see the command and its " +
@@ -69,6 +70,7 @@ func (s *Server) terminalTools() []toolDef {
 		},
 		{
 			Name: "terminal_open",
+			Risk: riskDanger,
 			Description: "Open a terminal window on the desktop, visible to anyone " +
 				"watching. Every interactive shell here reports its exit status, so " +
 				"terminal_run can tell a silent failure from a success — and so can " +
@@ -78,6 +80,7 @@ func (s *Server) terminalTools() []toolDef {
 		},
 		{
 			Name: "check_errors",
+			Risk: riskRead,
 			Description: "Look for anything on the desktop that is reporting a " +
 				"failure: error dialogs, alerts, and message boxes, with their text " +
 				"and buttons. A graphical program does not fail with an exit code — " +
@@ -87,6 +90,7 @@ func (s *Server) terminalTools() []toolDef {
 		},
 		{
 			Name: "terminal_read",
+			Risk: riskRead,
 			Description: "Read what a terminal on the desktop is showing right now, " +
 				"without typing anything, plus the exit status of the last command — " +
 				"including one a person ran. Use this when somebody asks you to look " +
