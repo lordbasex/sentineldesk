@@ -945,6 +945,128 @@ func TestCancelUnknownRequestIsHarmless(t *testing.T) {
 	}
 }
 
+// --- connection identity -------------------------------------------------------
+
+// initialize announces a client and returns the connection id the server gave
+// it. The id has to come back to the client, or nothing that supervises it can
+// name the connection it wants stopped.
+func (c *session) initialize(name string) uint64 {
+	c.t.Helper()
+	res := c.call("initialize", map[string]any{
+		"clientInfo": map[string]any{"name": name, "version": "1.0"},
+	})
+	meta, ok := res["_meta"].(map[string]any)
+	if !ok {
+		c.t.Fatal("initialize returned no _meta, so the client cannot learn its id")
+	}
+	id, ok := meta["sentineldesk/connectionId"].(float64)
+	if !ok {
+		c.t.Fatalf("no connection id in %v", meta)
+	}
+	return uint64(id)
+}
+
+func TestConnectionsAreNumberedAndNamed(t *testing.T) {
+	s := testServer(t)
+	a := newSession(t, s)
+	b := newSession(t, s)
+
+	idA := a.initialize("agent-runtime")
+	idB := b.initialize("claude-code")
+	if idA == idB {
+		t.Fatalf("both connections got id %d", idA)
+	}
+
+	// The name and the number both reach the audit trail. Without them every
+	// entry reads "the agent did this", which stops being a useful sentence the
+	// moment a runtime fans out across several connections.
+	a.call("tools/call", map[string]any{"name": "wait", "arguments": map[string]any{"ms": 1}})
+	entries := s.actions.Tail(1, "")
+	if len(entries) != 1 {
+		t.Fatalf("logged %d entries, want 1", len(entries))
+	}
+	if entries[0].Conn != idA {
+		t.Errorf("logged connection %d, want %d", entries[0].Conn, idA)
+	}
+	if entries[0].Client != "agent-runtime 1.0" {
+		t.Errorf("logged client %q", entries[0].Client)
+	}
+}
+
+// TestHaltStopsOneConnectionOnly is the whole point of the identity. An
+// emergency stop for the agent runtime must not stop an operator's own MCP
+// session, and it must not stop the desktop.
+func TestHaltStopsOneConnectionOnly(t *testing.T) {
+	s := testServer(t)
+	agent := newSession(t, s)
+	operator := newSession(t, s)
+
+	agentID := agent.initialize("agent-runtime")
+	operator.initialize("claude-code")
+
+	s.HaltConnection(agentID, "emergency stop")
+
+	if got := agent.denialOf("wait", map[string]any{"ms": 1}); got != string(denialEmergency) {
+		t.Errorf("halted connection got kind %q, want %q", got, denialEmergency)
+	}
+	if got := operator.denialOf("wait", map[string]any{"ms": 1}); got != "" {
+		t.Errorf("the other connection was refused with kind %q", got)
+	}
+
+	s.ResumeConnection(agentID)
+	if got := agent.denialOf("wait", map[string]any{"ms": 1}); got != "" {
+		t.Errorf("resume did not lift the halt: kind %q", got)
+	}
+}
+
+// TestHaltOutranksEverything: a halted connection is not being told about the
+// catalogue, it is being told to stop. Answering "unknown tool" first would let
+// a client that is supposed to be doing nothing map what exists.
+func TestHaltOutranksEverything(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+	id := c.initialize("agent-runtime")
+	s.HaltConnection(id, "emergency stop")
+
+	for _, name := range []string{"no_such_tool", "run_command", "wait"} {
+		if got := c.denialOf(name, nil); got != string(denialEmergency) {
+			t.Errorf("%s: kind %q, want %q", name, got, denialEmergency)
+		}
+	}
+}
+
+func TestHaltIsLoggedWithItsConnection(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+	id := c.initialize("agent-runtime")
+	s.HaltConnection(id, "emergency stop: operator")
+	c.denialOf("wait", map[string]any{"ms": 1})
+
+	entries := s.actions.Tail(1, "")
+	if len(entries) != 1 {
+		t.Fatalf("logged %d entries, want 1", len(entries))
+	}
+	if entries[0].Kind != string(denialEmergency) {
+		t.Errorf("logged kind %q, want %q", entries[0].Kind, denialEmergency)
+	}
+	if entries[0].Conn != id {
+		t.Errorf("logged connection %d, want %d", entries[0].Conn, id)
+	}
+	if !strings.Contains(entries[0].Denied, "operator") {
+		t.Errorf("the reason did not reach the log: %q", entries[0].Denied)
+	}
+}
+
+// TestUnhaltedConnectionsNeedNoInitialize: a client that never sends
+// clientInfo still gets an id and still works. The name is nice to have; the
+// number is what the halt needs.
+func TestConnectionWorksWithoutClientInfo(t *testing.T) {
+	c := newSession(t, testServer(t))
+	if got := c.denialOf("wait", map[string]any{"ms": 1}); got != "" {
+		t.Errorf("a connection that never introduced itself was refused: %q", got)
+	}
+}
+
 func TestEveryToolHasACategory(t *testing.T) {
 	for _, tool := range catalogue(t) {
 		if categoryOf(tool.Name) == "" {

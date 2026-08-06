@@ -219,8 +219,16 @@ type actionEntry struct {
 	VideoAt string `json:"video_at,omitempty"` // mm:ss within the recording
 	Denied  string `json:"denied,omitempty"`
 	// Kind is Denied in a form a program can branch on: policy, room,
-	// unknown_tool or tool_error. See denialKind in registry.go.
+	// unknown_tool, tool_error, cancelled or emergency. See denialKind in
+	// registry.go.
 	Kind string `json:"kind,omitempty"`
+
+	// Conn and Client name the connection the call came in on. Every MCP
+	// connection shares the room identity `agent`, which is what lets a runtime
+	// run several sub-agents under one claim on the desktop — and what makes
+	// "the agent did this" useless in an audit once there is more than one.
+	Conn   uint64 `json:"conn,omitempty"`
+	Client string `json:"client,omitempty"`
 }
 
 // ActionLog keeps the most recent actions in memory and, on request, in a JSONL

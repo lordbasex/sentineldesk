@@ -194,6 +194,89 @@ func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *
 	return pc
 }
 
+// --- connections ---------------------------------------------------------------
+
+// connection is what the server knows about one client on the socket.
+//
+// Until now it knew nothing: `serve` held a policy and that was all, so every
+// call in the action log read "the agent did this" with no way to say which
+// client, and there was no handle by which one client could be stopped without
+// stopping the others.
+//
+// Both matter more than they look, because of how the room works. Every MCP
+// connection shares the room identity `agent` — that is deliberate, and it is
+// what lets a runtime fan sub-agents out across connections and have them act
+// under one claim on the desktop. The cost is that "the agent" stops being a
+// useful name in an audit the moment there is more than one. This is the name
+// that distinguishes them.
+//
+// It is NOT a second room identity, and must not become one. Several agents
+// acting as one participant is the property; this only makes the log and the
+// emergency stop able to tell them apart.
+type connection struct {
+	id uint64
+
+	mu     sync.Mutex
+	client string // name and version from initialize, when it sent any
+}
+
+func (c *connection) setClient(name, version string) {
+	if name = strings.TrimSpace(name); name == "" {
+		return
+	}
+	if version = strings.TrimSpace(version); version != "" {
+		name += " " + version
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.client = name
+}
+
+func (c *connection) clientName() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.client
+}
+
+// HaltConnection refuses further tool calls from one connection, leaving every
+// other client alone.
+//
+// This is the instrument an emergency stop needs. Stopping the agent runtime
+// must not stop an operator's own MCP session or the desktop itself, so it
+// cannot be a flag on the server or a closed socket — it has to name somebody.
+// The id comes back to the client in its own initialize response, so whatever
+// supervises it can quote the id it was given.
+//
+// Deliberately not a kill: calls already running are left to finish under their
+// own cancellation, and nothing here reaches into the desktop. It refuses what
+// has not started yet.
+func (s *Server) HaltConnection(id uint64, reason string) {
+	if strings.TrimSpace(reason) == "" {
+		reason = "halted by the server"
+	}
+	s.haltMu.Lock()
+	defer s.haltMu.Unlock()
+	if s.halted == nil {
+		s.halted = map[uint64]string{}
+	}
+	s.halted[id] = reason
+}
+
+// ResumeConnection lifts a halt. Explicit, because an emergency stop that
+// expires on its own is not one.
+func (s *Server) ResumeConnection(id uint64) {
+	s.haltMu.Lock()
+	defer s.haltMu.Unlock()
+	delete(s.halted, id)
+}
+
+func (s *Server) haltedReason(id uint64) (string, bool) {
+	s.haltMu.RLock()
+	defer s.haltMu.RUnlock()
+	reason, ok := s.halted[id]
+	return reason, ok
+}
+
 // requestKey turns a JSON-RPC id into a map key.
 //
 // The id is raw JSON because the protocol allows a string or a number and the
@@ -248,6 +331,12 @@ type Server struct {
 	// the environment does not change under a running process and re-reading it
 	// per request would only invite it to disagree with itself.
 	discovery bool
+
+	// Connections, numbered so the action log and the emergency stop can name
+	// one without naming the rest. See connection.
+	connSeq atomic.Uint64
+	haltMu  sync.RWMutex
+	halted  map[uint64]string // connection id -> why it was halted
 
 	uiMu   sync.Mutex
 	uiLast map[string]uiNode // last snapshot of the tree, for ui_diff
@@ -342,6 +431,8 @@ func (s *Server) serve(conn net.Conn) {
 	flight := newInflight()
 	defer flight.cancelAll("cancelled: the connection closed")
 
+	client := &connection{id: s.connSeq.Add(1)}
+
 	connPolicy := s.policy
 	var policyMu sync.RWMutex
 	var writeMu sync.Mutex
@@ -410,17 +501,29 @@ func (s *Server) serve(conn net.Conn) {
 
 		// One goroutine per request: a slow or wedged tool must not freeze the
 		// rest of the connection. The client pairs responses by id anyway.
-		go s.handle(req, write, active, pending)
+		go s.handle(req, write, active, pending, client)
 	}
 }
 
-func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall) {
+func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall, client *connection) {
 	switch req.Method {
 	case "initialize":
+		var p struct {
+			ClientInfo struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			} `json:"clientInfo"`
+		}
+		_ = json.Unmarshal(req.Params, &p)
+		client.setClient(p.ClientInfo.Name, p.ClientInfo.Version)
 		write(rpcResponse{ID: req.ID, Result: map[string]any{
 			"protocolVersion": mcpProtocolVersion,
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": mcpServerName, "version": buildVersion()},
+			// The connection is told its own number so that whatever supervises
+			// it can quote the id back when it needs this one stopped and no
+			// others. Namespaced: the specification does not define it.
+			"_meta": map[string]any{"sentineldesk/connectionId": client.id},
 		}})
 	case "notifications/initialized", "initialized":
 		// a notification: no response is expected
@@ -438,7 +541,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy,
 		// which is what makes searching for one worth doing.
 		write(rpcResponse{ID: req.ID, Result: map[string]any{"tools": s.listedTools(policy)}})
 	case "tools/call":
-		s.handleToolCall(req, write, policy, pending)
+		s.handleToolCall(req, write, policy, pending, client)
 	default:
 		if req.ID != nil {
 			write(rpcResponse{ID: req.ID, Error: &rpcError{Code: -32601, Message: "method not found: " + req.Method}})
@@ -446,7 +549,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy,
 	}
 }
 
-func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall) {
+func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall, client *connection) {
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -464,6 +567,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	entry := actionEntry{
 		Time: nowStamp(), Tool: params.Name, Args: summarizeArgs(args),
 		VideoAt: videoOffset(s.recorder),
+		Conn:    client.id, Client: client.clientName(),
 	}
 
 	// One cancellable context per call, registered under this request's id so a
@@ -486,6 +590,15 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 		entry.Kind = string(kind)
 		s.actions.Add(entry)
 		reply(toolCallResult(content, kind))
+	}
+
+	// Before anything else, including whether the tool exists: a halted
+	// connection is not being told about the catalogue, it is being told to
+	// stop. Answering "unknown tool" first would leak the shape of the
+	// catalogue to a client that is supposed to be doing nothing at all.
+	if reason, halted := s.haltedReason(client.id); halted {
+		refuse(denialEmergency, textContent("%s", reason), reason)
+		return
 	}
 
 	// Before policy, because a name that does not exist was not refused — it

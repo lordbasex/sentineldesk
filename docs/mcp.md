@@ -469,6 +469,7 @@ in the content, and a kind beside it:
 | `unknown_tool` | No such tool in the catalogue | Check `tools/list` |
 | `tool_error` | The tool ran and reported failure | May be worth retrying |
 | `cancelled` | The call was stopped — see below | Nothing; you asked for this |
+| `emergency` | This connection has been halted | Nothing; an operator lifts it |
 
 The three refusals need genuinely different responses, and matching substrings
 to tell them apart is one wording change away from breaking. A successful call
@@ -481,6 +482,46 @@ by the level still reports `policy`.
 
 The kind is written into `action_log` as well, so an audit can be read by
 machine without parsing prose there either.
+
+### Connections have names, and can be stopped one at a time
+
+Every connection gets a number, and `initialize` hands it back:
+
+```json
+{
+  "protocolVersion": "2024-11-05",
+  "serverInfo": {"name": "sentineldesk", "version": "…"},
+  "_meta": {"sentineldesk/connectionId": 3}
+}
+```
+
+Send `clientInfo` in `initialize` and the name is recorded with it. Both end up
+on every entry in `action_log`:
+
+```json
+{"time": "…", "tool": "run_command", "conn": 3, "client": "agent-runtime 1.0", "ok": true}
+```
+
+This matters because of how the room works. Every MCP connection shares the room
+identity `agent` — deliberately, so that a runtime can fan several sub-agents
+out across connections and have them act under **one** claim on the desktop. The
+cost is that "the agent did this" stops being a useful sentence the moment there
+is more than one of them. The connection number is what tells them apart.
+
+It is not a second room identity and must not become one: several agents acting
+as one participant is the property, and this only lets the log and the emergency
+stop distinguish them.
+
+The number is also the handle for stopping one client without stopping the rest.
+A halted connection has every `tools/call` refused with the `emergency` kind,
+before the catalogue is even consulted — a client that is supposed to be doing
+nothing should not be able to map what exists. Other connections are untouched,
+and so is the desktop.
+
+It is deliberately not a kill: calls already running are left to end under their
+own cancellation, and nothing reaches into X. It refuses what has not started.
+Lifting it is explicit, because an emergency stop that expires by itself is not
+one.
 
 ### Cancelling a call
 

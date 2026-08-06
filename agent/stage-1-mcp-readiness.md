@@ -392,9 +392,24 @@ The catalogue is static per process today, so the honest MVP answer is: keep
 refreshing on reconnect, and do not invent the capability. Revisit when
 something can actually change the catalogue at runtime.
 
-### 5.3 Connections have no identity
+### 5.3 Connections have no identity — **fixed**
 
-Two things need this, and the second is the one that makes it worth doing.
+Step 6 of §6 is done. Every connection is numbered, `initialize` hands the
+number back in `_meta["sentineldesk/connectionId"]` and records `clientInfo`,
+and both reach every `action_log` entry as `conn` and `client`.
+
+`Server.HaltConnection(id, reason)` / `ResumeConnection(id)` refuse `tools/call`
+from one connection with the `emergency` kind, ahead of the catalogue check —
+a client that is supposed to be doing nothing should not be able to map what
+exists. Other connections and the desktop are untouched. It is not a kill: calls
+already running end under their own cancellation.
+
+The exported halt is the one piece here built slightly ahead of its consumer,
+and deliberately: it is the instrument stage 2's Emergency Stop needs, and
+adding an identity to a protocol after several clients depend on it is far
+worse than adding it now.
+
+The problem, kept as the record:
 
 **Emergency Stop** is supposed to block the Agent Runtime's calls at the MCP
 boundary while leaving external MCP clients alone. There is nothing to
@@ -454,7 +469,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | ~~3~~ | ~~Structured denial kinds in `tools/call`~~ | **Done.** `_meta["sentineldesk/denial"]`, plus the same kind in the action log | small |
 | ~~4~~ | ~~Thread `context.Context` through `dispatch`; honour `notifications/cancelled`~~ | **Done.** Per-call context, `cancelled` kind, connection close cancels | medium |
 | ~~5~~ | ~~Audit which tools ignore cancellation; publish the list~~ | **Done.** Cancellation is acknowledged immediately whatever the tool does; both lists published | medium |
-| 6 | Connection identity from `initialize`, carried into the action log | Emergency gate, and attribution once sub-agents run concurrently (§5.3) | small |
+| ~~6~~ | ~~Connection identity from `initialize`, carried into the action log~~ | **Done.** Numbered connections, `conn`/`client` in the log, per-connection halt | small |
 | 7 | `notifications/progress` for the long tools | Timeline quality | medium |
 
 Steps 1–3 are a day. They are also the ones that unblock the most of stage 2.

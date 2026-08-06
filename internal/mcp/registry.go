@@ -323,6 +323,11 @@ const (
 	// it. Whatever the tool managed to return describes work that was
 	// interrupted, not work that was done.
 	denialCancelled denialKind = "cancelled"
+
+	// denialEmergency — this connection has been halted. Distinct from policy
+	// because it is about who is calling rather than what they called, and it
+	// is lifted by an operator rather than by asking differently.
+	denialEmergency denialKind = "emergency"
 )
 
 // toolCallResult builds the tools/call result. An empty kind means success.
