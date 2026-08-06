@@ -373,13 +373,49 @@ install_native_mode() {
   RUNTIME_DIR="/run/user/$SD_UID"
   say "desktop user: $DESKTOP_USER (uid $SD_UID) · home $DESKTOP_HOME · runtime $RUNTIME_DIR"
 
-  # Only for an account that a person also logs into. For one we just created
-  # nobody ever logs in, so logind never touches the directory either way — but
-  # asking for linger costs nothing and makes the two cases behave alike.
+  # Linger, and ONLY for an account a person also logs into.
+  #
+  # It was applied to both cases on the reasoning that it "costs nothing" for an
+  # account nobody logs into. It costs something: linger starts that user's
+  # systemd manager, the manager socket-activates Debian's pulseaudio.socket,
+  # and that PulseAudio takes the pid file before supervisord's does. The result
+  # on a bare VPS was
+  #
+  #   E: [pulseaudio] pid.c: Daemon already running.
+  #   gave up: pulseaudio entered FATAL state
+  #
+  # on a desktop where nothing else was wrong. An account we created has nobody
+  # logging in, so logind never touches its runtime directory and linger buys
+  # nothing at all.
+  #
+  # An existing account still needs it: there logind DOES create and destroy
+  # /run/user/<uid> around that person's sessions, and without linger closing
+  # the last ssh takes the desktop's sockets with it.
   if command -v loginctl >/dev/null 2>&1; then
-    loginctl enable-linger "$DESKTOP_USER" 2>/dev/null \
-      || warn "could not enable linger for $DESKTOP_USER; if the desktop loses audio after you log out, that is why"
+    if [ "$OWN_HOME" = 0 ]; then
+      loginctl enable-linger "$DESKTOP_USER" 2>/dev/null \
+        || warn "could not enable linger for $DESKTOP_USER; if the desktop loses audio after you log out, that is why"
+    else
+      # Actively turned OFF, not merely left alone: an earlier version of this
+      # script enabled it here, and a machine installed with that one keeps a
+      # user manager running — and a PulseAudio with it — until something says
+      # otherwise. Stopping the manager too, because masking a unit does not
+      # stop the copy that is already running.
+      loginctl disable-linger "$DESKTOP_USER" 2>/dev/null || true
+      systemctl stop "user@$SD_UID.service" 2>/dev/null || true
+    fi
   fi
+
+  # And whichever case this is, make sure the desktop's PulseAudio is the only
+  # one. On an existing account the person logging in starts their user manager
+  # regardless of linger, so masking is what actually prevents the collision;
+  # /dev/null symlinks are the mask, written directly because the account may
+  # have no session for `systemctl --user` to talk to.
+  install -d -o "$DESKTOP_USER" -g "$DESKTOP_USER" -m 700 "$DESKTOP_HOME/.config/systemd/user"
+  for u in pulseaudio.socket pulseaudio.service; do
+    ln -sf /dev/null "$DESKTOP_HOME/.config/systemd/user/$u"
+    chown -h "$DESKTOP_USER:" "$DESKTOP_HOME/.config/systemd/user/$u" 2>/dev/null || true
+  done
   usermod -aG video sentineldesk 2>/dev/null || true
   usermod -aG render sentineldesk 2>/dev/null || true
 
@@ -547,7 +583,19 @@ After=network.target
 [Service]
 Type=exec
 EnvironmentFile=/etc/sentineldesk/env
-ExecStart=/usr/local/bin/sentineldesk-session
+# Piped through cat on purpose, and this is not cosmetic.
+#
+# supervisord.conf sends every program's output to /dev/fd/1 so that `docker
+# logs` shows it. Under systemd that file descriptor is a socket to journald,
+# and open() on a socket through /proc/self/fd fails with ENXIO — so ALL TEN
+# programs died at startup with "unknown error making dispatchers", on a
+# service systemd itself reported as active and running.
+#
+# `| cat` makes fd 1 an ordinary pipe, which is exactly what it is inside a
+# container, so the same config works in both places and journalctl still gets
+# everything. The alternative was a second logging scheme for native installs;
+# one shared supervisord.conf is worth more than avoiding a `cat`.
+ExecStart=/bin/sh -c 'exec /usr/local/bin/sentineldesk-session 2>&1 | cat'
 Restart=on-failure
 RestartSec=3
 
