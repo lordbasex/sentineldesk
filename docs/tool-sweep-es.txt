@@ -1,5 +1,5 @@
 SentinelDesk — cada herramienta llamada contra un escritorio real
-Ejecutado el 06 de agosto de 2026, 15:11 contra sentineldesk v1.1.8 (917b8e7) · build 20260806-150457
+Ejecutado el 06 de agosto de 2026, 15:18 contra sentineldesk v1.1.8 (917b8e7) · build 20260806-150457
 
 Generado por tools/tool-sweep.py. La tabla resumen, con la misma
 numeración, está en docs/tool-sweep.md.
@@ -19,11 +19,11 @@ Result: {
   "display": ":0",
   "encoder": "auto",
   "joystick": true,
-  "memory_used": "1455/7833 MB",
+  "memory_used": "1819/7833 MB",
   "recording": false,
   "resolution": "1920x1080",
   "restreaming": false,
-  "uptime": "15:11:03 up  3:05,  0 users,  load average: 7.05, 7.36, 6.30",
+  "uptime": "15:17:28 up  3:11,  0 users,  load average: 4.31, 5.29, 5.74",
   "window_manager": "Openbox"
 }
 
@@ -66,7 +66,7 @@ Cómo llevarla más lejos:
 tool: #3   [ok]
 screenshot: Capturar la pantalla entera como PNG
 Argumentos enviados: ninguno
-Result: [image saved: /tmp/mcp-screenshot-1786039863624.png]
+Result: [image saved: /tmp/mcp-screenshot-1786040248879.png]
 
 Qué hizo:
   Capturó el framebuffer de forma nativa por desktop.GrabScreenshotPNG y devolvió PNG,
@@ -86,7 +86,7 @@ Cómo llevarla más lejos:
 tool: #4   [ok]
 screenshot_region: Capturar un rectángulo en vez de la pantalla entera
 Argumentos enviados: {"height": 200, "width": 320, "x": 0, "y": 0}
-Result: [image saved: /tmp/mcp-screenshot_region-1786039863675.png]
+Result: [image saved: /tmp/mcp-screenshot_region-1786040248915.png]
 
 Qué hizo:
   Recortó en el momento de capturar en vez de traer la pantalla y cortarla, así el
@@ -104,10 +104,10 @@ tool: #5   [ok]
 get_pixel_color: El color de un pixel, para verificar estado sin traer una imagen
 Argumentos enviados: {"x": 10, "y": 10}
 Result: {
-  "b": 51,
-  "g": 33,
-  "hex": "#1b2133",
-  "r": 27
+  "b": 214,
+  "g": 207,
+  "hex": "#c3cfd6",
+  "r": 195
 }
 
 Qué hizo:
@@ -126,19 +126,30 @@ Cómo llevarla más lejos:
 tool: #6   [ok]
 read_screen_text: Pasar la pantalla a texto con OCR
 Argumentos enviados: {"lang": "eng"}
-Result: Pry
+Result: *.| = Bi sentineldesk@5d39376 sweep. html - Chromium Bi sentineldesk@5d393761
+a
 
-mf Ms NN e. lameocees CM + Ne ve
-SSH SN MAASASBAQLS A SEY Tg =x < 4 “= os : by P
-3 SES .
+v  @ sweep html x + - oO xXx
 
-dlovwapy ei
-Awl ys
-\
+CG (@File ‘file:///tmp/sweep.html| xv
 
-: Mallat |
+You are using an unsupported command-line flag: -no-sandbox. Stability Restore pages?
+Chromium didn't shut down correctly.
 
-eceta :
+clicked
+
+|sweep | Go |
+
+. SAVRANaAAAA SS
+
+erminal-ok
+
+File Edit Tabs Help
+: $ echo sweep-terminal-ok
+
+7/$ a
+
+sweep-terminal-ok
 
 Qué hizo:
   Capturó a 2x y le pasó tesseract. Ese escalado es lo único que hace el OCR usable
@@ -180,8 +191,8 @@ tool: #8   [ok]
 get_mouse_position: Dónde está el puntero ahora
 Argumentos enviados: ninguno
 Result: {
-  "x": 10,
-  "y": 10
+  "x": 360,
+  "y": 340
 }
 
 Qué hizo:
@@ -198,21 +209,28 @@ tool: #9   [ok]
 get_active_window: Qué ventana tiene el foco
 Argumentos enviados: ninguno
 Result: {
-  "active": null,
-  "note": "no window currently has focus"
+  "id": "0x01a00003",
+  "desktop": 0,
+  "x": 10,
+  "y": 46,
+  "w": 945,
+  "h": 1024,
+  "class": "Chromium",
+  "title": "sweep.html - Chromium"
 }
 
 Qué hizo:
-  Le preguntó a EWMH qué ventana tiene el foco, y reportó degradado cuando ninguna lo
-  tenía — que es un estado real del escritorio, no una falla.
+  Leyó _NET_ACTIVE_WINDOW y describió esa ventana: id, geometría, clase y título como
+  campos.
 
-Puntaje del método: 4/5  ●●●●○
+Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  'no active window: exit status 1' filtra la shell que lo produjo. Que no haya foco
-  es una respuesta, no un error: debería devolver null con una nota e isError en
-  false, para que quien llama no tenga que decidir si el error significa roto o
-  significa que nadie tiene el foco.
+  Una lectura de propiedad donde antes eran tres procesos xdotool devolviendo un
+  párrafo de texto para parsear. Que no haya foco ahora es una respuesta con nota y no
+  un error, así que quien llama puede distinguir un escritorio inactivo de una
+  consulta rota. Las coordenadas se traducen a la raíz, así que son las que sirven
+  para un clic incluso con un gestor de ventanas que reparenta.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -239,19 +257,52 @@ Result: [
     "h": 1080,
     "class": "Pcmanfm",
     "title": "pcmanfm"
+  },
+  {
+    "id": "0x01400003",
+    "desktop": 0,
+    "x": 632,
+    "y": 353,
+    "w": 656,
+    "h": 436,
+    "class": "Lxterminal",
+    "title": "sentineldesk@5d39376180ca: /"
+  },
+  {
+    "id": "0x01a00003",
+    "desktop": 0,
+    "x": 10,
+    "y": 46,
+    "w": 945,
+    "h": 1024,
+    "class": "Chromium",
+    "title": "sweep.html - Chromium"
+  },
+  {
+    "id": "0x01400059",
+    "desktop": 0,
+    "x": 1263,
+    "y": 643,
+    "w": 656,
+    "h": 436,
+    "class": "Lxterminal",
+    "title": "sentineldesk@5d39376180ca: /"
   }
 ]
 
 Qué hizo:
-  Listó cada ventana con id, escritorio, geometría, clase y título usando wmctrl.
+  Listó cada ventana con id, escritorio, geometría, clase y título, leídos directo de
+  _NET_CLIENT_LIST y de las propiedades de cada ventana.
 
-Puntaje del método: 3/5  ●●●○○
+Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  Hace shell-out a wmctrl y parsea columnas, o sea una dependencia de locale y de
-  formato para datos que la conexión X ya tiene. Las mismas propiedades EWMH que lee
-  están disponibles directo, e ir directo también sacaría el parseo por ancho fijo que
-  se rompe con un título que tenga dos espacios.
+  Antes hacía shell-out a wmctrl y partía la salida por espacios, así que una ventana
+  llamada "Report 2026" — dos espacios — se parseaba como otra ventana con otra
+  geometría. internal/desktop/ewmh.go lee las propiedades que X ya tiene: sin
+  subproceso, sin locale, sin aritmética de columnas. Lo único que queda es avisarle a
+  quien llama cuando el gestor de ventanas no publica ninguna lista de clientes, que
+  es una falla distinta de un escritorio vacío.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -282,14 +333,17 @@ Result: [
 ]
 
 Qué hizo:
-  Listó los escritorios virtuales y marcó el actual, vía wmctrl.
+  Listó los escritorios virtuales y marcó el actual, desde _NET_NUMBER_OF_DESKTOPS,
+  _NET_CURRENT_DESKTOP y _NET_DESKTOP_NAMES.
 
-Puntaje del método: 3/5  ●●●○○
+Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  El mismo shell-out que list_windows y el mismo arreglo: _NET_DESKTOP_NAMES y
-  _NET_CURRENT_DESKTOP están a una llamada X de distancia y no las puede arruinar un
-  locale.
+  Esto antes no era sólo poco elegante, estaba mal. El parser viejo tomaba todos los
+  campos desde el índice 8 como nombre, así que cada escritorio volvía llamándose
+  "1920x1044 desktop 1", con el tamaño del área de trabajo pegado adelante — desde que
+  la herramienta existía, porque nadie leyó la salida de cerca. Leer la propiedad de
+  nombres da el nombre.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -299,7 +353,7 @@ Argumentos enviados: {"filter": "python"}
 Result: [
   {
     "command": "/usr/bin/python3 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf",
-    "cpu": "0.5",
+    "cpu": "0.0",
     "mem": "0.3",
     "name": "supervisord",
     "pid": 1
@@ -454,7 +508,7 @@ Argumentos enviados: ninguno
 Result: {
   "mute": false,
   "sink": "sentineldesk",
-  "volume": "Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB"
+  "volume": "Volume: front-left: 39321 /  60% / -13.31 dB,   front-right: 39321 /  60% / -13.31 dB"
 }
 
 Qué hizo:
@@ -473,8 +527,28 @@ tool: #16   [ok]
 check_errors: Cualquier diálogo de error o alerta que haya en pantalla
 Argumentos enviados: ninguno
 Result: {
-  "errors_on_screen": false,
-  "note": "nothing is reporting a failure. This only sees graphical dialogs — a command that failed silently in a terminal shows up in terminal_read, and a program that died at launch in the stderr that launch_app returns."
+  "dialogs": [
+    {
+      "ref": "3/0/0/0/5/3/0",
+      "role": "alert",
+      "text": "￼￼￼￼￼",
+      "title": "Infobar"
+    },
+    {
+      "ref": "3/0/1",
+      "role": "alert",
+      "text": "￼",
+      "title": "Restore pages?"
+    },
+    {
+      "ref": "3/1",
+      "role": "alert",
+      "text": "￼",
+      "title": "Restore pages?"
+    }
+  ],
+  "errors_on_screen": true,
+  "hint": "use ui_click with the ref of a button to dismiss one, after reading what it says"
 }
 
 Qué hizo:
@@ -514,10 +588,10 @@ tool: #18   [ok]
 wait_for_idle: Esperar a que la pantalla deje de cambiar y la CPU se calme
 Argumentos enviados: {"ignore_cpu": true, "quiet_ms": 400, "timeout_ms": 4000}
 Result: {
-  "cpu_percent": 94,
-  "idle": true,
-  "reason": "the screen went still and the CPU settled",
-  "waited_ms": 681
+  "cpu_percent": 91,
+  "idle": false,
+  "reason": "the screen went still but the CPU is still at 91%",
+  "waited_ms": 4066
 }
 
 Qué hizo:
@@ -712,30 +786,30 @@ Result: {
   "count": 3,
   "entries": [
     {
-      "time": "2026-08-06T15:11:07.552-03:00",
+      "time": "2026-08-06T15:17:33.014-03:00",
       "tool": "wait",
       "args": "{\"ms\":50}",
       "ok": true,
       "ms": 50,
-      "conn": 6,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-06T15:11:07.616-03:00",
+      "time": "2026-08-06T15:17:33.081-03:00",
       "tool": "wait_for_idle",
       "args": "{\"ignore_cpu\":true,\"quiet_ms\":400,\"timeout_ms\":4000}",
       "ok": true,
-      "ms": 681,
-      "conn": 6,
+      "ms": 4066,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-06T15:11:08.308-03:00",
+      "time": "2026-08-06T15:17:37.160-03:00",
       "tool": "tool_search",
       "args": "{\"limit\":5,\"query\":\"give someone remote access over ssh\"}",
       "ok": true,
       "ms": 0,
-      "conn": 6,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     }
   ]
@@ -770,14 +844,14 @@ Result: {
       "controller": false,
       "id": "u1",
       "name": "Viewer 1",
-      "seconds": 32
+      "seconds": 421
     },
     {
       "agent": true,
       "controller": false,
       "id": "agent",
       "name": "AI agent",
-      "seconds": 17
+      "seconds": 406
     }
   ],
   "you_have_control": false
@@ -987,16 +1061,20 @@ Argumentos enviados: {"text": "sentineldesk-sweep"}
 Result: clipboard set
 
 Qué hizo:
-  Escribió texto en la selección CLIPBOARD de X con xclip, que queda vivo en segundo
-  plano para ser dueño de la selección.
+  Escribió texto en la selección CLIPBOARD de X y reportó si la escritura realmente
+  ocurrió.
 
-Puntaje del método: 2/5  ●●○○○
+Puntaje del método: 4/5  ●●●●○
 
 Cómo llevarla más lejos:
-  Descarta el resultado — `_ = cmd.Run()` — así que una escritura fallida se reporta
-  como éxito y el agente sigue adelante a pegar algo que no está. Eso solo es la
-  diferencia entre un dos y un cuatro. Ser dueño de la selección desde adentro del
-  daemon arreglaría la honestidad y el proceso xclip colgado al mismo tiempo.
+  Antes descartaba el resultado, así que una escritura fallida se reportaba como éxito
+  y el agente iba a pegar algo que nunca estuvo. Acertarle al arreglo llevó tres
+  intentos: capturar stderr hizo que Go creara un pipe que el hijo demonizado de xclip
+  heredó y nunca cerró, y colgó sesenta segundos; agregar WaitDelay arregló eso e hizo
+  que una escritura exitosa se reportara como rota, porque ErrWaitDelay es el hijo
+  sosteniendo el pipe y no un comando fallido. Sigue siendo un subproceso por
+  escritura, y sigue siendo sólo texto — ser dueño de la selección desde adentro del
+  daemon es lo que lo llevaría a cinco.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -1032,7 +1110,7 @@ Result: {
   "as_root": false,
   "command": "xterm -T SWEEPWIN -e sleep 600",
   "note": "still running after 700 ms. A window may take longer to appear — use wait_for_window, or open_app_and_wait next time.",
-  "pid": 479,
+  "pid": 3461,
   "running": true
 }
 
@@ -1058,7 +1136,7 @@ Argumentos enviados: {"match": "SWEEPWIN", "timeout_ms": 15000}
 Result: {
   "class": "xterm.XTerm",
   "found": true,
-  "id": "0x0140000c",
+  "id": "0x0240000c",
   "title": "SWEEPWIN"
 }
 
@@ -1101,10 +1179,40 @@ Result: [
     "title": "pcmanfm"
   },
   {
-    "id": "0x0140000c",
-    "desktop": 2,
-    "x": 718,
-    "y": 413,
+    "id": "0x01400003",
+    "desktop": 0,
+    "x": 632,
+    "y": 353,
+    "w": 656,
+    "h": 436,
+    "class": "Lxterminal",
+    "title": "sentineldesk@5d39376180ca: /"
+  },
+  {
+    "id": "0x01a00003",
+    "desktop": 0,
+    "x": 10,
+    "y": 46,
+    "w": 945,
+    "h": 1024,
+    "class": "Chromium",
+    "title": "sweep.html - Chromium"
+  },
+  {
+    "id": "0x01400059",
+    "desktop": 0,
+    "x": 1263,
+    "y": 643,
+    "w": 656,
+    "h": 436,
+    "class": "Lxterminal",
+    "title": "sentineldesk@5d39376180ca: /"
+  },
+  {
+    "id": "0x0240000c",
+    "desktop": 0,
+    "x": 1362,
+    "y": 181,
     "w": 484,
     "h": 316,
     "class": "XTerm",
@@ -1113,22 +1221,25 @@ Result: [
 ]
 
 Qué hizo:
-  Listó cada ventana con id, escritorio, geometría, clase y título usando wmctrl.
+  Listó cada ventana con id, escritorio, geometría, clase y título, leídos directo de
+  _NET_CLIENT_LIST y de las propiedades de cada ventana.
 
-Puntaje del método: 3/5  ●●●○○
+Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  Hace shell-out a wmctrl y parsea columnas, o sea una dependencia de locale y de
-  formato para datos que la conexión X ya tiene. Las mismas propiedades EWMH que lee
-  están disponibles directo, e ir directo también sacaría el parseo por ancho fijo que
-  se rompe con un título que tenga dos espacios.
+  Antes hacía shell-out a wmctrl y partía la salida por espacios, así que una ventana
+  llamada "Report 2026" — dos espacios — se parseaba como otra ventana con otra
+  geometría. internal/desktop/ewmh.go lee las propiedades que X ya tiene: sin
+  subproceso, sin locale, sin aritmética de columnas. Lo único que queda es avisarle a
+  quien llama cuando el gestor de ventanas no publica ninguna lista de clientes, que
+  es una falla distinta de un escritorio vacío.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #36   [ok]
 activate_window: Enfocar y traer al frente una ventana por id
-Argumentos enviados: {"id": "0x0140000c"}
-Result: activated window 0x0140000c
+Argumentos enviados: {"id": "0x0240000c"}
+Result: activated window 0x0240000c
 
 Qué hizo:
   Enfocó y trajo al frente una ventana por id usando wmctrl.
@@ -1145,7 +1256,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #37   [ok]
 window_properties: Las propiedades X crudas de una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: {
   "WM_CLASS": [
     "xterm",
@@ -1189,14 +1300,14 @@ Result: {
     "_NET_WM_ACTION_BELOW",
     "_OB_WM_ACTION_UNDECORATE"
   ],
-  "_NET_WM_DESKTOP": 2,
+  "_NET_WM_DESKTOP": 0,
   "_NET_WM_ICON_GEOMETRY": [
-    "140",
+    "746",
     "2",
     "200",
     "32"
   ],
-  "_NET_WM_PID": 480,
+  "_NET_WM_PID": 3462,
   "_NET_WM_STATE": "",
   "_NET_WM_VISIBLE_ICON_NAME": "SWEEPWIN",
   "_NET_WM_VISIBLE_NAME": "SWEEPWIN",
@@ -1228,9 +1339,18 @@ xwininfo: Window id: 0x21f (the root window) (has no name)
 
   Root window id: 0x21f (the root window) (has no name)
   Parent window id: 0x0 (none)
-     22 children:
+     32 children:
      0x1800001 (has no name): ()  1x1+0+0  +0+0
-     0x400004 (has no name): ()  73x61+400+300  +400+300
+     0x40000a (has no name): ()  73x61+400+300  +400+300
+     0x1c00003 "chromium": ("chromium" "Chromium")  200x200+0+0  +0+0
+        1 child:
+        0x1c00004 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x400006 (has no name): ()  75x61+311+3  +311+3
+     0x1a00006 (has no name): ()  1x1+0+0  +0+0
+     0x1c00001 "chromium": ("chromium" "Chromium")  10x10+10+10  +10+10
+     0x1a00000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
+     0x1400009 (has no name): ()  1x1+-1+-1  +-1+-1
+     0x1400001 "lxterminal": ("lxterminal" "Lxterminal")  10x10+10+10  +10+10
      0xc0000e (has no name): ()  1x1+-1+-1  +-1+-1
      0xc0000a "lxpanel": ()  10x10+-100+-100  +-100+-100
      0xa00009 (has no name): ()  1x1+-1+-1  +-1+-1
@@ -1352,93 +1472,352 @@ xwininfo: Window id: 0x21f (the root window) (has no name)
            1 child:
            0x600177 (has no name): ()  1920x36+0+0  +0+0
      0x600170 (has no name): ()  1x1+0+0  +0+0
-     0x600225 (has no name): ()  486x345+717+385  +717+385
+     0x600561 (has no name): ()  486x345+1361+153  +1361+153
         56 children:
-        0x140000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +718+413
+        0x240000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +1362+181
            1 child:
-           0x1400018 (has no name): ()  484x316+0+0  +718+413
-        0x600271 (has no name): ()  1x1+0+0  +717+385
-        0x600270 (has no name): ()  1x1+0+0  +717+385
-        0x60026f (has no name): ()  1x1+0+0  +717+385
-        0x60026e (has no name): ()  1x1+0+0  +717+385
-        0x60026d (has no name): ()  1x1+0+0  +717+385
-        0x60026c (has no name): ()  1x1+0+0  +717+385
-        0x60026b (has no name): ()  1x1+0+0  +717+385
-        0x60026a (has no name): ()  1x1+0+0  +717+385
-        0x600269 (has no name): ()  1x1+0+0  +717+385
-        0x600268 (has no name): ()  1x1+0+0  +717+385
-        0x600267 (has no name): ()  1x1+0+0  +717+385
-        0x600266 (has no name): ()  1x1+0+0  +717+385
-        0x600265 (has no name): ()  1x1+0+0  +717+385
-        0x600264 (has no name): ()  1x1+0+0  +717+385
-        0x600263 (has no name): ()  1x1+0+0  +717+385
-        0x600262 (has no name): ()  1x1+0+0  +717+385
-        0x600261 (has no name): ()  1x1+0+0  +717+385
-        0x600260 (has no name): ()  1x1+0+0  +717+385
-        0x60025f (has no name): ()  1x1+0+0  +717+385
-        0x60025e (has no name): ()  1x1+0+0  +717+385
-        0x60025d (has no name): ()  1x1+0+0  +717+385
-        0x60025c (has no name): ()  1x1+0+0  +717+385
-        0x60025b (has no name): ()  1x1+0+0  +717+385
-        0x60025a (has no name): ()  1x1+0+0  +717+385
-        0x600259 (has no name): ()  1x1+0+0  +717+385
-        0x600258 (has no name): ()  1x1+0+0  +717+385
-        0x600257 (has no name): ()  1x1+0+0  +717+385
-        0x600256 (has no name): ()  1x1+0+0  +717+385
-        0x600255 (has no name): ()  1x1+0+0  +717+385
-        0x600254 (has no name): ()  1x1+0+0  +717+385
-        0x600253 (has no name): ()  1x1+0+0  +717+385
-        0x600252 (has no name): ()  1x1+0+0  +717+385
-        0x600251 (has no name): ()  26x1+459+344  +1176+729
-        0x600250 (has no name): ()  1x1+0+0  +717+385
-        0x60024f (has no name): ()  1x25+485+320  +1202+705
-        0x60024e (has no name): ()  26x1+1+344  +718+729
-        0x60024d (has no name): ()  1x1+0+0  +717+385
-        0x60024c (has no name): ()  1x25+0+320  +717+705
-        0x60024b (has no name): ()  432x1+27+344  +744+729
-        0x60024a (has no name): ()  1x1+0+0  +717+385
-        0x600245 (has no name): ()  1x1+0+0  +717+385
+           0x2400018 (has no name): ()  484x316+0+0  +1362+181
+        0x6005ad (has no name): ()  1x1+0+0  +1361+153
+        0x6005ac (has no name): ()  1x1+0+0  +1361+153
+        0x6005ab (has no name): ()  1x1+0+0  +1361+153
+        0x6005aa (has no name): ()  1x1+0+0  +1361+153
+        0x6005a9 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a8 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a7 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a6 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a5 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a4 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a3 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a2 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a1 (has no name): ()  1x1+0+0  +1361+153
+        0x6005a0 (has no name): ()  1x1+0+0  +1361+153
+        0x60059f (has no name): ()  1x1+0+0  +1361+153
+        0x60059e (has no name): ()  1x1+0+0  +1361+153
+        0x60059d (has no name): ()  1x1+0+0  +1361+153
+        0x60059c (has no name): ()  1x1+0+0  +1361+153
+        0x60059b (has no name): ()  1x1+0+0  +1361+153
+        0x60059a (has no name): ()  1x1+0+0  +1361+153
+        0x600599 (has no name): ()  1x1+0+0  +1361+153
+        0x600598 (has no name): ()  1x1+0+0  +1361+153
+        0x600597 (has no name): ()  1x1+0+0  +1361+153
+        0x600596 (has no name): ()  1x1+0+0  +1361+153
+        0x600595 (has no name): ()  1x1+0+0  +1361+153
+        0x600594 (has no name): ()  1x1+0+0  +1361+153
+        0x600593 (has no name): ()  1x1+0+0  +1361+153
+        0x600592 (has no name): ()  1x1+0+0  +1361+153
+        0x600591 (has no name): ()  1x1+0+0  +1361+153
+        0x600590 (has no name): ()  1x1+0+0  +1361+153
+        0x60058f (has no name): ()  1x1+0+0  +1361+153
+        0x60058e (has no name): ()  1x1+0+0  +1361+153
+        0x60058d (has no name): ()  26x1+459+344  +1820+497
+        0x60058c (has no name): ()  1x1+0+0  +1361+153
+        0x60058b (has no name): ()  1x25+485+320  +1846+473
+        0x60058a (has no name): ()  26x1+1+344  +1362+497
+        0x600589 (has no name): ()  1x1+0+0  +1361+153
+        0x600588 (has no name): ()  1x25+0+320  +1361+473
+        0x600587 (has no name): ()  432x1+27+344  +1388+497
+        0x600586 (has no name): ()  1x1+0+0  +1361+153
+        0x600581 (has no name): ()  1x1+0+0  +1361+153
            4 children:
-           0x600249 (has no name): ()  1x1+0+0  +717+385
-           0x600248 (has no name): ()  1x1+0+0  +717+385
-           0x600247 (has no name): ()  1x1+0+0  +717+385
-           0x600246 (has no name): ()  1x1+0+0  +717+385
-        0x60023d (has no name): ()  1x295+485+26  +1202+411
-        0x60023c (has no name): ()  1x295+0+26  +717+411
-        0x600236 (has no name): ()  484x1+1+27  +718+412
-        0x600235 (has no name): ()  1x25+485+1  +1202+386
-        0x600234 (has no name): ()  26x1+460+0  +1177+385
-        0x600233 (has no name): ()  26x1+0+0  +717+385
-        0x600232 (has no name): ()  434x1+26+0  +743+385
-        0x600231 (has no name): ()  1x25+0+1  +717+386
-        0x600230 (has no name): ()  484x26+1+1  +718+386
+           0x600585 (has no name): ()  1x1+0+0  +1361+153
+           0x600584 (has no name): ()  1x1+0+0  +1361+153
+           0x600583 (has no name): ()  1x1+0+0  +1361+153
+           0x600582 (has no name): ()  1x1+0+0  +1361+153
+        0x600579 (has no name): ()  1x295+485+26  +1846+179
+        0x600578 (has no name): ()  1x295+0+26  +1361+179
+        0x600572 (has no name): ()  484x1+1+27  +1362+180
+        0x600571 (has no name): ()  1x25+485+1  +1846+154
+        0x600570 (has no name): ()  26x1+460+0  +1821+153
+        0x60056f (has no name): ()  26x1+0+0  +1361+153
+        0x60056e (has no name): ()  434x1+26+0  +1387+153
+        0x60056d (has no name): ()  1x25+0+1  +1361+154
+        0x60056c (has no name): ()  484x26+1+1  +1362+154
            12 children:
-           0x600244 (has no name): ()  12x12+415+7  +1133+393
-           0x600243 (has no name): ()  14x14+11+6  +729+392
-           0x600242 (has no name): ()  12x12+0+0  +718+386
-           0x600241 (has no name): ()  12x12+0+0  +718+386
-           0x600240 (has no name): ()  12x12+461+7  +1179+393
-           0x60023f (has no name): ()  12x12+438+7  +1156+393
-           0x60023e (has no name): ()  368x14+36+6  +754+392
-           0x60023b (has no name): ()  11x26+473+0  +1191+386
-           0x60023a (has no name): ()  25x7+459+0  +1177+386
-           0x600239 (has no name): ()  11x26+0+0  +718+386
-           0x600238 (has no name): ()  25x7+0+0  +718+386
-           0x600237 (has no name): ()  434x7+25+0  +743+386
-        0x60022b (has no name): ()  1x1+0+0  +717+385
+           0x600580 (has no name): ()  12x12+415+7  +1777+161
+           0x60057f (has no name): ()  14x14+11+6  +1373+160
+           0x60057e (has no name): ()  12x12+0+0  +1362+154
+           0x60057d (has no name): ()  12x12+0+0  +1362+154
+           0x60057c (has no name): ()  12x12+461+7  +1823+161
+           0x60057b (has no name): ()  12x12+438+7  +1800+161
+           0x60057a (has no name): ()  368x14+36+6  +1398+160
+           0x600577 (has no name): ()  11x26+473+0  +1835+154
+           0x600576 (has no name): ()  25x7+459+0  +1821+154
+           0x600575 (has no name): ()  11x26+0+0  +1362+154
+           0x600574 (has no name): ()  25x7+0+0  +1362+154
+           0x600573 (has no name): ()  434x7+25+0  +1387+154
+        0x600567 (has no name): ()  1x1+0+0  +1361+153
            2 children:
-           0x60022d (has no name): ()  1x1+0+0  +717+385
-           0x60022c (has no name): ()  1x1+0+0  +717+385
-        0x60022a (has no name): ()  1x1+0+0  +717+385
+           0x600569 (has no name): ()  1x1+0+0  +1361+153
+           0x600568 (has no name): ()  1x1+0+0  +1361+153
+        0x600566 (has no name): ()  1x1+0+0  +1361+153
            1 child:
-           0x60022f (has no name): ()  1x1+0+0  +717+385
-        0x600229 (has no name): ()  1x1+0+0  +717+385
-        0x600228 (has no name): ()  1x1+0+0  +717+385
+           0x60056b (has no name): ()  1x1+0+0  +1361+153
+        0x600565 (has no name): ()  1x1+0+0  +1361+153
+        0x600564 (has no name): ()  1x1+0+0  +1361+153
            1 child:
-           0x60022e (has no name): ()  1x1+0+0  +717+385
-        0x600226 (has no name): ()  484x316+1+28  +718+413
+           0x60056a (has no name): ()  1x1+0+0  +1361+153
+        0x600562 (has no name): ()  484x316+1+28  +1362+181
            1 child:
-           0x600227 (has no name): ()  484x316+0+0  +718+413
+           0x600563 (has no name): ()  484x316+0+0  +1362+181
+     0x60032b (has no name): ()  945x1024+10+46  +10+46
+        56 children:
+        0x1a00003 "sweep.html - Chromium": ("chromium" "Chromium")  945x1024+0+0  +10+46
+        0x600377 (has no name): ()  1x1+0+0  +10+46
+        0x600376 (has no name): ()  1x1+0+0  +10+46
+        0x600375 (has no name): ()  1x1+0+0  +10+46
+        0x600374 (has no name): ()  1x1+0+0  +10+46
+        0x600373 (has no name): ()  1x1+0+0  +10+46
+        0x600372 (has no name): ()  1x1+0+0  +10+46
+        0x600371 (has no name): ()  1x1+0+0  +10+46
+        0x600370 (has no name): ()  1x1+0+0  +10+46
+        0x60036f (has no name): ()  1x1+0+0  +10+46
+        0x60036e (has no name): ()  1x1+0+0  +10+46
+        0x60036d (has no name): ()  1x1+0+0  +10+46
+        0x60036c (has no name): ()  1x1+0+0  +10+46
+        0x60036b (has no name): ()  1x1+0+0  +10+46
+        0x60036a (has no name): ()  1x1+0+0  +10+46
+        0x600369 (has no name): ()  1x1+0+0  +10+46
+        0x600368 (has no name): ()  1x1+0+0  +10+46
+        0x600367 (has no name): ()  1x1+0+0  +10+46
+        0x600366 (has no name): ()  1x1+0+0  +10+46
+        0x600365 (has no name): ()  1x1+0+0  +10+46
+        0x600364 (has no name): ()  1x1+0+0  +10+46
+        0x600363 (has no name): ()  1x1+0+0  +10+46
+        0x600362 (has no name): ()  1x1+0+0  +10+46
+        0x600361 (has no name): ()  1x1+0+0  +10+46
+        0x600360 (has no name): ()  1x1+0+0  +10+46
+        0x60035f (has no name): ()  1x1+0+0  +10+46
+        0x60035e (has no name): ()  1x1+0+0  +10+46
+        0x60035d (has no name): ()  1x1+0+0  +10+46
+        0x60035c (has no name): ()  1x1+0+0  +10+46
+        0x60035b (has no name): ()  1x1+0+0  +10+46
+        0x60035a (has no name): ()  1x1+0+0  +10+46
+        0x600359 (has no name): ()  1x1+0+0  +10+46
+        0x600358 (has no name): ()  1x1+0+0  +10+46
+        0x600357 (has no name): ()  1x1+0+0  +10+46
+        0x600356 (has no name): ()  1x1+0+0  +10+46
+        0x600355 (has no name): ()  1x1+0+0  +10+46
+        0x600354 (has no name): ()  1x1+0+0  +10+46
+        0x600353 (has no name): ()  1x1+0+0  +10+46
+        0x600352 (has no name): ()  1x1+0+0  +10+46
+        0x600351 (has no name): ()  1x1+0+0  +10+46
+        0x600350 (has no name): ()  1x1+0+0  +10+46
+        0x60034b (has no name): ()  1x1+0+0  +10+46
+           4 children:
+           0x60034f (has no name): ()  1x1+0+0  +10+46
+           0x60034e (has no name): ()  1x1+0+0  +10+46
+           0x60034d (has no name): ()  1x1+0+0  +10+46
+           0x60034c (has no name): ()  1x1+0+0  +10+46
+        0x600343 (has no name): ()  1x1+0+0  +10+46
+        0x600342 (has no name): ()  1x1+0+0  +10+46
+        0x60033c (has no name): ()  1x1+0+0  +10+46
+        0x60033b (has no name): ()  1x1+0+0  +10+46
+        0x60033a (has no name): ()  1x1+0+0  +10+46
+        0x600339 (has no name): ()  1x1+0+0  +10+46
+        0x600338 (has no name): ()  1x1+0+0  +10+46
+        0x600337 (has no name): ()  1x1+0+0  +10+46
+        0x600336 (has no name): ()  1x1+0+0  +10+46
+           12 children:
+           0x60034a (has no name): ()  12x12+0+0  +10+46
+           0x600349 (has no name): ()  14x14+0+0  +10+46
+           0x600348 (has no name): ()  12x12+0+0  +10+46
+           0x600347 (has no name): ()  12x12+0+0  +10+46
+           0x600346 (has no name): ()  12x12+0+0  +10+46
+           0x600345 (has no name): ()  12x12+0+0  +10+46
+           0x600344 (has no name): ()  1x1+0+0  +10+46
+           0x600341 (has no name): ()  11x26+0+0  +10+46
+           0x600340 (has no name): ()  25x7+0+0  +10+46
+           0x60033f (has no name): ()  11x26+0+0  +10+46
+           0x60033e (has no name): ()  25x7+0+0  +10+46
+           0x60033d (has no name): ()  1x1+0+0  +10+46
+        0x600331 (has no name): ()  1x1+0+0  +10+46
+           2 children:
+           0x600333 (has no name): ()  1x1+0+0  +10+46
+           0x600332 (has no name): ()  1x1+0+0  +10+46
+        0x600330 (has no name): ()  1x1+0+0  +10+46
+           1 child:
+           0x600335 (has no name): ()  1x1+0+0  +10+46
+        0x60032f (has no name): ()  1x1+0+0  +10+46
+        0x60032e (has no name): ()  1x1+0+0  +10+46
+           1 child:
+           0x600334 (has no name): ()  1x1+0+0  +10+46
+        0x60032c (has no name): ()  945x1024+0+0  +10+46
+           1 child:
+           0x60032d (has no name): ()  945x1024+0+0  +10+46
+     0x600473 (has no name): ()  658x465+1262+615  +1262+615
+        56 children:
+        0x1400059 "sentineldesk@5d39376180ca: /": ("lxterminal" "Lxterminal")  656x436+1+28  +1263+643
+           1 child:
+           0x140005a (has no name): ()  1x1+-1+-1  +1262+642
+        0x6004bf (has no name): ()  1x1+0+0  +1262+615
+        0x6004be (has no name): ()  1x1+0+0  +1262+615
+        0x6004bd (has no name): ()  1x1+0+0  +1262+615
+        0x6004bc (has no name): ()  1x1+0+0  +1262+615
+        0x6004bb (has no name): ()  1x1+0+0  +1262+615
+        0x6004ba (has no name): ()  1x1+0+0  +1262+615
+        0x6004b9 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b8 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b7 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b6 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b5 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b4 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b3 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b2 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b1 (has no name): ()  1x1+0+0  +1262+615
+        0x6004b0 (has no name): ()  1x1+0+0  +1262+615
+        0x6004af (has no name): ()  1x1+0+0  +1262+615
+        0x6004ae (has no name): ()  1x1+0+0  +1262+615
+        0x6004ad (has no name): ()  1x1+0+0  +1262+615
+        0x6004ac (has no name): ()  1x1+0+0  +1262+615
+        0x6004ab (has no name): ()  1x1+0+0  +1262+615
+        0x6004aa (has no name): ()  1x1+0+0  +1262+615
+        0x6004a9 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a8 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a7 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a6 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a5 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a4 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a3 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a2 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a1 (has no name): ()  1x1+0+0  +1262+615
+        0x6004a0 (has no name): ()  1x1+0+0  +1262+615
+        0x60049f (has no name): ()  26x1+631+464  +1893+1079
+        0x60049e (has no name): ()  1x1+0+0  +1262+615
+        0x60049d (has no name): ()  1x25+657+440  +1919+1055
+        0x60049c (has no name): ()  26x1+1+464  +1263+1079
+        0x60049b (has no name): ()  1x1+0+0  +1262+615
+        0x60049a (has no name): ()  1x25+0+440  +1262+1055
+        0x600499 (has no name): ()  604x1+27+464  +1289+1079
+        0x600498 (has no name): ()  1x1+0+0  +1262+615
+        0x600493 (has no name): ()  1x1+0+0  +1262+615
+           4 children:
+           0x600497 (has no name): ()  1x1+0+0  +1262+615
+           0x600496 (has no name): ()  1x1+0+0  +1262+615
+           0x600495 (has no name): ()  1x1+0+0  +1262+615
+           0x600494 (has no name): ()  1x1+0+0  +1262+615
+        0x60048b (has no name): ()  1x415+657+26  +1919+641
+        0x60048a (has no name): ()  1x415+0+26  +1262+641
+        0x600484 (has no name): ()  656x1+1+27  +1263+642
+        0x600483 (has no name): ()  1x25+657+1  +1919+616
+        0x600482 (has no name): ()  26x1+632+0  +1894+615
+        0x600481 (has no name): ()  26x1+0+0  +1262+615
+        0x600480 (has no name): ()  606x1+26+0  +1288+615
+        0x60047f (has no name): ()  1x25+0+1  +1262+616
+        0x60047e (has no name): ()  656x26+1+1  +1263+616
+           12 children:
+           0x600492 (has no name): ()  12x12+587+7  +1850+623
+           0x600491 (has no name): ()  14x14+11+6  +1274+622
+           0x600490 (has no name): ()  12x12+0+0  +1263+616
+           0x60048f (has no name): ()  12x12+0+0  +1263+616
+           0x60048e (has no name): ()  12x12+633+7  +1896+623
+           0x60048d (has no name): ()  12x12+610+7  +1873+623
+           0x60048c (has no name): ()  540x14+36+6  +1299+622
+           0x600489 (has no name): ()  11x26+645+0  +1908+616
+           0x600488 (has no name): ()  25x7+631+0  +1894+616
+           0x600487 (has no name): ()  11x26+0+0  +1263+616
+           0x600486 (has no name): ()  25x7+0+0  +1263+616
+           0x600485 (has no name): ()  606x7+25+0  +1288+616
+        0x600479 (has no name): ()  1x1+0+0  +1262+615
+           2 children:
+           0x60047b (has no name): ()  1x1+0+0  +1262+615
+           0x60047a (has no name): ()  1x1+0+0  +1262+615
+        0x600478 (has no name): ()  1x1+0+0  +1262+615
+           1 child:
+           0x60047d (has no name): ()  1x1+0+0  +1262+615
+        0x600477 (has no name): ()  1x1+0+0  +1262+615
+        0x600476 (has no name): ()  1x1+0+0  +1262+615
+           1 child:
+           0x60047c (has no name): ()  1x1+0+0  +1262+615
+        0x600474 (has no name): ()  656x436+1+28  +1263+643
+           1 child:
+           0x600475 (has no name): ()  656x436+0+0  +1263+643
+     0x6002ba (has no name): ()  658x465+631+325  +631+325
+        56 children:
+        0x1400003 "sentineldesk@5d39376180ca: /": ("lxterminal" "Lxterminal")  656x436+1+28  +632+353
+           1 child:
+           0x1400004 (has no name): ()  1x1+-1+-1  +631+352
+        0x600306 (has no name): ()  1x1+0+0  +631+325
+        0x600305 (has no name): ()  1x1+0+0  +631+325
+        0x600304 (has no name): ()  1x1+0+0  +631+325
+        0x600303 (has no name): ()  1x1+0+0  +631+325
+        0x600302 (has no name): ()  1x1+0+0  +631+325
+        0x600301 (has no name): ()  1x1+0+0  +631+325
+        0x600300 (has no name): ()  1x1+0+0  +631+325
+        0x6002ff (has no name): ()  1x1+0+0  +631+325
+        0x6002fe (has no name): ()  1x1+0+0  +631+325
+        0x6002fd (has no name): ()  1x1+0+0  +631+325
+        0x6002fc (has no name): ()  1x1+0+0  +631+325
+        0x6002fb (has no name): ()  1x1+0+0  +631+325
+        0x6002fa (has no name): ()  1x1+0+0  +631+325
+        0x6002f9 (has no name): ()  1x1+0+0  +631+325
+        0x6002f8 (has no name): ()  1x1+0+0  +631+325
+        0x6002f7 (has no name): ()  1x1+0+0  +631+325
+        0x6002f6 (has no name): ()  1x1+0+0  +631+325
+        0x6002f5 (has no name): ()  1x1+0+0  +631+325
+        0x6002f4 (has no name): ()  1x1+0+0  +631+325
+        0x6002f3 (has no name): ()  1x1+0+0  +631+325
+        0x6002f2 (has no name): ()  1x1+0+0  +631+325
+        0x6002f1 (has no name): ()  1x1+0+0  +631+325
+        0x6002f0 (has no name): ()  1x1+0+0  +631+325
+        0x6002ef (has no name): ()  1x1+0+0  +631+325
+        0x6002ee (has no name): ()  1x1+0+0  +631+325
+        0x6002ed (has no name): ()  1x1+0+0  +631+325
+        0x6002ec (has no name): ()  1x1+0+0  +631+325
+        0x6002eb (has no name): ()  1x1+0+0  +631+325
+        0x6002ea (has no name): ()  1x1+0+0  +631+325
+        0x6002e9 (has no name): ()  1x1+0+0  +631+325
+        0x6002e8 (has no name): ()  1x1+0+0  +631+325
+        0x6002e7 (has no name): ()  1x1+0+0  +631+325
+        0x6002e6 (has no name): ()  26x1+631+464  +1262+789
+        0x6002e5 (has no name): ()  1x1+0+0  +631+325
+        0x6002e4 (has no name): ()  1x25+657+440  +1288+765
+        0x6002e3 (has no name): ()  26x1+1+464  +632+789
+        0x6002e2 (has no name): ()  1x1+0+0  +631+325
+        0x6002e1 (has no name): ()  1x25+0+440  +631+765
+        0x6002e0 (has no name): ()  604x1+27+464  +658+789
+        0x6002df (has no name): ()  1x1+0+0  +631+325
+        0x6002da (has no name): ()  1x1+0+0  +631+325
+           4 children:
+           0x6002de (has no name): ()  1x1+0+0  +631+325
+           0x6002dd (has no name): ()  1x1+0+0  +631+325
+           0x6002dc (has no name): ()  1x1+0+0  +631+325
+           0x6002db (has no name): ()  1x1+0+0  +631+325
+        0x6002d2 (has no name): ()  1x415+657+26  +1288+351
+        0x6002d1 (has no name): ()  1x415+0+26  +631+351
+        0x6002cb (has no name): ()  656x1+1+27  +632+352
+        0x6002ca (has no name): ()  1x25+657+1  +1288+326
+        0x6002c9 (has no name): ()  26x1+632+0  +1263+325
+        0x6002c8 (has no name): ()  26x1+0+0  +631+325
+        0x6002c7 (has no name): ()  606x1+26+0  +657+325
+        0x6002c6 (has no name): ()  1x25+0+1  +631+326
+        0x6002c5 (has no name): ()  656x26+1+1  +632+326
+           12 children:
+           0x6002d9 (has no name): ()  12x12+587+7  +1219+333
+           0x6002d8 (has no name): ()  14x14+11+6  +643+332
+           0x6002d7 (has no name): ()  12x12+0+0  +632+326
+           0x6002d6 (has no name): ()  12x12+0+0  +632+326
+           0x6002d5 (has no name): ()  12x12+633+7  +1265+333
+           0x6002d4 (has no name): ()  12x12+610+7  +1242+333
+           0x6002d3 (has no name): ()  540x14+36+6  +668+332
+           0x6002d0 (has no name): ()  11x26+645+0  +1277+326
+           0x6002cf (has no name): ()  25x7+631+0  +1263+326
+           0x6002ce (has no name): ()  11x26+0+0  +632+326
+           0x6002cd (has no name): ()  25x7+0+0  +632+326
+           0x6002cc (has no name): ()  606x7+25+0  +657+326
+        0x6002c0 (has no name): ()  1x1+0+0  +631+325
+           2 children:
+           0x6002c2 (has no name): ()  1x1+0+0  +631+325
+           0x6002c1 (has no name): ()  1x1+0+0  +631+325
+        0x6002bf (has no name): ()  1x1+0+0  +631+325
+           1 child:
+           0x6002c4 (has no name): ()  1x1+0+0  +631+325
+        0x6002be (has no name): ()  1x1+0+0  +631+325
+        0x6002bd (has no name): ()  1x1+0+0  +631+325
+           1 child:
+           0x6002c3 (has no name): ()  1x1+0+0  +631+325
+        0x6002bb (has no name): ()  656x436+1+28  +632+353
+           1 child:
+           0x6002bc (has no name): ()  656x436+0+0  +632+353
      0x6001c2 (has no name): ()  1920x1080+0+0  +0+0
         56 children:
         0xa00003 "pcmanfm": ("pcmanfm" "Pcmanfm")  1920x1080+0+0  +0+0
@@ -1542,8 +1921,8 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #39   [ok]
 move_window: Mover una ventana a una posición
-Argumentos enviados: {"id": "0x0140000c", "x": 120, "y": 120}
-Result: moved 0x0140000c (0,120,120,-1,-1)
+Argumentos enviados: {"id": "0x0240000c", "x": 120, "y": 120}
+Result: moved 0x0240000c (0,120,120,-1,-1)
 
 Qué hizo:
   Movió una ventana con wmctrl -e.
@@ -1560,8 +1939,8 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #40   [ok]
 resize_window: Redimensionar una ventana
-Argumentos enviados: {"height": 400, "id": "0x0140000c", "width": 640}
-Result: resized 0x0140000c (0,-1,-1,640,400)
+Argumentos enviados: {"height": 400, "id": "0x0240000c", "width": 640}
+Result: resized 0x0240000c (0,-1,-1,640,400)
 
 Qué hizo:
   Redimensionó por el mismo camino de wmctrl -e.
@@ -1576,7 +1955,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #41   [ok]
 minimize_window: Minimizar una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: minimized
 
 Qué hizo:
@@ -1594,7 +1973,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #42   [ok]
 restore_window: Restaurar una ventana minimizada
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: restored
 
 Qué hizo:
@@ -1610,7 +1989,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #43   [ok]
 maximize_window: Maximizar una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: maximized
 
 Qué hizo:
@@ -1627,7 +2006,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #44   [ok]
 fullscreen_window: Poner una ventana en pantalla completa
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: toggled fullscreen
 
 Qué hizo:
@@ -1645,8 +2024,8 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #45   [ok]
 window_set_state: Cambiar un estado EWMH como 'above'
-Argumentos enviados: {"action": "add", "id": "0x0140000c", "state": "above"}
-Result: add above en 0x0140000c
+Argumentos enviados: {"action": "add", "id": "0x0240000c", "state": "above"}
+Result: add above en 0x0240000c
 
 Qué hizo:
   Fijó un estado EWMH — above, below, sticky, shaded, skip_taskbar y el resto — con un
@@ -1664,7 +2043,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #46   [ok]
 set_window_desktop: Mandar una ventana a un escritorio virtual
-Argumentos enviados: {"desktop": 0, "id": "0x0140000c"}
+Argumentos enviados: {"desktop": 0, "id": "0x0240000c"}
 Result: moved to desktop
 
 Qué hizo:
@@ -1697,10 +2076,19 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #48   [ok]
 close_window: Cerrar la ventana que abrió el barrido
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0240000c"}
 Result: closed window
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Le pidió al gestor de ventanas que cierre una ventana, con wmctrl.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  El cierre cortés — la aplicación puede preguntar por lo no guardado — y eso está
+  bien. Shell-out como el resto de la familia, y no puede reportar si la ventana
+  efectivamente se fue: un programa con diálogo de confirmación queda abierto y esto
+  devuelve éxito igual.
 ----------------------------------------------------------------------------------------
 
 
@@ -1843,19 +2231,25 @@ Result: [
     "type": "dir"
   },
   {
+    "modified": "2026-08-06T15:11:15-03:00",
+    "name": "org.chromium.Chromium.FdQPMt",
+    "size": 4096,
+    "type": "dir"
+  },
+  {
     "modified": "2026-08-06T14:48:26-03:00",
     "name": "packages",
     "size": 4096,
     "type": "dir"
   },
   {
-    "modified": "2026-08-06T15:11:08-03:00",
+    "modified": "2026-08-06T15:17:36-03:00",
     "name": "sentineldesk-idle.png",
-    "size": 4365603,
+    "size": 1370537,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:11:13-03:00",
+    "modified": "2026-08-06T15:17:44-03:00",
     "name": "sentineldesk-rc",
     "size": 25,
     "type": "file"
@@ -1873,7 +2267,25 @@ Result: [
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:11:15-03:00",
+    "modified": "2026-08-06T15:16:22-03:00",
+    "name": "sweep-down.txt",
+    "size": 19,
+    "type": "file"
+  },
+  {
+    "modified": "2026-08-06T15:16:22-03:00",
+    "name": "sweep-up.txt",
+    "size": 19,
+    "type": "file"
+  },
+  {
+    "modified": "2026-08-06T15:16:09-03:00",
+    "name": "sweep.html",
+    "size": 148,
+    "type": "file"
+  },
+  {
+    "modified": "2026-08-06T15:17:46-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
@@ -1899,7 +2311,7 @@ Cómo llevarla más lejos:
 tool: #55   [ok]
 browser_open: Arrancar Chromium con DevTools y esperar a que responda
 Argumentos enviados: {"url": "file:///tmp/sweep.html"}
-Result: browser open with CDP (1 tabs)
+Result: navigating
 
 Qué hizo:
   Arrancó Chromium con el puerto de depuración e hizo polling hasta que CDP
@@ -2056,7 +2468,7 @@ tool: #63   [ok]
 ui_tree: Leer el escritorio como estructura en vez de como píxeles
 Argumentos enviados: {"interactive": true, "limit": 40}
 Result: {
-  "count": 283,
+  "count": 341,
   "elements": [
     {
       "name": "lxpanel",
@@ -2184,10 +2596,50 @@ Result: {
       "y": 2
     },
     {
+      "actions": [
+        "click"
+      ],
+      "center_x": 644,
+      "center_y": 18,
+      "description": "sentineldesk@5d39376180ca: /",
+      "height": 32,
+      "name": "sentineldesk@5d39376180ca: /",
+      "ref": "0/0/0/5/1/2",
+      "role": "toggle button",
+      "state": [
+        "enabled",
+        "visible",
+        "showing"
+      ],
+      "width": 200,
+      "x": 544,
+      "y": 2
+    },
+    {
+      "actions": [
+        "click"
+      ],
+      "center_x": 846,
+      "center_y": 18,
+      "description": "sentineldesk@5d39376180ca: /",
+      "height": 32,
+      "name": "sentineldesk@5d39376180ca: /",
+      "ref": "0/0/0/5/1/3",
+      "role": "toggle button",
+      "state": [
+        "enabled",
+        "visible",
+        "showing"
+      ],
+      "width": 200,
+      "x": 746,
+      "y": 2
+    },
+    {
       "center_x": 1892,
       "center_y": 18,
       "height": 36,
-      "name": "15:11",
+      "name": "15:17",
       "ref": "0/0/0/9/0/0",
       "role": "label",
       "state": [
@@ -2195,7 +2647,7 @@ Result: {
         "visible",
         "showing"
       ],
-      "text": "15:11",
+      "text": "15:17",
       "width": 44,
       "x": 1870,
       "y": 0
@@ -2665,44 +3117,6 @@ Result: {
       "width": 1,
       "x": -2147483648,
       "y": -2147483648
-    },
-    {
-      "center_x": -2,
-      "center_y": -2,
-      "height": -1,
-      "name": "",
-      "ref": "2/0/0/1/0",
-      "role": "page tab",
-      "state": [
-        "selected",
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "width": -1,
-      "x": -1,
-      "y": -1
-    },
-    {
-      "actions": [
-        "menu"
-      ],
-      "center_x": 953,
-      "center_y": 584,
-      "description": "sentineldesk@5d39376180ca: /",
-      "height": 410,
-      "name": "Terminal",
-      "ref": "2/0/0/1/0/0/0",
-      "role": "terminal",
-      "state": [
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "text": "sentineldesk@5d39376180ca:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@5d39376180ca:/$",
-      "width": 642,
-      "x": 632,
-      "y": 379
     }
   ]
 }
@@ -3182,7 +3596,7 @@ Result: {
     }
   ],
   "found": true,
-  "waited_ms": 649
+  "waited_ms": 834
 }
 
 Qué hizo:
@@ -3204,7 +3618,7 @@ ui_diff: Sólo lo que cambió en el árbol desde la última llamada
 Argumentos enviados: {"reset": true}
 Result: {
   "baseline": true,
-  "nodes": 317,
+  "nodes": 399,
   "note": "first call: the reference snapshot was stored; the next one returns only the changes"
 }
 
@@ -3319,7 +3733,16 @@ set_volume: Fijar el volumen, o silenciar
 Argumentos enviados: {"percent": 60}
 Result: volume 60%
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Fijó el volumen o el silencio con pactl.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  Hace shell-out por llamada para algo que PulseAudio expone por su propio socket.
+  Además fija el sink del que graba el escritorio, así que cambia lo que captura una
+  grabación y no sólo lo que escucha alguien — vale decirlo en la descripción, porque
+  son intenciones distintas.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3352,7 +3775,7 @@ Cómo llevarla más lejos:
 tool: #74   [ok]
 start_recording: Grabar la pantalla a un archivo en paralelo al stream en vivo
 Argumentos enviados: {"audio": false, "container": "mp4", "fps": 15}
-Result: recording to /home/sentineldesk/Recordings/rec-20260806-151120.mp4
+Result: recording to /home/sentineldesk/Recordings/rec-20260806-151751.mp4
 
 Qué hizo:
   Arrancó una grabación lanzando gst-launch-1.0 en su propio grupo de procesos,
@@ -3376,7 +3799,7 @@ get_recording_status: Si hay una grabación corriendo, y cuánto pesa
 Argumentos enviados: ninguno
 Result: {
   "container": "mp4",
-  "path": "/home/sentineldesk/Recordings/rec-20260806-151120.mp4",
+  "path": "/home/sentineldesk/Recordings/rec-20260806-151751.mp4",
   "recording": true,
   "seconds": 0,
   "size_bytes": 0
@@ -3419,8 +3842,8 @@ tool: #77   [ok]
 stop_recording: Parar y cerrar el archivo correctamente
 Argumentos enviados: ninguno
 Result: {
-  "path": "/home/sentineldesk/Recordings/rec-20260806-151120.mp4",
-  "size_bytes": 600846
+  "path": "/home/sentineldesk/Recordings/rec-20260806-151751.mp4",
+  "size_bytes": 480464
 }
 
 Qué hizo:
@@ -3505,6 +3928,16 @@ Result: [
     "modified": "2026-08-06T15:11:21-03:00",
     "path": "/home/sentineldesk/Recordings/rec-20260806-151120.mp4",
     "size_bytes": 600846
+  },
+  {
+    "modified": "2026-08-06T15:16:15-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260806-151613.mp4",
+    "size_bytes": 540424
+  },
+  {
+    "modified": "2026-08-06T15:17:53-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260806-151751.mp4",
+    "size_bytes": 480464
   }
 ]
 
@@ -3525,7 +3958,18 @@ start_restream: Mandar el encode en vivo a un destino externo
 Argumentos enviados: {"platform": "udp", "url": "udp://127.0.0.1:9999"}
 Result: streaming to udp (udp://•••, audio=true) — reusing the live encode, no second capture
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Enganchó un destino externo a la salida H.264 viva por el tee del pipeline, sin
+  codificar nada por segunda vez.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Este es el ejemplo que debería seguir el resto del camino de medios. Un segundo
+  espectador cuesta ancho de banda, no CPU, y un segundo destino tampoco. Además está
+  correctamente gateada por la sala: publicar lo que está en la pantalla de todos
+  hacia afuera no es una decisión que un agente tome solo. start_recording es la
+  herramienta que debería estar leyendo el fuente de ésta.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3534,7 +3978,15 @@ list_restreams: Dónde se está publicando el escritorio ahora
 Argumentos enviados: ninguno
 Result: udp → udp://127.0.0.1:9999 (audio=true, 0s)
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Reportó dónde se está publicando el escritorio ahora.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  La respuesta de auditoría a una pregunta que importa — esta es la herramienta que
+  dice si la pantalla está saliendo de la sala. Reporta los destinos pero no cómo van,
+  así que un push trabado se ve igual que uno sano.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3543,7 +3995,15 @@ stop_restream: Dejar de publicar
 Argumentos enviados: ninguno
 Result: stopped 1 destination(s)
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Desenganchó un destino del tee.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Remoción limpia sin perturbar el encode vivo, que es lo que compra el tee. Parar por
+  id cuando hay varios corriendo es lo correcto; pararlos todos requiere un loop que
+  tiene que escribir quien llama.
 ----------------------------------------------------------------------------------------
 
 
@@ -3557,7 +4017,16 @@ gamepad_button: Apretar o soltar un botón por índice W3C
 Argumentos enviados: {"down": true, "index": 0}
 Result: button 0 down
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Apretó o soltó un botón en un dispositivo uinput real.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Un dispositivo virtual en el kernel, no eventos X sintéticos: la aplicación lo lee
+  por evdev exactamente como leería un control enchufado, y no puede notar la
+  diferencia. Es la respuesta más fuerte posible acá, y el motivo por el que toda la
+  familia funciona en juegos que ignoran input falso.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3566,7 +4035,15 @@ gamepad_tap: Apretar y soltar un botón
 Argumentos enviados: {"hold_ms": 40, "index": 0}
 Result: tapped button 0
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Apretó y soltó con una espera en el medio.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  La comodidad que evita que quien llama tenga que cronometrar dos llamadas a través
+  del cable, que es donde un toque se convierte en un mantenido. Bloquea mientras
+  dura, así que un hold largo ocupa la llamada; ese es el canje honesto por precisión.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3575,7 +4052,14 @@ gamepad_axis: Mover un eje del stick
 Argumentos enviados: {"axis": 0, "value": 0.5}
 Result: axis 0 = 0.50
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Movió un eje del stick por el mismo dispositivo uinput.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Valores absolutos de eje sobre un dispositivo real. No existe nada mejor salvo un
+  control físico.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3584,7 +4068,14 @@ gamepad_state: Fijar todos los botones y ejes en una sola llamada
 Argumentos enviados: {"axes": [0, 0, 0, 0], "buttons": [0, 0, 0, 0]}
 Result: gamepad state applied
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Fijó todos los botones y ejes en una sola llamada.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  La forma correcta para un loop de juego: una llamada por cuadro en vez de una
+  docena, y una foto consistente en vez de una carrera entre eventos sueltos.
 ----------------------------------------------------------------------------------------
 
 
@@ -3597,33 +4088,60 @@ tool: #86   [ok]
 shell_open: Abrir una sesión de shell que sobrevive entre llamadas
 Argumentos enviados: {"shell": "/bin/bash"}
 Result: {
-  "id": "sh1",
+  "id": "sh3",
   "shell": "/bin/bash",
   "user": ""
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Arrancó una shell sobre un PTY real, dimensionado en filas y columnas.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Un pseudo-terminal en vez de un pipe, que es la diferencia entre una shell que se
+  comporta y una que apaga su prompt, sus colores y su edición de línea porque cree
+  que nadie la mira. Los programas interactivos funcionan acá por el mismo motivo.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #87   [ok]
 shell_exec: Correr un comando en esa sesión y esperarlo
-Argumentos enviados: {"command": "echo sweep-shell-ok", "id": "sh1", "timeout_ms": 10000}
+Argumentos enviados: {"command": "echo sweep-shell-ok", "id": "sh3", "timeout_ms": 10000}
 Result: {
   "completed": true,
   "output": "sweep-shell-ok"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Corrió un comando en una sesión abierta y esperó a que la salida se aquietara.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Un período de silencio es la forma honesta de saber que una shell interactiva
+  terminó cuando no hay código de salida que leer — y sigue siendo una heurística, así
+  que un comando que hace una pausa a mitad de salida parece terminado. Hacer eco de
+  un centinela con $? convertiría la adivinanza en un hecho, el mismo arreglo que
+  necesita terminal_run.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #88   [ok]
 shell_input: Mandar teclas crudas, sin esperar
-Argumentos enviados: {"enter": true, "id": "sh1", "text": "echo second"}
+Argumentos enviados: {"enter": true, "id": "sh3", "text": "echo second"}
 Result: sent 12 bytes
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Mandó teclas crudas a una sesión sin esperar.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Necesaria para todo lo que shell_exec no puede expresar — contestar un prompt,
+  mandar Ctrl-C, manejar un programa de pantalla completa. Disparar y olvidarse es el
+  punto, y significa que quien llama tiene que emparejarla con shell_read por su
+  cuenta.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3648,12 +4166,20 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #90   [ok]
 shell_read: Leer y limpiar lo que produjo la sesión
-Argumentos enviados: {"id": "sh1"}
+Argumentos enviados: {"id": "sh3"}
 Result: echo second
 second
 sentineldesk@5d39376180ca:/$
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Leyó y limpió todo lo que produjo la sesión desde la última lectura.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Leer-y-limpiar es el contrato correcto para hacer polling de un comando largo: nada
+  se entrega dos veces. También significa que la lectura de uno esconde esa salida de
+  otro, lo que importa ahora que varios sub-agentes pueden compartir un escritorio.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3663,23 +4189,39 @@ Argumentos enviados: ninguno
 Result: [
   {
     "alive": true,
-    "id": "sh1",
+    "id": "sh3",
     "pending": 0,
     "seconds": 1,
     "user": ""
   }
 ]
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Listó las sesiones abiertas con su antigüedad y bytes pendientes.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Reportar bytes pendientes es lo que la hace útil y no decorativa — una sesión con
+  salida sin leer es una que alguien debería leer. No puede decir qué está corriendo
+  en cada una.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #92   [ok]
 shell_close: Terminar la sesión
-Argumentos enviados: {"id": "sh1"}
+Argumentos enviados: {"id": "sh3"}
 Result: session closed
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Terminó una sesión y liberó su PTY.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Limpieza explícita, que importa porque un PTY y un proceso de shell sobreviven a la
+  conexión MCP que los creó. Las sesiones no tienen timeout por inactividad, así que
+  una olvidada vive hasta que el escritorio reinicie.
 ----------------------------------------------------------------------------------------
 
 
@@ -3732,7 +4274,15 @@ Result: {
   "user": "sentineldesk"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Reportó si esta imagen tiene sudo sin contraseña.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Lo correcto para preguntar antes de ofrecerle a un agente un camino privilegiado, y
+  barato. Contesta sobre la capacidad y no sobre un comando puntual, así que un
+  sudoers restringido se ve igual que uno completo.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3741,12 +4291,11 @@ search_packages: Buscar en apt sin instalar nada
 Argumentos enviados: {"limit": 3, "query": "openssh-server"}
 Result: {
   "count": 2,
-  "note": "the apt index was empty, so apt-get update was run",
   "query": "openssh-server",
   "results": [
     {
       "description": "secure shell (SSH) server, for secure access from remote machines",
-      "installed": "",
+      "installed": "1:10.0p1-7+deb13u4",
       "package": "openssh-server"
     },
     {
@@ -3757,7 +4306,16 @@ Result: {
   ]
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Buscó en apt sin instalar nada.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  Correctamente de sólo lectura, que es por lo que sobrevive a MCP_POLICY=readonly.
+  Parsea la salida de apt pensada para personas, y apt dice explícitamente que su CLI
+  no tiene una interfaz estable entre versiones. python-apt o la base de dpkg no se
+  moverían debajo.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3770,10 +4328,20 @@ Result: {
   "exit_code": 3,
   "service": "all",
   "stderr": "",
-  "stdout": "at-spi                           RUNNING   pid 41, uptime 0:00:53\ndbus-session                     RUNNING   pid 39, uptime 0:00:53\ndesktop-init                     EXITED    Aug 06 03:10 PM\nlxpanel                          RUNNING   pid 48, uptime 0:00:53\nopenbox                          RUNNING   pid 42, uptime 0:00:53\npcmanfm-desktop                  RUNNING   pid 45, uptime 0:00:53\npulseaudio                       RUNNING   pid 40, uptime 0:00:53\nsentineldesk                     RUNNING   pid 51, uptime 0:00:53\nwallpaper-rotate                 RUNNING   pid 50, uptime 0:00:53\nxvfb                             RUNNING   pid 38, uptime 0:00:53\n"
+  "stdout": "at-spi                           RUNNING   pid 41, uptime 0:07:23\ndbus-session                     RUNNING   pid 39, uptime 0:07:23\ndesktop-init                     EXITED    Aug 06 03:10 PM\nlxpanel                          RUNNING   pid 48, uptime 0:07:23\nopenbox                          RUNNING   pid 42, uptime 0:07:23\npcmanfm-desktop                  RUNNING   pid 45, uptime 0:07:23\npulseaudio                       RUNNING   pid 40, uptime 0:07:23\nsentineldesk                     RUNNING   pid 51, uptime 0:07:23\nwallpaper-rotate                 EXITED    Aug 06 03:11 PM\nxvfb                             RUNNING   pid 38, uptime 0:07:23\n"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Le preguntó a supervisord por los programas del escritorio, y puede arrancarlos,
+  pararlos o reiniciarlos.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Hablar con el supervisor que realmente es dueño de esos procesos es lo correcto, y
+  reconoce tanto la configuración del contenedor como la nativa. Parar el programa
+  equivocado le saca el escritorio a todos, y la herramienta no distingue los que se
+  pueden rebotar sin riesgo de los que no.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3786,11 +4354,20 @@ Result: {
   "installed": {
     "openssh-server": "1:10.0p1-7+deb13u4"
   },
-  "log": "…\nSetting up openssh-sftp-server (1:10.0p1-7+deb13u4) ...\r\nSetting up libtext-wrapi18n-perl (0.06-10) ...\r\nSetting up sensible-utils (0.0.25) ...\r\nSetting up libwtmpdb0:amd64 (0.73.0-3+deb13u1) ...\r\nSetting up ucf (3.0052) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nCreating config file /etc/ssh/sshd_config with new version\r\nCreating SSH2 RSA key; this may take some time ...\r\n3072 SHA256:J19ztOwYh31PBDvDoGgVJlawCJXVby7jiXBbg+otkV8 root@5d39376180ca (RSA)\r\nCreating SSH2 ECDSA key; this may take some time ...\r\n256 SHA256:LQjIHmcU8YCX0+OGvuGnqwX11bU16w8wr7mVii2dtHg root@5d39376180ca (ECDSA)\r\nCreating SSH2 ED25519 key; this may take some time ...\r\n256 SHA256:oUdpEBffqaGktCybk5+xf5/IaQCA3Hjec3dT3pIMj4M root@5d39376180ca (ED25519)\r\nCreating user 'sshd' (sshd user) with UID 995 and GID 65534.\r\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of start.\r\nCreated symlink '/etc/systemd/system/sshd.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/multi-user.target.wants/ssh.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd@.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.socket.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nProcessing triggers for man-db (2.13.1-1) ...\r\nProcessing triggers for libc-bin (2.41-12+deb13u3) ...\r",
+  "log": "Reading package lists...\nBuilding dependency tree...\nReading state information...\nSuggested packages:\n  molly-guard monkeysphere ssh-askpass ufw\nRecommended packages:\n  ncurses-term xauth\nThe following NEW packages will be installed:\n  openssh-server\n0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.\nNeed to get 602 kB of archives.\nAfter this operation, 3511 kB of additional disk space will be used.\nGet:1 http://deb.debian.org/debian trixie/main amd64 openssh-server amd64 1:10.0p1-7+deb13u4 [602 kB]\nPreconfiguring packages ...\nFetched 602 kB in 0s (15.1 MB/s)\nSelecting previously unselected package openssh-server.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 142956 files and directories currently installed.)\r\nPreparing to unpack .../openssh-server_1%3a10.0p1-7+deb13u4_amd64.deb ...\r\nUnpacking openssh-server (1:10.0p1-7+deb13u4) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of restart.\r\nProcessing triggers for man-db (2.13.1-1) ...\r",
   "stderr": ""
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Instaló con apt bajo deadline, reportando la salida del propio comando como progreso
+  y matándolo al cancelar.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Todo lo que debería ser el camino largo, y el progreso que emite es el texto propio
+  de apt y no un spinner. No puede revertir una instalación parcial, para lo cual está
+  snapshot_create — vale decirlo en la descripción, porque las dos van juntas.
 ----------------------------------------------------------------------------------------
 
 
@@ -3808,7 +4385,15 @@ Result: {
   "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKwf9KzhQ3h/C7OqnM7E+DzlCTiYAza4grCUn1T/DiW9 sweep"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Generó un par de claves corriendo ssh-keygen.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  crypto/ed25519 y x/crypto/ssh pueden generar y serializar una clave sin salir del
+  proceso, lo que además permitiría negarse a sobrescribir sin parsear un prompt. Ya
+  se niega a sobrescribir una clave existente, que es la parte importante.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3817,7 +4402,14 @@ ssh_list: Las sesiones SSH abiertas
 Argumentos enviados: ninguno
 Result: null
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Listó las sesiones SSH abiertas.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  El inventario que hace usables a las herramientas basadas en id después de reiniciar
+  el cliente. Como shell_list, no dice nada sobre salud.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3826,51 +4418,85 @@ ssh_connect: Abrir una sesión SSH contra un host
 Argumentos enviados: {"host": "127.0.0.1", "key_path": "/home/sentineldesk/.ssh/sweep", "user": "sentineldesk"}
 Result: {
   "host": "127.0.0.1:22",
-  "id": "ssh1",
+  "id": "ssh3",
   "user": "sentineldesk"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Abrió una sesión con golang.org/x/crypto/ssh — el protocolo en Go, no el comando ssh
+  manejado desde afuera.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Esta es la diferencia entre sostener una conexión y rehacerla en cada llamada, y es
+  el motivo por el que exec, sftp y túneles pueden compartir una sesión. El manejo de
+  host keys es lo que hay que mirar antes de confiar en esto fuera de un contenedor:
+  la comodidad ahí es donde el tooling de SSH suele fallar.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #101   [ok]
 ssh_exec: Correr un comando en el host remoto
-Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh1", "timeout_sec": 20}
+Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh3", "timeout_sec": 20}
 Result: {
   "exit_code": 0,
   "stderr": "",
   "stdout": "sweep-ssh-ok\n"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Corrió un comando por la sesión abierta, devolviendo stdout, stderr y código de
+  salida.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Un canal sobre una conexión existente, así que cuesta un round trip y no un
+  handshake, y el código de salida es el del protocolo y no algo parseado de vuelta.
+  Nada que mejorar a este nivel.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #102   [ok]
 ssh_upload: Mandar un archivo por SFTP
-Argumentos enviados: {"id": "ssh1", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh3", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
 Result: uploaded 19 bytes to /tmp/sweep-up.txt
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Mandó un archivo por SFTP sobre la misma conexión.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  SFTP por pkg/sftp en vez de shell-out a scp: sin segunda autenticación, sin tener
+  que citar una ruta remota a través de una shell, y errores que nombran la operación.
+  Lee el archivo local a memoria, que está bien para lo que mueve un agente y no para
+  una imagen.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #103   [ok]
 ssh_download: Traer un archivo por SFTP
-Argumentos enviados: {"id": "ssh1", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh3", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
 Result: downloaded 19 bytes to /tmp/sweep-down.txt
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Trajo un archivo por la misma sesión SFTP.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Mismo razonamiento y misma salvedad de memoria.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #104   [ok]
 ssh_list_remote: Listar un directorio en el host remoto
-Argumentos enviados: {"id": "ssh1", "path": "/tmp"}
+Argumentos enviados: {"id": "ssh3", "path": "/tmp"}
 Result: [
   {
-    "modified": "2026-08-06T15:11:31-03:00",
+    "modified": "2026-08-06T15:18:00-03:00",
     "name": "sweep-down.txt",
     "size": 19,
     "type": "file"
@@ -3888,13 +4514,13 @@ Result: [
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:11:15-03:00",
+    "modified": "2026-08-06T15:17:47-03:00",
     "name": "sweep.html",
     "size": 148,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:11:23-03:00",
+    "modified": "2026-08-06T15:17:54-03:00",
     "name": "sentineldesk-rc",
     "size": 14,
     "type": "file"
@@ -3912,7 +4538,7 @@ Result: [
     "type": "dir"
   },
   {
-    "modified": "2026-08-06T15:11:31-03:00",
+    "modified": "2026-08-06T15:18:00-03:00",
     "name": "sweep-up.txt",
     "size": 19,
     "type": "file"
@@ -3924,15 +4550,15 @@ Result: [
     "type": "dir"
   },
   {
-    "modified": "2026-08-06T15:11:15-03:00",
+    "modified": "2026-08-06T15:17:46-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:11:08-03:00",
+    "modified": "2026-08-06T15:17:36-03:00",
     "name": "sentineldesk-idle.png",
-    "size": 4365603,
+    "size": 1370537,
     "type": "file"
   },
   {
@@ -3943,74 +4569,124 @@ Result: [
   }
 ]
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Listó un directorio remoto por SFTP.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Entradas estructuradas del protocolo en vez de salida de ls parseada, que es justo
+  la trampa que esto evita — la salida de ls es para personas.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #105   [ok]
 ssh_tunnel_local: Reenviar un puerto local hacia el lado remoto
-Argumentos enviados: {"id": "ssh1", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
+Argumentos enviados: {"id": "ssh3", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
 Result: {
   "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)",
-  "tunnel_id": "ssh1-l1"
+  "tunnel_id": "ssh3-l1"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Reenvió un puerto local al lado remoto por la sesión.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  Un canal reenviado real, administrado y cerrable, no un ssh -L en segundo plano que
+  después nadie encuentra. El túnel pertenece a la sesión y muere con ella.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #106   [ok]
 ssh_tunnels: Los túneles abiertos en esta sesión
-Argumentos enviados: {"id": "ssh1"}
+Argumentos enviados: {"id": "ssh3"}
 Result: [
   {
     "connections": 0,
-    "id": "ssh1-l1",
+    "id": "ssh3-l1",
     "kind": "local",
     "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)"
   }
 ]
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Listó los túneles de una sesión, con su cantidad de conexiones.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  La cantidad de conexiones la convierte en una respuesta operativa y no en un
+  inventario. No puede decir si un túnel está fallando, sólo si algo lo usó.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #107   [ok]
 ssh_tunnel_remote: Reenviar un puerto remoto de vuelta hacia acá
-Argumentos enviados: {"id": "ssh1", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
+Argumentos enviados: {"id": "ssh3", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
 Result: {
   "spec": "127.0.0.1:22:127.0.0.1:18081 → 127.0.0.1:8080 (reverse)",
-  "tunnel_id": "ssh1-r2"
+  "tunnel_id": "ssh3-r2"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Reenvió un puerto remoto de vuelta hacia este lado.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  La dirección más difícil, y funciona igual. Si el sshd remoto lo permite es decisión
+  del servidor, y el error lo dice.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #108   [ok]
 ssh_tunnel_close: Cerrar un túnel por id
-Argumentos enviados: {"id": "ssh1", "tunnel_id": "ssh1-l1"}
+Argumentos enviados: {"id": "ssh3", "tunnel_id": "ssh3-l1"}
 Result: tunnel closed
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Cerró un túnel por id.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  La granularidad correcta — la sesión sobrevive. Las conexiones existentes se cortan
+  sin forma de drenarlas primero, que es el default correcto y vale documentarlo.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #109   [ok]
 ssh_copy_id: Instalar la clave pública en el host remoto
-Argumentos enviados: {"id": "ssh1", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
+Argumentos enviados: {"id": "ssh3", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
 Result: key installed on sentineldesk@127.0.0.1:22: installed
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Agregó la clave pública al authorized_keys remoto.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  Arma un comando de shell y lo corre remoto, así que depende de que el remoto tenga
+  una shell POSIX y de que el quoting sobreviva. Escribir el archivo por SFTP — leer,
+  agregar, escribir, chmod — usa la conexión que esta herramienta ya sostiene y
+  funciona en hosts con una shell inusual.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
 tool: #110   [ok]
 ssh_disconnect: Terminar la sesión SSH
-Argumentos enviados: {"id": "ssh1"}
+Argumentos enviados: {"id": "ssh3"}
 Result: SSH session closed
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Cerró una sesión y todo lo que colgaba de ella.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Desarme explícito, y que los túneles se vayan con ella es el acoplamiento correcto.
 ----------------------------------------------------------------------------------------
 
 
@@ -4026,10 +4702,23 @@ Result: {
   "created": "sweep",
   "note": "created by tool-sweep",
   "path": "/home/sentineldesk/.sentineldesk-snapshots/sweep.tar.gz",
-  "size": 40311480
+  "size": 41335165
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Empaquetó el home en un tar y registró la lista de paquetes instalados, excluyendo
+  el propio directorio de snapshots para que no se aniden, y rechazando un resultado
+  demasiado chico para ser real.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  Los dos chequeos muestran que alguien pensó cómo falla esto: excluirse a sí mismo
+  evita el crecimiento cuadrático, y el chequeo de tamaño atrapa un tar que no
+  empaquetó nada. Pero copia el home entero cada vez — sin incremental, sin
+  deduplicación — así que el segundo snapshot cuesta lo mismo que el primero. Además
+  corre mientras se escriben archivos, así que una base de datos en el home queda
+  capturada a mitad de escritura.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4040,15 +4729,22 @@ Result: {
   "dir": "/home/sentineldesk/.sentineldesk-snapshots",
   "snapshots": [
     {
-      "created": "2026-08-06T15:11:35-03:00",
+      "created": "2026-08-06T15:18:04-03:00",
       "name": "sweep",
       "note": "created by tool-sweep",
-      "size": 40311480
+      "size": 41335165
     }
   ]
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Listó los snapshots con su tamaño y fecha.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Alcanza para elegir uno. No muestra qué cambiaría una restauración, que es la
+  pregunta que alguien realmente tiene antes de restaurar.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4057,7 +4753,19 @@ snapshot_restore: Volver el home al estado de un snapshot
 Argumentos enviados: ninguno
 Result: sobrescribiría el home real; la única herramienta que el barrido no puede hacer segura contra algo creado por él mismo
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Desempaquetó un snapshot sobre el home y reportó qué paquetes se instalaron después
+  de tomarlo.
+
+Puntaje del método: 3/5  ●●●○○
+
+Cómo llevarla más lejos:
+  Reportar la diferencia de paquetes en vez de revertirla en silencio es la parte
+  buena — archivos y paquetes son tipos de estado distintos y no finge lo contrario.
+  Desempaquetar sobre el home vivo deja en su lugar todo lo creado desde entonces, así
+  que una restauración es una fusión y no la vuelta atrás que sugiere el nombre. Decir
+  primero qué archivos va a sobrescribir la convertiría en algo que una persona puede
+  aceptar.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4068,7 +4776,14 @@ Result: {
   "deleted": "sweep"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Borró un snapshot y su lista de paquetes.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Saca las dos mitades, que es la falla a evitar — una lista de paquetes sin su tar es
+  peor que nada. Sin confirmación, correctamente: eso le corresponde a quien llama.
 ----------------------------------------------------------------------------------------
 
 
@@ -4121,7 +4836,16 @@ Result: {
   "resolution": "1600x900"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Cambió el modo con xrandr, dentro del tamaño reservado cuando arrancó el display.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Cambiar la resolución sin reiniciar nada es genuinamente útil, y el techo es honesto
+  — Xvfb reserva su framebuffer al inicio, así que crecer más allá no es algo que esto
+  pudiera arreglar. Reportar los modos disponibles dejaría elegir en vez de adivinar y
+  que te rechacen.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4155,7 +4879,16 @@ Result: {
   "resolution": "1920x1080"
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Cambió el modo con xrandr, dentro del tamaño reservado cuando arrancó el display.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Cambiar la resolución sin reiniciar nada es genuinamente útil, y el techo es honesto
+  — Xvfb reserva su framebuffer al inicio, así que crecer más allá no es algo que esto
+  pudiera arreglar. Reportar los modos disponibles dejaría elegir en vez de adivinar y
+  que te rechacen.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4164,12 +4897,12 @@ open_app_and_wait: Lanzar, esperar la ventana y enfocarla, en una sola llamada
 Argumentos enviados: {"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL", "timeout_ms": 20000}
 Result: {
   "opened": true,
-  "waited_ms": 2360,
+  "waited_ms": 2090,
   "window": {
     "id": "0x0240000c",
     "desktop": 0,
-    "x": 1363,
-    "y": 441,
+    "x": 957,
+    "y": 791,
     "w": 484,
     "h": 316,
     "class": "xterm.XTerm",
@@ -4195,7 +4928,16 @@ kill_process: Matar por nombre un proceso que arrancó el barrido
 Argumentos enviados: {"force": false, "name": "sleep 300"}
 Result: killed processes matching "sleep 300"
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Terminó un proceso por nombre o pid, con force como opción.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Señalizar en vez de usar siempre SIGKILL es el default correcto: un proceso que
+  puede limpiar debería poder hacerlo. Coincidir por nombre tiene el mismo problema de
+  substring que list_processes, así que 'sleep' puede terminar más de lo previsto —
+  devolver qué coincidió antes de actuar lo haría visible.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -4209,7 +4951,15 @@ Result: {
   "stderr": ""
 }
 
-Reseña: todavía sin reseñar.
+Qué hizo:
+  Sacó paquetes, con purge como opción.
+
+Puntaje del método: 4/5  ●●●●○
+
+Cómo llevarla más lejos:
+  Purge como elección explícita y no como default es lo correcto: la configuración es
+  la parte que la gente pasa por alto. No reporta qué más sacaría apt como
+  consecuencia, que es el número que importa antes de decir que sí.
 ----------------------------------------------------------------------------------------
 
 

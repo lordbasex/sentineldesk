@@ -112,35 +112,6 @@ review(
     "Authoritative and free. Nothing to add.",
 )
 review(
-    "get_active_window",
-    "Asked EWMH which window has focus, and reported it degraded when nothing "
-    "did — which is a real desktop state, not a failure.",
-    4,
-    "'no active window: exit status 1' leaks the shell that produced it. An "
-    "empty focus is an answer, not an error: it should return null with a note "
-    "and isError false, so a caller does not have to decide whether an error "
-    "means broken or means nobody is focused.",
-)
-review(
-    "list_windows",
-    "Listed every window with id, desktop, geometry, class and title through "
-    "wmctrl.",
-    3,
-    "It shells out to wmctrl and parses columns, which is a locale and format "
-    "dependency for data the X connection already holds. The same EWMH "
-    "properties it reads are available directly, and going direct would also "
-    "remove the fixed-width parsing that breaks on a title containing two "
-    "spaces.",
-)
-review(
-    "list_desktops",
-    "Listed the virtual desktops and marked the current one, via wmctrl.",
-    3,
-    "Same shell-out as list_windows, same fix: _NET_DESKTOP_NAMES and "
-    "_NET_CURRENT_DESKTOP are one X call away and cannot be mangled by a "
-    "locale.",
-)
-review(
     "list_processes",
     "Ran ps and filtered by substring.",
     3,
@@ -436,17 +407,6 @@ review(
     "can do, and text only — an image or a file path on the clipboard is "
     "invisible to it, which is exactly what a person copying something for the "
     "agent is most likely to have.",
-)
-review(
-    "set_clipboard",
-    "Wrote text to the X CLIPBOARD selection through xclip, which stays alive "
-    "in the background to own the selection.",
-    2,
-    "It discards the result — `_ = cmd.Run()` — so a failed write is reported "
-    "as success and the agent goes on to paste something that is not there. "
-    "That alone is the difference between a two and a four. Owning the "
-    "selection from inside the daemon would fix the honesty and the leaked "
-    "xclip process at the same time.",
 )
 
 # --- windows ------------------------------------------------------------------
@@ -801,4 +761,281 @@ review(
     "from one that did nothing. It writes through the same AT-SPI interface as "
     "ui_set_text and inherits its limitation: on Chromium it cannot, and cannot "
     "say so in advance.",
+)
+
+# --- closing, killing ---------------------------------------------------------
+
+review(
+    "close_window", "Asked the window manager to close a window through wmctrl.", 3,
+    "The polite close — the application gets to ask about unsaved work — which "
+    "is right. Shell-out like the rest of the family, and it cannot report "
+    "whether the window actually went, since a program with a confirmation "
+    "dialog stays open and this returns success either way.")
+review(
+    "kill_process", "Ended a process by name or pid, with force as an option.", 4,
+    "Signalling rather than always using SIGKILL is the correct default: a "
+    "process that can clean up should be allowed to. Matching by name has the "
+    "same substring problem as list_processes, so 'sleep' can end more than "
+    "intended — returning what it matched before acting would make that "
+    "visible.")
+
+# --- gamepad ------------------------------------------------------------------
+
+review(
+    "gamepad_button", "Pressed or released a button on a real uinput device.", 5,
+    "A virtual device in the kernel, not synthetic X events: the application "
+    "reads it through evdev exactly as it would a plugged-in controller, and "
+    "cannot tell the difference. That is the strongest possible answer here, "
+    "and the reason the whole family works in games that ignore fake input.")
+review(
+    "gamepad_tap", "Pressed and released with a hold in between.", 4,
+    "The convenience that stops a caller having to time two calls across the "
+    "wire, which is where a tap becomes a hold. It blocks for the duration, so "
+    "a long hold occupies the call; that is the honest trade for accuracy.")
+review(
+    "gamepad_axis", "Moved one stick axis through the same uinput device.", 5,
+    "Absolute axis values on a real device. Nothing better exists short of a "
+    "physical controller.")
+review(
+    "gamepad_state", "Set every button and axis in one call.", 5,
+    "The right shape for a game loop: one call per frame rather than a dozen, "
+    "and a consistent snapshot instead of a race between separate events.")
+
+# --- audio, re-streaming ------------------------------------------------------
+
+review(
+    "set_volume", "Set the volume or mute through pactl.", 3,
+    "Shells out per call for something PulseAudio exposes over its own socket. "
+    "It also sets the sink the desktop records from, so it changes what a "
+    "recording captures as well as what a listener hears — worth saying in the "
+    "description, since those are different intentions.")
+review(
+    "start_restream",
+    "Attached an external destination to the live H.264 output through the "
+    "pipeline's tee, encoding nothing a second time.", 5,
+    "This is the exemplar the rest of the media path should follow. A second "
+    "viewer costs bandwidth, not CPU, and so does a second destination. It is "
+    "also correctly gated by the room: publishing what is on everyone's screen "
+    "to somewhere outside it is not a decision an agent makes alone. "
+    "start_recording is the tool that should be reading this one's source.")
+review(
+    "stop_restream", "Detached a destination from the tee.", 4,
+    "Clean removal without disturbing the live encode, which is what the tee "
+    "buys. Stopping by id when several are running is right; stopping all of "
+    "them needs a loop the caller has to write.")
+review(
+    "list_restreams", "Reported where the desktop is currently being published.", 4,
+    "The audit answer to a question that matters — this is the tool that says "
+    "whether the screen is leaving the room. It reports the destinations but "
+    "not how they are doing, so a stalled push looks like a healthy one.")
+
+# --- persistent shells --------------------------------------------------------
+
+review(
+    "shell_open",
+    "Started a shell on a real PTY, sized in rows and columns.", 5,
+    "A pseudo-terminal rather than a pipe, which is the difference between a "
+    "shell that behaves and one that turns off its prompt, its colours and its "
+    "line editing because it thinks nobody is watching. Interactive programs "
+    "work here for the same reason.")
+review(
+    "shell_exec",
+    "Ran a command in an open session and waited for the output to go quiet.", 4,
+    "A quiet period is the honest way to know an interactive shell has finished "
+    "when there is no exit status to read — and it is still a heuristic, so a "
+    "command that pauses mid-output looks finished. Echoing a sentinel with $? "
+    "would turn the guess into a fact, the same fix terminal_run needs.")
+review(
+    "shell_input", "Sent raw keystrokes to a session without waiting.", 4,
+    "Necessary for anything shell_exec cannot express — answering a prompt, "
+    "sending Ctrl-C, driving a full-screen program. Fire-and-forget is the "
+    "point, and it means the caller has to pair it with shell_read themselves.")
+review(
+    "shell_read", "Read and cleared everything the session produced since the last read.", 4,
+    "Read-and-clear is the right contract for polling a long command: nothing "
+    "is delivered twice. It also means one caller's read hides that output from "
+    "another, which matters now that several sub-agents can share a desktop.")
+review(
+    "shell_list", "Listed the open sessions with their age and pending bytes.", 4,
+    "Reporting pending bytes is what makes it useful rather than decorative — a "
+    "session with unread output is one somebody should read. It cannot say what "
+    "is running in each.")
+review(
+    "shell_close", "Ended a session and released its PTY.", 4,
+    "Explicit cleanup, which matters because a PTY and a shell process outlive "
+    "the MCP connection that made them. Sessions have no idle timeout, so a "
+    "forgotten one lives until the desktop restarts.")
+
+# --- SSH ----------------------------------------------------------------------
+
+review(
+    "ssh_connect",
+    "Opened a session with golang.org/x/crypto/ssh — the protocol in Go, not "
+    "the ssh command driven from outside.", 5,
+    "This is the difference between holding a connection and re-establishing "
+    "one per call, and it is why exec, sftp and tunnels can share a session. "
+    "Host key handling is the thing to look at before trusting it outside a "
+    "container: convenience there is where SSH tooling usually goes wrong.")
+review(
+    "ssh_exec", "Ran a command over the open session, returning stdout, stderr and exit code.", 5,
+    "A channel on an existing connection, so it costs a round trip rather than "
+    "a handshake, and the exit code is the protocol's own rather than something "
+    "parsed back. Nothing to improve at this level.")
+review(
+    "ssh_upload", "Sent a file over SFTP on the same connection.", 5,
+    "SFTP through pkg/sftp rather than shelling out to scp: no second "
+    "authentication, no quoting a remote path through a shell, and errors that "
+    "name the operation. It reads the local file into memory, which is fine for "
+    "what an agent moves and not for an image.")
+review(
+    "ssh_download", "Fetched a file over the same SFTP session.", 5,
+    "Same reasoning and the same memory caveat.")
+review(
+    "ssh_list_remote", "Listed a remote directory over SFTP.", 5,
+    "Structured entries from the protocol rather than parsed ls output, which "
+    "is exactly the trap this avoids — ls output is for people.")
+review(
+    "ssh_tunnel_local", "Forwarded a local port to the remote side over the session.", 5,
+    "A real forwarded channel, managed and closable, not a backgrounded ssh -L "
+    "nobody can find later. The tunnel belongs to the session and dies with it.")
+review(
+    "ssh_tunnel_remote", "Forwarded a remote port back to this side.", 5,
+    "The harder direction, and it works the same way. Whether the remote sshd "
+    "allows it is the server's decision, and the error says so.")
+review(
+    "ssh_tunnels", "Listed the tunnels on a session, with their connection counts.", 4,
+    "Connection counts make it an operational answer rather than an inventory. "
+    "It cannot say whether a tunnel is failing, only whether anything has used "
+    "it.")
+review(
+    "ssh_tunnel_close", "Closed one tunnel by id.", 4,
+    "Right granularity — the session survives. Existing connections through it "
+    "are cut without a way to drain them first, which is the correct default "
+    "and worth documenting.")
+review(
+    "ssh_list", "Listed the open SSH sessions.", 4,
+    "The inventory that makes the id-based tools usable after a restart of the "
+    "client. Like shell_list it says nothing about health.")
+review(
+    "ssh_disconnect", "Closed a session and everything on it.", 4,
+    "Explicit teardown, and the tunnels going with it is the right coupling.")
+review(
+    "ssh_keygen", "Generated a key pair by running ssh-keygen.", 3,
+    "crypto/ed25519 and x/crypto/ssh can generate and marshal a key without "
+    "leaving the process, which would also let it refuse to overwrite without "
+    "parsing a prompt. It already declines to overwrite an existing key, which "
+    "is the important part.")
+review(
+    "ssh_copy_id", "Appended the public key to the remote authorized_keys.", 3,
+    "Builds a shell command and runs it remotely, so it depends on the remote "
+    "having a POSIX shell and on the quoting surviving. Writing the file over "
+    "SFTP — read, append, write, chmod — uses the connection this tool already "
+    "holds and works on hosts with an unusual shell.")
+
+# --- packages and services ----------------------------------------------------
+
+review(
+    "sudo_status", "Reported whether passwordless sudo is available in this image.", 4,
+    "The right thing to ask before offering an agent a privileged path, and "
+    "cheap. It answers about the capability rather than about a specific "
+    "command, so a narrowly configured sudoers looks the same as a full one.")
+review(
+    "install_packages",
+    "Installed with apt under a deadline, reporting the command's own output as "
+    "progress and killing it on cancel.", 4,
+    "Everything the long-running path should be, and the progress it streams is "
+    "apt's own text rather than a spinner. It cannot roll back a partial "
+    "install, which is what snapshot_create is for — worth saying so in the "
+    "description, since the two belong together.")
+review(
+    "remove_packages", "Removed packages, with purge as an option.", 4,
+    "Purge as an explicit choice rather than a default is right: configuration "
+    "is the part people miss. It does not report what else apt would remove as "
+    "a consequence, which is the number that matters before saying yes.")
+review(
+    "search_packages", "Searched apt without installing anything.", 3,
+    "Correctly read-only, which is why it survives MCP_POLICY=readonly. It "
+    "parses apt's human-facing output, and apt says plainly that its CLI has no "
+    "stable interface between versions. python-apt or the dpkg database would "
+    "not move under it.")
+review(
+    "service_control",
+    "Asked supervisord about the desktop's programs, and can start, stop or "
+    "restart them.", 4,
+    "Talking to the supervisor that actually owns these processes is right, and "
+    "it recognises both the container and native configuration paths. Stopping "
+    "the wrong program takes the desktop out from under everyone, and the tool "
+    "does not distinguish the ones that can be safely bounced from the ones "
+    "that cannot.")
+
+# --- system -------------------------------------------------------------------
+
+review(
+    "set_resolution",
+    "Changed the mode with xrandr, within the size reserved when the display "
+    "started.", 4,
+    "Changing resolution without restarting anything is genuinely useful, and "
+    "the ceiling is honest — Xvfb reserves its framebuffer at start, so growing "
+    "past it is not something this could fix. Reporting the available modes "
+    "would let a caller pick rather than guess and be refused.")
+
+# --- snapshots ----------------------------------------------------------------
+
+review(
+    "snapshot_create",
+    "Tarred the home directory and recorded the installed package list, "
+    "excluding the snapshot directory so they do not nest, and refusing a "
+    "result too small to be real.", 3,
+    "The two checks show someone thought about how this fails: excluding itself "
+    "stops quadratic growth, and the size check catches a tar that packed "
+    "nothing. But it copies the whole home every time — no incremental, no "
+    "deduplication — so the second snapshot costs as much as the first. It also "
+    "runs while files are being written, so a database in the home is captured "
+    "mid-write.")
+review(
+    "snapshot_list", "Listed the snapshots with their size and date.", 4,
+    "Enough to choose one. It does not show what a restore would change, which "
+    "is the question somebody actually has before restoring.")
+review(
+    "snapshot_restore",
+    "Unpacked a snapshot over the home and reported which packages were "
+    "installed after it was taken.", 3,
+    "Reporting the package difference rather than silently reverting it is the "
+    "good part — packages and files are different kinds of state and it does "
+    "not pretend otherwise. Unpacking over the live home leaves anything "
+    "created since in place, so a restore is a merge rather than the rollback "
+    "the name suggests. Saying which files it will overwrite, first, would make "
+    "it something a person can agree to.")
+review(
+    "snapshot_delete", "Deleted a snapshot and its package list.", 4,
+    "Removes both halves, which is the failure to avoid — a package list "
+    "without its tar is worse than nothing. No confirmation, correctly: that "
+    "belongs to whoever is calling.")
+
+review(
+    "list_windows",
+    "Listed every window with id, desktop, geometry, class and title, read straight from _NET_CLIENT_LIST and each window's own properties.",
+    5,
+    'It used to shell out to wmctrl and split the output on whitespace, so a window called "Report  2026" — two spaces — parsed as a different window with a different geometry. internal/desktop/ewmh.go reads the properties X already holds: no subprocess, no locale, no column arithmetic. The one thing left is telling a caller when the window manager publishes no client list at all, which is a different failure from an empty desktop.',
+)
+
+review(
+    "list_desktops",
+    'Listed the virtual desktops and marked the current one, from _NET_NUMBER_OF_DESKTOPS, _NET_CURRENT_DESKTOP and _NET_DESKTOP_NAMES.',
+    5,
+    'This was not merely inelegant before, it was wrong. The old parser took every field from index 8 onward as the name, so each desktop came back called "1920x1044 desktop 1" with the work-area size glued to the front — for as long as the tool had existed, because nobody read the output closely. Reading the names property gives the name.',
+)
+
+review(
+    "get_active_window",
+    'Read _NET_ACTIVE_WINDOW and described that window: id, geometry, class and title as fields.',
+    5,
+    'One property read where this used to be three xdotool processes returning a paragraph of text to parse. Nothing focused is now an answer with a note rather than an error, so a caller can tell an idle desktop from a broken query. Coordinates are translated to the root, so they are the ones a click can use even under a reparenting window manager.',
+)
+
+review(
+    "set_clipboard",
+    'Wrote text to the X CLIPBOARD selection and reported whether the write actually happened.',
+    4,
+    "It used to discard the result, so a failed write was reported as success and the agent went on to paste something that was never there. Getting the fix right took three attempts: capturing stderr made Go create a pipe that xclip's daemonised child inherited and never closed, so it hung for sixty seconds; adding WaitDelay fixed that and made a successful write report as broken, because ErrWaitDelay is the child holding the pipe rather than a failed command. Still a subprocess per write, and still text only — owning the selection from inside the daemon is what would take it to five.",
 )

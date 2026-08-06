@@ -91,31 +91,6 @@ review(
     "Autoritativo y gratis. No hay nada que agregar.",
 )
 review(
-    "get_active_window",
-    "Le preguntó a EWMH qué ventana tiene el foco, y reportó degradado cuando "
-    "ninguna lo tenía — que es un estado real del escritorio, no una falla.",
-    "'no active window: exit status 1' filtra la shell que lo produjo. Que no "
-    "haya foco es una respuesta, no un error: debería devolver null con una nota "
-    "e isError en false, para que quien llama no tenga que decidir si el error "
-    "significa roto o significa que nadie tiene el foco.",
-)
-review(
-    "list_windows",
-    "Listó cada ventana con id, escritorio, geometría, clase y título usando "
-    "wmctrl.",
-    "Hace shell-out a wmctrl y parsea columnas, o sea una dependencia de locale "
-    "y de formato para datos que la conexión X ya tiene. Las mismas propiedades "
-    "EWMH que lee están disponibles directo, e ir directo también sacaría el "
-    "parseo por ancho fijo que se rompe con un título que tenga dos espacios.",
-)
-review(
-    "list_desktops",
-    "Listó los escritorios virtuales y marcó el actual, vía wmctrl.",
-    "El mismo shell-out que list_windows y el mismo arreglo: "
-    "_NET_DESKTOP_NAMES y _NET_CURRENT_DESKTOP están a una llamada X de "
-    "distancia y no las puede arruinar un locale.",
-)
-review(
     "list_processes",
     "Corrió ps y filtró por substring.",
     "Un filtro por substring sobre una tabla de texto encuentra procesos cuyo "
@@ -390,16 +365,6 @@ review(
     "puede hacer, y sólo texto — una imagen o una ruta de archivo en el "
     "portapapeles le son invisibles, que es justo lo que más probablemente tenga "
     "una persona que copió algo para el agente.",
-)
-review(
-    "set_clipboard",
-    "Escribió texto en la selección CLIPBOARD de X con xclip, que queda vivo en "
-    "segundo plano para ser dueño de la selección.",
-    "Descarta el resultado — `_ = cmd.Run()` — así que una escritura fallida se "
-    "reporta como éxito y el agente sigue adelante a pegar algo que no está. "
-    "Eso solo es la diferencia entre un dos y un cuatro. Ser dueño de la "
-    "selección desde adentro del daemon arreglaría la honestidad y el proceso "
-    "xclip colgado al mismo tiempo.",
 )
 
 # --- ventanas -----------------------------------------------------------------
@@ -722,4 +687,241 @@ review(
     "problema distinto de uno que no hizo nada. Escribe por la misma interfaz "
     "AT-SPI que ui_set_text y hereda su limitación: en Chromium no puede, y "
     "tampoco puede avisarlo de antemano.",
+)
+
+# --- cerrar, matar ------------------------------------------------------------
+
+review("close_window", "Le pidió al gestor de ventanas que cierre una ventana, con wmctrl.",
+ "El cierre cortés — la aplicación puede preguntar por lo no guardado — y eso "
+ "está bien. Shell-out como el resto de la familia, y no puede reportar si la "
+ "ventana efectivamente se fue: un programa con diálogo de confirmación queda "
+ "abierto y esto devuelve éxito igual.")
+review("kill_process", "Terminó un proceso por nombre o pid, con force como opción.",
+ "Señalizar en vez de usar siempre SIGKILL es el default correcto: un proceso "
+ "que puede limpiar debería poder hacerlo. Coincidir por nombre tiene el mismo "
+ "problema de substring que list_processes, así que 'sleep' puede terminar más "
+ "de lo previsto — devolver qué coincidió antes de actuar lo haría visible.")
+
+# --- joystick -----------------------------------------------------------------
+
+review("gamepad_button", "Apretó o soltó un botón en un dispositivo uinput real.",
+ "Un dispositivo virtual en el kernel, no eventos X sintéticos: la aplicación "
+ "lo lee por evdev exactamente como leería un control enchufado, y no puede "
+ "notar la diferencia. Es la respuesta más fuerte posible acá, y el motivo por "
+ "el que toda la familia funciona en juegos que ignoran input falso.")
+review("gamepad_tap", "Apretó y soltó con una espera en el medio.",
+ "La comodidad que evita que quien llama tenga que cronometrar dos llamadas a "
+ "través del cable, que es donde un toque se convierte en un mantenido. Bloquea "
+ "mientras dura, así que un hold largo ocupa la llamada; ese es el canje honesto "
+ "por precisión.")
+review("gamepad_axis", "Movió un eje del stick por el mismo dispositivo uinput.",
+ "Valores absolutos de eje sobre un dispositivo real. No existe nada mejor "
+ "salvo un control físico.")
+review("gamepad_state", "Fijó todos los botones y ejes en una sola llamada.",
+ "La forma correcta para un loop de juego: una llamada por cuadro en vez de una "
+ "docena, y una foto consistente en vez de una carrera entre eventos sueltos.")
+
+# --- audio y retransmisión ----------------------------------------------------
+
+review("set_volume", "Fijó el volumen o el silencio con pactl.",
+ "Hace shell-out por llamada para algo que PulseAudio expone por su propio "
+ "socket. Además fija el sink del que graba el escritorio, así que cambia lo que "
+ "captura una grabación y no sólo lo que escucha alguien — vale decirlo en la "
+ "descripción, porque son intenciones distintas.")
+review("start_restream",
+ "Enganchó un destino externo a la salida H.264 viva por el tee del pipeline, "
+ "sin codificar nada por segunda vez.",
+ "Este es el ejemplo que debería seguir el resto del camino de medios. Un "
+ "segundo espectador cuesta ancho de banda, no CPU, y un segundo destino "
+ "tampoco. Además está correctamente gateada por la sala: publicar lo que está "
+ "en la pantalla de todos hacia afuera no es una decisión que un agente tome "
+ "solo. start_recording es la herramienta que debería estar leyendo el fuente "
+ "de ésta.")
+review("stop_restream", "Desenganchó un destino del tee.",
+ "Remoción limpia sin perturbar el encode vivo, que es lo que compra el tee. "
+ "Parar por id cuando hay varios corriendo es lo correcto; pararlos todos "
+ "requiere un loop que tiene que escribir quien llama.")
+review("list_restreams", "Reportó dónde se está publicando el escritorio ahora.",
+ "La respuesta de auditoría a una pregunta que importa — esta es la herramienta "
+ "que dice si la pantalla está saliendo de la sala. Reporta los destinos pero no "
+ "cómo van, así que un push trabado se ve igual que uno sano.")
+
+# --- shells persistentes ------------------------------------------------------
+
+review("shell_open", "Arrancó una shell sobre un PTY real, dimensionado en filas y columnas.",
+ "Un pseudo-terminal en vez de un pipe, que es la diferencia entre una shell "
+ "que se comporta y una que apaga su prompt, sus colores y su edición de línea "
+ "porque cree que nadie la mira. Los programas interactivos funcionan acá por el "
+ "mismo motivo.")
+review("shell_exec", "Corrió un comando en una sesión abierta y esperó a que la salida se aquietara.",
+ "Un período de silencio es la forma honesta de saber que una shell interactiva "
+ "terminó cuando no hay código de salida que leer — y sigue siendo una "
+ "heurística, así que un comando que hace una pausa a mitad de salida parece "
+ "terminado. Hacer eco de un centinela con $? convertiría la adivinanza en un "
+ "hecho, el mismo arreglo que necesita terminal_run.")
+review("shell_input", "Mandó teclas crudas a una sesión sin esperar.",
+ "Necesaria para todo lo que shell_exec no puede expresar — contestar un "
+ "prompt, mandar Ctrl-C, manejar un programa de pantalla completa. Disparar y "
+ "olvidarse es el punto, y significa que quien llama tiene que emparejarla con "
+ "shell_read por su cuenta.")
+review("shell_read", "Leyó y limpió todo lo que produjo la sesión desde la última lectura.",
+ "Leer-y-limpiar es el contrato correcto para hacer polling de un comando largo: "
+ "nada se entrega dos veces. También significa que la lectura de uno esconde esa "
+ "salida de otro, lo que importa ahora que varios sub-agentes pueden compartir "
+ "un escritorio.")
+review("shell_list", "Listó las sesiones abiertas con su antigüedad y bytes pendientes.",
+ "Reportar bytes pendientes es lo que la hace útil y no decorativa — una sesión "
+ "con salida sin leer es una que alguien debería leer. No puede decir qué está "
+ "corriendo en cada una.")
+review("shell_close", "Terminó una sesión y liberó su PTY.",
+ "Limpieza explícita, que importa porque un PTY y un proceso de shell sobreviven "
+ "a la conexión MCP que los creó. Las sesiones no tienen timeout por "
+ "inactividad, así que una olvidada vive hasta que el escritorio reinicie.")
+
+# --- SSH ----------------------------------------------------------------------
+
+review("ssh_connect",
+ "Abrió una sesión con golang.org/x/crypto/ssh — el protocolo en Go, no el "
+ "comando ssh manejado desde afuera.",
+ "Esta es la diferencia entre sostener una conexión y rehacerla en cada llamada, "
+ "y es el motivo por el que exec, sftp y túneles pueden compartir una sesión. El "
+ "manejo de host keys es lo que hay que mirar antes de confiar en esto fuera de "
+ "un contenedor: la comodidad ahí es donde el tooling de SSH suele fallar.")
+review("ssh_exec", "Corrió un comando por la sesión abierta, devolviendo stdout, stderr y código de salida.",
+ "Un canal sobre una conexión existente, así que cuesta un round trip y no un "
+ "handshake, y el código de salida es el del protocolo y no algo parseado de "
+ "vuelta. Nada que mejorar a este nivel.")
+review("ssh_upload", "Mandó un archivo por SFTP sobre la misma conexión.",
+ "SFTP por pkg/sftp en vez de shell-out a scp: sin segunda autenticación, sin "
+ "tener que citar una ruta remota a través de una shell, y errores que nombran "
+ "la operación. Lee el archivo local a memoria, que está bien para lo que mueve "
+ "un agente y no para una imagen.")
+review("ssh_download", "Trajo un archivo por la misma sesión SFTP.",
+ "Mismo razonamiento y misma salvedad de memoria.")
+review("ssh_list_remote", "Listó un directorio remoto por SFTP.",
+ "Entradas estructuradas del protocolo en vez de salida de ls parseada, que es "
+ "justo la trampa que esto evita — la salida de ls es para personas.")
+review("ssh_tunnel_local", "Reenvió un puerto local al lado remoto por la sesión.",
+ "Un canal reenviado real, administrado y cerrable, no un ssh -L en segundo "
+ "plano que después nadie encuentra. El túnel pertenece a la sesión y muere con "
+ "ella.")
+review("ssh_tunnel_remote", "Reenvió un puerto remoto de vuelta hacia este lado.",
+ "La dirección más difícil, y funciona igual. Si el sshd remoto lo permite es "
+ "decisión del servidor, y el error lo dice.")
+review("ssh_tunnels", "Listó los túneles de una sesión, con su cantidad de conexiones.",
+ "La cantidad de conexiones la convierte en una respuesta operativa y no en un "
+ "inventario. No puede decir si un túnel está fallando, sólo si algo lo usó.")
+review("ssh_tunnel_close", "Cerró un túnel por id.",
+ "La granularidad correcta — la sesión sobrevive. Las conexiones existentes se "
+ "cortan sin forma de drenarlas primero, que es el default correcto y vale "
+ "documentarlo.")
+review("ssh_list", "Listó las sesiones SSH abiertas.",
+ "El inventario que hace usables a las herramientas basadas en id después de "
+ "reiniciar el cliente. Como shell_list, no dice nada sobre salud.")
+review("ssh_disconnect", "Cerró una sesión y todo lo que colgaba de ella.",
+ "Desarme explícito, y que los túneles se vayan con ella es el acoplamiento "
+ "correcto.")
+review("ssh_keygen", "Generó un par de claves corriendo ssh-keygen.",
+ "crypto/ed25519 y x/crypto/ssh pueden generar y serializar una clave sin salir "
+ "del proceso, lo que además permitiría negarse a sobrescribir sin parsear un "
+ "prompt. Ya se niega a sobrescribir una clave existente, que es la parte "
+ "importante.")
+review("ssh_copy_id", "Agregó la clave pública al authorized_keys remoto.",
+ "Arma un comando de shell y lo corre remoto, así que depende de que el remoto "
+ "tenga una shell POSIX y de que el quoting sobreviva. Escribir el archivo por "
+ "SFTP — leer, agregar, escribir, chmod — usa la conexión que esta herramienta "
+ "ya sostiene y funciona en hosts con una shell inusual.")
+
+# --- paquetes y servicios -----------------------------------------------------
+
+review("sudo_status", "Reportó si esta imagen tiene sudo sin contraseña.",
+ "Lo correcto para preguntar antes de ofrecerle a un agente un camino "
+ "privilegiado, y barato. Contesta sobre la capacidad y no sobre un comando "
+ "puntual, así que un sudoers restringido se ve igual que uno completo.")
+review("install_packages",
+ "Instaló con apt bajo deadline, reportando la salida del propio comando como "
+ "progreso y matándolo al cancelar.",
+ "Todo lo que debería ser el camino largo, y el progreso que emite es el texto "
+ "propio de apt y no un spinner. No puede revertir una instalación parcial, para "
+ "lo cual está snapshot_create — vale decirlo en la descripción, porque las dos "
+ "van juntas.")
+review("remove_packages", "Sacó paquetes, con purge como opción.",
+ "Purge como elección explícita y no como default es lo correcto: la "
+ "configuración es la parte que la gente pasa por alto. No reporta qué más "
+ "sacaría apt como consecuencia, que es el número que importa antes de decir que "
+ "sí.")
+review("search_packages", "Buscó en apt sin instalar nada.",
+ "Correctamente de sólo lectura, que es por lo que sobrevive a "
+ "MCP_POLICY=readonly. Parsea la salida de apt pensada para personas, y apt dice "
+ "explícitamente que su CLI no tiene una interfaz estable entre versiones. "
+ "python-apt o la base de dpkg no se moverían debajo.")
+review("service_control",
+ "Le preguntó a supervisord por los programas del escritorio, y puede "
+ "arrancarlos, pararlos o reiniciarlos.",
+ "Hablar con el supervisor que realmente es dueño de esos procesos es lo "
+ "correcto, y reconoce tanto la configuración del contenedor como la nativa. "
+ "Parar el programa equivocado le saca el escritorio a todos, y la herramienta "
+ "no distingue los que se pueden rebotar sin riesgo de los que no.")
+
+# --- sistema ------------------------------------------------------------------
+
+review("set_resolution",
+ "Cambió el modo con xrandr, dentro del tamaño reservado cuando arrancó el "
+ "display.",
+ "Cambiar la resolución sin reiniciar nada es genuinamente útil, y el techo es "
+ "honesto — Xvfb reserva su framebuffer al inicio, así que crecer más allá no es "
+ "algo que esto pudiera arreglar. Reportar los modos disponibles dejaría elegir "
+ "en vez de adivinar y que te rechacen.")
+
+# --- snapshots ----------------------------------------------------------------
+
+review("snapshot_create",
+ "Empaquetó el home en un tar y registró la lista de paquetes instalados, "
+ "excluyendo el propio directorio de snapshots para que no se aniden, y "
+ "rechazando un resultado demasiado chico para ser real.",
+ "Los dos chequeos muestran que alguien pensó cómo falla esto: excluirse a sí "
+ "mismo evita el crecimiento cuadrático, y el chequeo de tamaño atrapa un tar "
+ "que no empaquetó nada. Pero copia el home entero cada vez — sin incremental, "
+ "sin deduplicación — así que el segundo snapshot cuesta lo mismo que el "
+ "primero. Además corre mientras se escriben archivos, así que una base de datos "
+ "en el home queda capturada a mitad de escritura.")
+review("snapshot_list", "Listó los snapshots con su tamaño y fecha.",
+ "Alcanza para elegir uno. No muestra qué cambiaría una restauración, que es la "
+ "pregunta que alguien realmente tiene antes de restaurar.")
+review("snapshot_restore",
+ "Desempaquetó un snapshot sobre el home y reportó qué paquetes se instalaron "
+ "después de tomarlo.",
+ "Reportar la diferencia de paquetes en vez de revertirla en silencio es la "
+ "parte buena — archivos y paquetes son tipos de estado distintos y no finge lo "
+ "contrario. Desempaquetar sobre el home vivo deja en su lugar todo lo creado "
+ "desde entonces, así que una restauración es una fusión y no la vuelta atrás "
+ "que sugiere el nombre. Decir primero qué archivos va a sobrescribir la "
+ "convertiría en algo que una persona puede aceptar.")
+review("snapshot_delete", "Borró un snapshot y su lista de paquetes.",
+ "Saca las dos mitades, que es la falla a evitar — una lista de paquetes sin su "
+ "tar es peor que nada. Sin confirmación, correctamente: eso le corresponde a "
+ "quien llama.")
+
+review(
+    "list_windows",
+    'Listó cada ventana con id, escritorio, geometría, clase y título, leídos directo de _NET_CLIENT_LIST y de las propiedades de cada ventana.',
+    'Antes hacía shell-out a wmctrl y partía la salida por espacios, así que una ventana llamada "Report  2026" — dos espacios — se parseaba como otra ventana con otra geometría. internal/desktop/ewmh.go lee las propiedades que X ya tiene: sin subproceso, sin locale, sin aritmética de columnas. Lo único que queda es avisarle a quien llama cuando el gestor de ventanas no publica ninguna lista de clientes, que es una falla distinta de un escritorio vacío.',
+)
+
+review(
+    "list_desktops",
+    'Listó los escritorios virtuales y marcó el actual, desde _NET_NUMBER_OF_DESKTOPS, _NET_CURRENT_DESKTOP y _NET_DESKTOP_NAMES.',
+    'Esto antes no era sólo poco elegante, estaba mal. El parser viejo tomaba todos los campos desde el índice 8 como nombre, así que cada escritorio volvía llamándose "1920x1044 desktop 1", con el tamaño del área de trabajo pegado adelante — desde que la herramienta existía, porque nadie leyó la salida de cerca. Leer la propiedad de nombres da el nombre.',
+)
+
+review(
+    "get_active_window",
+    'Leyó _NET_ACTIVE_WINDOW y describió esa ventana: id, geometría, clase y título como campos.',
+    'Una lectura de propiedad donde antes eran tres procesos xdotool devolviendo un párrafo de texto para parsear. Que no haya foco ahora es una respuesta con nota y no un error, así que quien llama puede distinguir un escritorio inactivo de una consulta rota. Las coordenadas se traducen a la raíz, así que son las que sirven para un clic incluso con un gestor de ventanas que reparenta.',
+)
+
+review(
+    "set_clipboard",
+    'Escribió texto en la selección CLIPBOARD de X y reportó si la escritura realmente ocurrió.',
+    'Antes descartaba el resultado, así que una escritura fallida se reportaba como éxito y el agente iba a pegar algo que nunca estuvo. Acertarle al arreglo llevó tres intentos: capturar stderr hizo que Go creara un pipe que el hijo demonizado de xclip heredó y nunca cerró, y colgó sesenta segundos; agregar WaitDelay arregló eso e hizo que una escritura exitosa se reportara como rota, porque ErrWaitDelay es el hijo sosteniendo el pipe y no un comando fallido. Sigue siendo un subproceso por escritura, y sigue siendo sólo texto — ser dueño de la selección desde adentro del daemon es lo que lo llevaría a cinco.',
 )
