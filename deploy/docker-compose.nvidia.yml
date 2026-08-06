@@ -12,7 +12,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Production on Linux with an NVIDIA GPU — NVENC (H.264 in hardware).
-# Requiere nvidia-container-toolkit instalado en el host.
+# Needs nvidia-container-toolkit installed on the host.
 #
 #   AUTH_USER=admin AUTH_PASS=secret docker compose -f docker-compose.nvidia.yml up -d
 #   with TLS: ... --profile tls up -d

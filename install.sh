@@ -27,6 +27,8 @@
 # Options:
 #   --version vX.Y.Z   install that release instead of the latest
 #   --binary PATH      use a local binary instead of downloading one
+#   --user NAME        native only: run the desktop as NAME instead of creating
+#                      a dedicated sentineldesk account
 #
 # The script downloads ONE artifact: the binary. Everything else — compose
 # files, supervisor config, the desktop scripts — the binary carries embedded
@@ -65,7 +67,7 @@ while [ $# -gt 0 ]; do
     --version) WANT_VERSION="$2"; shift ;;
     --binary)  LOCAL_BINARY="$2"; shift ;;
     --user)    WANT_USER="$2"; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '14,37p' "$0"; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
   shift
@@ -147,6 +149,82 @@ install_binary() {
   # success. Native mode says the version once the packages are in; Docker mode
   # never can, because in Docker mode the host is not supposed to have them.
   say "installed: $BIN"
+}
+
+# --- TLS, on by default -------------------------------------------------------
+#
+# An installed machine is on a network by definition, and without this the login
+# and everything after it cross it in clear text. The README has always said to
+# serve this over TLS before exposing it; an installer that ends on http:// is
+# advice nobody follows.
+#
+# Self-signed, so it needs nothing from anybody: the server generates an ECDSA
+# P-256 certificate on first start and keeps it in the home, which persists.
+# The browser will warn once per machine — that is what self-signed means, and
+# it is a better starting point than plain HTTP. Put Caddy in front, or set
+# TLS_CERT/TLS_KEY, when there is a real name to get a certificate for.
+#
+# The certificate covers localhost, 127.0.0.1, ::1 and the hostname on its own.
+# On a VPS nobody types any of those — they type the IP, which would then not
+# match and turn a warning you can click through into an error you cannot. So
+# every address this machine actually answers on goes in, discovered here.
+host_addresses() {
+  hostname -I 2>/dev/null \
+    | tr ' ' '\n' \
+    | grep -vE '^(127\.|::1|$)' \
+    | paste -sd, - 2>/dev/null \
+    || true
+}
+
+# The address to print at the end. Reads the scheme back from what was actually
+# configured rather than assuming: an existing /etc/sentineldesk/env is left
+# untouched by design, so a machine installed before TLS became the default is
+# still on http:// and should be told so.
+desktop_url() {
+  local scheme=https ip
+  ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+  if [ "$MODE" = native ] && [ -r /etc/sentineldesk/env ]; then
+    grep -q '^TLS_SELFSIGNED=1' /etc/sentineldesk/env || scheme=http
+  fi
+  echo "$scheme://${ip:-localhost}:8080"
+}
+
+# --- what was here before ----------------------------------------------------
+#
+# Read BEFORE anything is overwritten, so the end of the run can say whether
+# this was a first install, a reinstall of the same release, or a move to a new
+# one. Re-running this script IS the update path, and an update that does not
+# tell you what changed is one you have to go and verify by hand.
+#
+# Two places to look, because the two modes keep the version in different
+# places. Native: the installed binary, which on a machine that already has the
+# desktop can run — its libraries are in. Docker: the host binary usually
+# CANNOT run (Docker mode never installs GStreamer, on purpose), so the answer
+# comes from the container instead.
+PREV_VERSION=""
+detect_previous_version() {
+  if [ -x "$BIN" ]; then
+    PREV_VERSION=$("$BIN" -version 2>/dev/null | sed 's/^sentineldesk //') || PREV_VERSION=""
+  fi
+  if [ -z "$PREV_VERSION" ] && command -v docker >/dev/null 2>&1; then
+    PREV_VERSION=$(docker exec sentineldesk /usr/local/bin/sentineldesk -version 2>/dev/null \
+                   | sed 's/^sentineldesk //') || PREV_VERSION=""
+  fi
+  [ -n "$PREV_VERSION" ] && say "found installed: $PREV_VERSION"
+  return 0
+}
+
+# Said once, at the end, in the three shapes this can take.
+report_version() {
+  local now="$1"
+  [ -n "$now" ] || return 0
+  if [ -z "$PREV_VERSION" ]; then
+    say "installed $now"
+  elif [ "$PREV_VERSION" = "$now" ]; then
+    say "reinstalled $now (unchanged)"
+  else
+    say "updated: $PREV_VERSION  →  $now"
+  fi
 }
 
 # --- the wallpapers ----------------------------------------------------------
@@ -295,6 +373,10 @@ services:
       - WEBRTC_MIN_PORT=59000
       - WEBRTC_MAX_PORT=59049
       - CLIENT_STUN=stun:stun.l.google.com:19302
+      # TLS by default — see host_addresses() for why the IPs are listed. Set
+      # TLS_SELFSIGNED=0 in .env for plain HTTP on a trusted network.
+      - TLS_SELFSIGNED=\${TLS_SELFSIGNED:-1}
+      - TLS_HOSTS=\${TLS_HOSTS:-$(host_addresses)}
       # Read at start, so this one image serves every region. Edit and restart.
       - TZ=\${TZ:-America/Argentina/Buenos_Aires}
       - KEYBOARD_LAYOUT=\${KEYBOARD_LAYOUT:-us}
@@ -328,7 +410,18 @@ EOF
 
   say "starting…"
   docker compose -p sentineldesk -f "$OPT/docker-compose.yml" --env-file "$OPT/.env" up -d
-  say "SentinelDesk is up: http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
+  # From the container rather than the host binary, which in Docker mode has no
+  # GStreamer to load. A few seconds' grace because compose returns as soon as
+  # the container is created, not once it answers.
+  local now="" i=0
+  while [ "$i" -lt 10 ] && [ -z "$now" ]; do
+    now=$(docker exec sentineldesk /usr/local/bin/sentineldesk -version 2>/dev/null \
+          | sed 's/^sentineldesk //')
+    [ -z "$now" ] && sleep 1
+    i=$((i + 1))
+  done
+  report_version "$now"
+  say "SentinelDesk is up: $(desktop_url)"
   say "credentials: $OPT/.env · full compose reference: $OPT/deploy/"
 }
 
@@ -359,7 +452,7 @@ install_native_mode() {
   # also the first moment the binary can run at all: it links GStreamer, which
   # the block above just installed.
   extract_deploy
-  say "binary: $($BIN -version)"
+  report_version "$("$BIN" -version 2>/dev/null | sed 's/^sentineldesk //')"
 
   # The desktop itself comes from the same lists the container image is built
   # from. Duplicating them here is what would let a native install and a
@@ -583,6 +676,9 @@ AUTH_USER=admin
 AUTH_PASS=$pass
 MCP_SOCK=$RUNTIME_DIR/sentineldesk-mcp.sock
 FILES_ROOT=$DESKTOP_HOME
+TLS_SELFSIGNED=1
+TLS_DIR=$DESKTOP_HOME/.tls
+TLS_HOSTS=$(host_addresses)
 EOF
     chmod 600 /etc/sentineldesk/env
     say "credentials generated in /etc/sentineldesk/env (user admin, password $pass)"
@@ -688,12 +784,13 @@ EOF
   # process running while printing "SentinelDesk is up". Re-running is the
   # update path, so it has to end with the new version actually running.
   systemctl restart sentineldesk.service
-  say "SentinelDesk is up: http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
+  say "SentinelDesk is up: $(desktop_url)"
   say "credentials: /etc/sentineldesk/env"
   say "service:     systemctl status sentineldesk · journalctl -u sentineldesk -f"
 }
 
 # --- go ----------------------------------------------------------------------
+detect_previous_version
 install_binary
 case "$MODE" in
   docker) install_docker_mode ;;

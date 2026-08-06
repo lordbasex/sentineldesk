@@ -272,6 +272,25 @@ curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install
 `docker` or `native` chooses explicitly. A second word picks the variant, and
 **lite is the default**:
 
+An installed machine comes up on **HTTPS with a self-signed certificate**, and
+the certificate covers the addresses that machine actually answers on — a VPS is
+reached by IP, and a certificate that does not name it turns a warning you can
+click through into an error you cannot. The browser still warns once, because
+self-signed means nobody vouched for it; put Caddy in front or set
+`TLS_CERT`/`TLS_KEY` when there is a real name to get a certificate for. Set
+`TLS_SELFSIGNED=0` for plain HTTP on a network you trust.
+
+**Re-running the installer is the update path.** It downloads the current
+release over the old one, rewrites the configuration, restarts the service, and
+says which way it moved — `updated: v1.1.2 → v1.1.3`, or `reinstalled …
+(unchanged)`. Credentials and anything else in `/etc/sentineldesk/env` are left
+alone, because that file is only written when it is not already there.
+
+Native installs take `--user NAME` to run the desktop as an account that already
+exists, instead of creating a dedicated one. On a Raspberry Pi that is usually
+what you want — it is your machine and your files — and it is worth knowing that
+whoever reaches the desktop then gets a shell as that user.
+
 ```bash
 sudo ./install.sh docker full     # the larger image
 sudo ./install.sh native lite     # or just: sudo ./install.sh native
