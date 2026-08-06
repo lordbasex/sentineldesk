@@ -283,6 +283,79 @@ docker run -d --name sentineldesk … sentineldesk:full</code></pre>
     percorre o que cada uma carrega e por quê.</p>
   </div>
 
+  <h3 id="install-machine">Numa máquina própria — um VPS ou um Raspberry Pi</h3>
+
+  <p>As três formas acima pressupõem um clone do repositório. Para uma máquina
+  que só vai <em>executar</em> isto — um VPS, um Raspberry Pi 5 — existe um
+  instalador, e ele não precisa de nada clonado:</p>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
+  | sudo bash -s auto</code></pre>
+
+  <p><code>auto</code> escolhe Docker onde ele já está instalado e uma instalação
+  nativa com systemd caso contrário. Diga qual você quer, e acrescente a variante
+  — <b>lite é a padrão</b>:</p>
+
+<pre><code>sudo ./install.sh docker lite    # contêiner + compose, fácil de remover
+sudo ./install.sh native lite    # systemd + supervisor, direto no host
+sudo ./install.sh docker full    # a imagem maior</code></pre>
+
+  <table>
+    <tr><th>Opção</th><th>O que faz</th></tr>
+    <tr><td><code>--version vX.Y.Z</code></td><td>Instala essa release em vez da mais recente</td></tr>
+    <tr><td><code>--binary CAMINHO</code></td><td>Usa um binário que você já tem em vez de baixar um</td></tr>
+    <tr><td><code>--user NOME</code></td><td>Só nativo: roda a área de trabalho como uma conta que já existe, em vez de criar uma dedicada</td></tr>
+  </table>
+
+  <p>Ele baixa <b>um único artefato</b> — o binário — e o verifica contra o
+  <code>SHA256SUMS.txt</code> da release. Todo o resto ele pede ao binário.</p>
+
+  <div class="note">
+    <b>O binário é a própria distribuição</b>
+    <p>Os arquivos compose, a configuração do supervisor e os scripts da área de
+    trabalho vão embutidos nele, então configuração e código nunca podem
+    discordar de versão — foram construídos juntos.
+    <code>sentineldesk -extract-deploy &lt;dir&gt;</code> escreve essa árvore em
+    disco, que é o que o instalador usa, e
+    <code>sentineldesk -install</code> a serve por HTTP para que outra máquina se
+    instale a partir desta. <code>sentineldesk -version</code> diz exatamente o
+    que é um build, e a mesma string aparece embaixo no rail.</p>
+  </div>
+
+  <p>Uma máquina instalada sobe em <b>HTTPS com certificado autoassinado</b>, e o
+  certificado nomeia os endereços em que aquela máquina realmente responde. Essa
+  última parte importa mais do que parece: um VPS é acessado por IP, e um
+  certificado que não o nomeia transforma um aviso que dá para ignorar num erro
+  que não dá. O navegador ainda avisa uma vez, porque autoassinado significa que
+  ninguém deu fé — veja <a href="#cert-trust">confiar nele</a>. Defina
+  <code>TLS_SELFSIGNED=0</code> para HTTP simples numa rede confiável.</p>
+
+  <p>As credenciais são geradas na primeira instalação e impressas uma vez. Ficam
+  em <code>/etc/sentineldesk/env</code> numa instalação nativa e em
+  <code>/opt/sentineldesk/.env</code> numa Docker.</p>
+
+  <h4 id="install-machine-update">Atualizar é o mesmo comando</h4>
+
+  <p>Rode o instalador de novo. Ele baixa a release atual por cima da antiga,
+  reescreve a configuração, reinicia o serviço e diz para onde foi:</p>
+
+<pre><code>▶ updated: v1.1.2 (5d0ed66)  →  v1.1.3 (abc1234)
+▶ reinstalled v1.1.3 (abc1234) (unchanged)</code></pre>
+
+  <p>Suas credenciais sobrevivem, porque aquele arquivo só é escrito quando não
+  existe — e os wallpapers que você mesmo colocou também.</p>
+
+  <div class="note warn">
+    <b>Num Raspberry Pi, use o Raspberry Pi OS de 64 bits</b>
+    <p>O instalador aceita <b>arm64</b>; o Raspberry Pi OS de 32 bits reporta
+    <code>armv7l</code> e é recusado. Um Pi 5 não tem encoder H.264 por hardware
+    — o do Pi 4 foi removido —, então a imagem é comprimida pela CPU em software.
+    Baixe <code>DISPLAY_WIDTH</code>, <code>DISPLAY_HEIGHT</code> e
+    <code>FPS</code> antes de concluir que está lento; 720p é um ponto de partida
+    realista. Numa instalação nativa essas variáveis ficam em
+    <code>/etc/sentineldesk/env</code>.</p>
+  </div>
+
   <h3 id="install-first-run">A primeira vez</h3>
   <p>Abra <code>http://localhost:8080</code>. Com <code>AUTH_USER</code> e
   <code>AUTH_PASS</code> definidos ele pede login; sem eles fica aberto.</p>

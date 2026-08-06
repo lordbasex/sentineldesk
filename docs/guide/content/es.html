@@ -280,6 +280,82 @@ docker run -d --name sentineldesk … sentineldesk:full</code></pre>
     instalado</a> recorre qué lleva cada una y por qué.</p>
   </div>
 
+  <h3 id="install-machine">En una máquina propia — un VPS o una Raspberry Pi</h3>
+
+  <p>Las tres formas de arriba suponen un clon del repositorio. Para una máquina
+  que solamente va a <em>ejecutar</em> esto — un VPS, una Raspberry Pi 5 — hay un
+  instalador, y no necesita nada clonado:</p>
+
+<pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
+  | sudo bash -s auto</code></pre>
+
+  <p><code>auto</code> elige Docker donde ya está instalado y una instalación
+  nativa con systemd si no. Decí cuál querés en su lugar, y agregá la variante —
+  <b>lite es la de por defecto</b>:</p>
+
+<pre><code>sudo ./install.sh docker lite    # contenedor + compose, fácil de sacar
+sudo ./install.sh native lite    # systemd + supervisor, directo en el host
+sudo ./install.sh docker full    # la imagen grande</code></pre>
+
+  <table>
+    <tr><th>Opción</th><th>Qué hace</th></tr>
+    <tr><td><code>--version vX.Y.Z</code></td><td>Instala esa release en lugar de la última</td></tr>
+    <tr><td><code>--binary RUTA</code></td><td>Usa un binario que ya tenés en vez de descargar uno</td></tr>
+    <tr><td><code>--user NOMBRE</code></td><td>Solo nativo: corre el escritorio como una cuenta que ya existe, en vez de crear una dedicada</td></tr>
+  </table>
+
+  <p>Descarga <b>un solo artefacto</b> —el binario— y lo verifica contra el
+  <code>SHA256SUMS.txt</code> de la release. Todo lo demás se lo pide al
+  binario.</p>
+
+  <div class="note">
+    <b>El binario es su propia distribución</b>
+    <p>Los archivos compose, la configuración de supervisor y los scripts del
+    escritorio van embebidos adentro, así que configuración y código nunca pueden
+    discrepar de versión — se construyeron juntos.
+    <code>sentineldesk -extract-deploy &lt;dir&gt;</code> escribe ese árbol en
+    disco, que es lo que usa el instalador, y
+    <code>sentineldesk -install</code> lo sirve por HTTP para que otra máquina se
+    instale desde ésta. <code>sentineldesk -version</code> dice exactamente qué
+    es un build, y esa misma cadena aparece abajo en el rail.</p>
+  </div>
+
+  <p>Una máquina instalada arranca en <b>HTTPS con certificado autofirmado</b>, y
+  el certificado nombra las direcciones en las que esa máquina realmente
+  responde. Esa última parte importa más de lo que parece: a un VPS se llega por
+  IP, y un certificado que no la nombra convierte un aviso que podés saltear en
+  un error que no. El navegador igual advierte una vez, porque autofirmado
+  significa que nadie salió de garante — mirá
+  <a href="#cert-trust">confiar en él</a>. Poné <code>TLS_SELFSIGNED=0</code>
+  para HTTP plano en una red de confianza.</p>
+
+  <p>Las credenciales se generan en la primera instalación y se imprimen una vez.
+  Viven en <code>/etc/sentineldesk/env</code> si es nativa y en
+  <code>/opt/sentineldesk/.env</code> si es Docker.</p>
+
+  <h4 id="install-machine-update">Actualizar es el mismo comando</h4>
+
+  <p>Volvé a correr el instalador. Descarga la release actual encima de la vieja,
+  reescribe la configuración, reinicia el servicio y dice para dónde se
+  movió:</p>
+
+<pre><code>▶ updated: v1.1.2 (5d0ed66)  →  v1.1.3 (abc1234)
+▶ reinstalled v1.1.3 (abc1234) (unchanged)</code></pre>
+
+  <p>Tus credenciales sobreviven, porque ese archivo solo se escribe cuando no
+  está — y también sobreviven los wallpapers que hayas puesto vos.</p>
+
+  <div class="note warn">
+    <b>En una Raspberry Pi, usá Raspberry Pi OS de 64 bits</b>
+    <p>El instalador acepta <b>arm64</b>; el Raspberry Pi OS de 32 bits reporta
+    <code>armv7l</code> y es rechazado. Una Pi 5 no tiene encoder H.264 por
+    hardware —el de la Pi 4 fue eliminado—, así que la imagen la comprime la CPU
+    por software. Bajá <code>DISPLAY_WIDTH</code>, <code>DISPLAY_HEIGHT</code> y
+    <code>FPS</code> antes de concluir que va lenta; 720p es un punto de partida
+    realista. En una instalación nativa esas variables viven en
+    <code>/etc/sentineldesk/env</code>.</p>
+  </div>
+
   <h3 id="install-first-run">La primera vez</h3>
   <p>Abrí <code>http://localhost:8080</code>. Con <code>AUTH_USER</code> y
   <code>AUTH_PASS</code> definidos pide usuario y contraseña; sin ellos queda
