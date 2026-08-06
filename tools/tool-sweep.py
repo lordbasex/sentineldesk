@@ -35,6 +35,15 @@ _spec = importlib.util.spec_from_file_location("mcpcli", os.path.join(HERE, "mcp
 _mcpcli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mcpcli)
 
+# The verdict on each tool's METHOD, kept apart from the generated files so it
+# survives the next run. Missing entries are reported as not yet reviewed rather
+# than silently omitted — an unreviewed tool should be visible.
+sys.path.insert(0, HERE)
+try:
+    from tool_reviews import REVIEWS
+except ImportError:
+    REVIEWS = {}
+
 OK, TOLERATED, SKIPPED, FAILED = "ok", "tolerated", "skipped", "failed"
 
 BADGE = {
@@ -652,6 +661,32 @@ def write_report(rows, path, meta):
 
 RULE = "-" * 88
 
+def wrap(text, width=84, indent="  "):
+    words, line, lines = text.split(), "", []
+    for w in words:
+        if len(line) + len(w) + 1 > width:
+            lines.append(indent + line)
+            line = w
+        else:
+            line = f"{line} {w}".strip()
+    if line:
+        lines.append(indent + line)
+    return lines
+
+
+def review_block(tool):
+    """What was done, how good the method is, and what would make it excellent."""
+    r = REVIEWS.get(tool)
+    if not r:
+        return ["", "Review: not yet reviewed."]
+    bar = "●" * r["score"] + "○" * (5 - r["score"])
+    return (
+        ["", "Summary:"] + wrap(r["did"]) +
+        ["", f"Method score: {r['score']}/5  {bar}"] +
+        ["", "To take it further:"] + wrap(r["better"])
+    )
+
+
 STATUS_WORD = {
     OK: "ok",
     TOLERATED: "degraded — the environment explains it",
@@ -695,9 +730,9 @@ def write_transcript(rows, path, meta):
             f"{r['tool']}: {r['description']}",
             f"Arguments sent: {args}",
             "Result: " + body,
-            RULE,
-            "",
         ]
+        out += review_block(r["tool"])
+        out += [RULE, ""]
     with open(path, "w") as fh:
         fh.write("\n".join(out) + "\n")
 
