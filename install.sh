@@ -318,6 +318,14 @@ volumes:
     name: sentineldesk-home
 EOF
 
+  # Pull before starting, and this is what makes re-running an update rather
+  # than a no-op: `compose up -d` only fetches an image it does not already
+  # have, so on a machine that already ran this, :latest meant "the latest I
+  # downloaded in March" and the install reported success against the old one.
+  say "pulling $IMAGE:$IMAGE_TAG…"
+  docker compose -p sentineldesk -f "$OPT/docker-compose.yml" --env-file "$OPT/.env" pull \
+    || warn "pull failed; starting whatever image is already here"
+
   say "starting…"
   docker compose -p sentineldesk -f "$OPT/docker-compose.yml" --env-file "$OPT/.env" up -d
   say "SentinelDesk is up: http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
@@ -673,7 +681,13 @@ WantedBy=multi-user.target
 EOF
 
   systemctl daemon-reload
-  systemctl enable --now sentineldesk.service
+  systemctl enable sentineldesk.service
+  # restart, not `enable --now`. --now starts a stopped service and does
+  # NOTHING to a running one, so re-running this script to pick up a new release
+  # rewrote the binary, the unit and every config file — and then left the old
+  # process running while printing "SentinelDesk is up". Re-running is the
+  # update path, so it has to end with the new version actually running.
+  systemctl restart sentineldesk.service
   say "SentinelDesk is up: http://$(hostname -I 2>/dev/null | awk '{print $1}'):8080"
   say "credentials: /etc/sentineldesk/env"
   say "service:     systemctl status sentineldesk · journalctl -u sentineldesk -f"
