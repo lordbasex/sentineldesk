@@ -230,7 +230,9 @@ func (s *Server) buildBrowserTools() []toolDef {
 			Name:        "browser_goto",
 			Risk:        riskWrite,
 			Description: "Navigate the active tab to a URL and wait for the load to finish.",
-			InputSchema: schema(map[string]any{"url": pStr("URL")}, "url"),
+			InputSchema: schema(map[string]any{
+				"url": pStr("URL"), "timeout_ms": pInt("how long to wait for the load, default 30000"),
+			}, "url"),
 		},
 		{
 			Name:        "browser_eval",
@@ -286,10 +288,19 @@ func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[stri
 		}
 		return jsonContent(tabs), false, true
 	case "browser_goto":
-		c, e := s.cdpEvalReport(fmt.Sprintf(
-			"(()=>{location.href=%s; return 'navigating to '+%s})()",
-			jsStr(argStr(args, "url")), jsStr(argStr(args, "url"))))
-		return c, e, true
+		// Waits for the load rather than reporting the intention to start one.
+		// The old form assigned location.href and returned "navigating", which
+		// was true when said and stale by the time anything read it, so every
+		// tool called next raced the page.
+		ms := argInt(args, "timeout_ms")
+		if ms <= 0 {
+			ms = 30000
+		}
+		res, err := cdpNavigate(argStr(args, "url"), time.Duration(ms)*time.Millisecond)
+		if err != nil {
+			return textContent("browser_goto failed: %v", err), true, true
+		}
+		return textContent("%s", res), false, true
 	case "browser_eval":
 		c, e := s.cdpEvalReport(argStr(args, "expression"))
 		return c, e, true
@@ -324,30 +335,74 @@ func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[stri
 				"return (el.innerText||el.textContent||'').trim().slice(0,%d)})()", target, max))
 		return c, e, true
 	case "browser_wait_for":
-		sel := argStr(args, "selector")
-		ms := argInt(args, "timeout_ms")
-		if ms <= 0 {
-			ms = 15000
-		}
-		deadline := time.Now().Add(time.Duration(ms) * time.Millisecond)
-		for time.Now().Before(deadline) {
-			res, err := cdpEval(fmt.Sprintf("!!document.querySelector(%s)", jsStr(sel)))
-			if err == nil && strings.Contains(fmt.Sprint(res), "true") {
-				return textContent("%s appeared", sel), false, true
-			}
-			if !sleepCtx(ctx, 300*time.Millisecond) {
-				break
-			}
-		}
-		return textContent("timed out waiting for %s", sel), true, true
+		c, e := s.toolBrowserWaitFor(ctx, argStr(args, "selector"), argInt(args, "timeout_ms"))
+		return c, e, true
 	}
 	return nil, false, false
+}
+
+// toolBrowserWaitFor waits for a selector to match, from inside the page.
+//
+// It used to ask the browser fifty times whether the node had appeared, and
+// each of those questions opened a fresh WebSocket, ran a query and closed it
+// again — a full handshake three times a second to be told "not yet". The
+// answer also arrived up to 300ms late, which on a page that then gets clicked
+// is long enough to matter.
+//
+// A MutationObserver moves the waiting to where the change happens. One
+// evaluate goes out, its promise resolves the instant a matching node is
+// inserted, and nothing is asked again. This is what Playwright does, and for
+// the same reason: the page already knows.
+func (s *Server) toolBrowserWaitFor(ctx context.Context, sel string, timeoutMs int) ([]map[string]any, bool) {
+	if timeoutMs <= 0 {
+		timeoutMs = 15000
+	}
+	// The page resolves rather than rejects on timeout, so a miss comes back as
+	// a value to report instead of an exception to translate.
+	expr := fmt.Sprintf(`new Promise(resolve => {
+  const sel = %s;
+  const hit = () => document.querySelector(sel);
+  if (hit()) { resolve("found"); return; }
+  const target = document.documentElement || document;
+  let obs;
+  const timer = setTimeout(() => { if (obs) obs.disconnect(); resolve("timeout"); }, %d);
+  obs = new MutationObserver(() => {
+    if (hit()) { clearTimeout(timer); obs.disconnect(); resolve("found"); }
+  });
+  obs.observe(target, {childList: true, subtree: true, attributes: true});
+})`, jsStr(sel), timeoutMs)
+
+	// Give the socket a margin over the page's own timer: the page is the one
+	// keeping time, and a read deadline that expired first would turn its
+	// orderly "timeout" into a connection error.
+	res, err := cdpEvalTimeout(expr, time.Duration(timeoutMs)*time.Millisecond+10*time.Second)
+	if err != nil {
+		// A navigation during the wait destroys the execution context and takes
+		// the promise with it. Saying which happened beats a bare CDP error.
+		if strings.Contains(err.Error(), "Execution context") || strings.Contains(err.Error(), "destroyed") {
+			return textContent("the page navigated away while waiting for %s", sel), true
+		}
+		return textContent("browser_wait_for failed: %v", err), true
+	}
+	if ctx.Err() != nil {
+		return textContent("cancelled while waiting for %s", sel), true
+	}
+	if strings.Contains(res, "found") {
+		return textContent("%s appeared", sel), false
+	}
+	return textContent("timed out waiting for %s after %d ms", sel, timeoutMs), true
 }
 
 func (s *Server) toolBrowserOpen(ctx context.Context, url string) ([]map[string]any, bool) {
 	if targets, err := cdpTargets(); err == nil && len(targets) > 0 {
 		if url != "" {
-			return s.cdpEvalReport(fmt.Sprintf("(()=>{location.href=%s; return 'navigating'})()", jsStr(url)))
+			// Same correction as browser_goto: return when the page is there,
+			// not when the navigation has been asked for.
+			res, err := cdpNavigate(url, 30*time.Second)
+			if err != nil {
+				return textContent("browser_open failed: %v", err), true
+			}
+			return textContent("%s", res), false
 		}
 		return textContent("the browser is already open with CDP (%d tabs)", len(targets)), false
 	}
@@ -363,11 +418,34 @@ func (s *Server) toolBrowserOpen(ctx context.Context, url string) ([]map[string]
 		return textContent("browser_open failed: %v", err), true
 	}
 	go cmd.Wait()
-	// Wait for the debugging port to answer
+
+	// Polling is right here and nowhere else in this file. There is no event to
+	// wait on before a process has begun listening: the socket that would carry
+	// it is the thing being waited for.
 	deadline := time.Now().Add(40 * time.Second)
 	for time.Now().Before(deadline) {
 		if t, err := cdpTargets(); err == nil && len(t) > 0 {
-			return textContent("browser open with CDP (%d tabs)", len(t)), false
+			if url == "" {
+				return textContent("browser open with CDP (%d tabs)", len(t)), false
+			}
+			// Chromium was handed the URL on its command line and is already
+			// fetching it, so there is no navigation to start — only a load to
+			// wait for, and it may have finished while the port was coming up.
+			// Asking the page settles both cases without a race: a document
+			// that is already complete resolves at once, and one still loading
+			// resolves on its own load event.
+			res, err := cdpEvalTimeout(`new Promise(resolve => {
+  if (document.readyState === "complete") { resolve("complete"); return; }
+  const timer = setTimeout(() => resolve(document.readyState), 25000);
+  window.addEventListener("load", () => { clearTimeout(timer); resolve("complete"); }, {once: true});
+})`, 35*time.Second)
+			if err != nil {
+				return textContent("browser open with CDP (%d tabs), but the page could not be read: %v", len(t), err), false
+			}
+			if res == "complete" {
+				return textContent("browser open with CDP (%d tabs), %s loaded", len(t), url), false
+			}
+			return textContent("browser open with CDP (%d tabs), %s is still %s", len(t), url, res), false
 		}
 		if !sleepCtx(ctx, 700*time.Millisecond) {
 			break

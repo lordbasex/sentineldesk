@@ -677,13 +677,19 @@ review(
 
 review(
     "browser_open",
-    "Started Chromium with the debugging port and polled until CDP answered, up "
-    "to forty seconds.",
-    3,
-    "Waiting for the port rather than assuming is right. Forty seconds of "
-    "polling is not: the browser writes its DevTools endpoint to a file when it "
-    "is ready, and watching for that would turn a poll into an answer. It also "
-    "cannot reuse a Chromium a person opened without the flag.",
+    "Started Chromium with the debugging port, polled until CDP answered, then "
+    "waited for the requested page to finish loading.",
+    4,
+    "Polling is right here and nowhere else in the browser tools: before a "
+    "process has begun listening there is no event to wait on, because the "
+    "socket that would carry it is the thing being waited for. What was wrong "
+    "was the end — it reported the browser open while the page handed to it on "
+    "the command line was still loading. Asking the document settles that "
+    "without a race, since one already complete resolves at once and one still "
+    "loading resolves on its own load event. Forty seconds of polling could "
+    "still be shortened: Chromium writes its DevTools endpoint to a file in the "
+    "profile directory when it is ready, and watching for that would turn the "
+    "last poll in this file into an answer.",
 )
 review(
     "browser_tabs",
@@ -695,12 +701,19 @@ review(
 )
 review(
     "browser_goto",
-    "Navigated by setting location.href through CDP.",
-    3,
-    "Setting location.href is the blunt version: Page.navigate is the protocol's "
-    "own command, distinguishes a failed load from a successful one, and "
-    "returns a frame id to wait on. This returns as soon as the assignment is "
-    "made, so 'navigated' means 'asked to', not 'arrived'.",
+    "Navigated with Page.navigate and returned once the load event fired.",
+    5,
+    "It used to assign location.href and answer 'navigating' — true at the "
+    "instant it was said and stale by the time anything read it, so every tool "
+    "called next raced the page and the usual repair was for the model to "
+    "guess at a sleep. The description already claimed it waited for the load; "
+    "now it does. Page.navigate also surfaces what an href assignment "
+    "swallows: a bad scheme, a blocked URL, a host that does not resolve. It "
+    "waits for the load event or the frame stopping, which covers a "
+    "navigation answered by a download, and reports a timeout as a "
+    "navigation that did not confirm rather than as a failure, because the "
+    "page is usually there. A single-page application that routes without a "
+    "document load is the case this still cannot see.",
 )
 review(
     "browser_eval",
@@ -741,12 +754,21 @@ review(
 )
 review(
     "browser_wait_for",
-    "Polled for a CSS selector to exist, with a deadline, stopping when the "
-    "call is cancelled.",
-    3,
-    "Polling with a 300ms tick where the platform has MutationObserver and CDP "
-    "has DOM events. The same criticism as ui_wait_for and wait_for_window, and "
-    "the same fix: wait on the event, not on the clock.",
+    "Waited from inside the page: one evaluate whose promise a MutationObserver "
+    "resolves the moment a matching node appears.",
+    5,
+    "It used to ask the browser fifty times whether the node had shown up, and "
+    "every one of those questions opened a fresh WebSocket, ran a query and "
+    "closed it again — a full handshake three times a second to be told 'not "
+    "yet'. A MutationObserver moves the waiting to where the change happens, "
+    "which is what Playwright does and for the same reason: the page already "
+    "knows. Measured against an element inserted four seconds after load it "
+    "returned at 4.00s, and connections to the debug port held steady at two "
+    "for the whole wait instead of churning. What is left is the case the "
+    "observer cannot survive: a navigation mid-wait destroys the execution "
+    "context and takes the promise with it. That is now reported as what it "
+    "is rather than as a bare protocol error, but re-arming on the new "
+    "document would be better than reporting it.",
 )
 
 # --- files --------------------------------------------------------------------

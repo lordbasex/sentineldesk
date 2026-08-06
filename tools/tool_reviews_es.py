@@ -619,12 +619,19 @@ review(
 
 review(
     "browser_open",
-    "Arrancó Chromium con el puerto de depuración e hizo polling hasta que CDP "
-    "contestara, hasta cuarenta segundos.",
-    "Esperar al puerto en vez de asumir es lo correcto. Cuarenta segundos de "
-    "polling no: el navegador escribe su endpoint de DevTools en un archivo "
-    "cuando está listo, y vigilar eso convertiría el sondeo en una respuesta. "
-    "Tampoco puede reutilizar un Chromium que una persona abrió sin la bandera.",
+    "Arrancó Chromium con el puerto de depuración, sondeó hasta que CDP "
+    "respondió, y después esperó a que terminara de cargar la página pedida.",
+    "El sondeo está bien acá y en ningún otro lugar de las herramientas de "
+    "navegador: antes de que un proceso empiece a escuchar no hay evento que "
+    "esperar, porque el socket que lo llevaría es justamente lo que se está "
+    "esperando. Lo que estaba mal era el final — informaba el navegador "
+    "abierto mientras la página que le habían pasado por línea de comandos "
+    "seguía cargando. Preguntarle al documento resuelve eso sin carrera, "
+    "porque uno ya completo resuelve al instante y uno cargando resuelve con "
+    "su propio evento de carga. Los cuarenta segundos de sondeo todavía se "
+    "pueden acortar: Chromium escribe su endpoint de DevTools en un archivo "
+    "del directorio de perfil cuando está listo, y vigilar eso convertiría el "
+    "último sondeo de este archivo en una respuesta.",
 )
 review(
     "browser_tabs",
@@ -635,11 +642,19 @@ review(
 )
 review(
     "browser_goto",
-    "Navegó asignando location.href por CDP.",
-    "Asignar location.href es la versión burda: Page.navigate es el comando "
-    "propio del protocolo, distingue una carga fallida de una exitosa, y "
-    "devuelve un frame id para esperar. Esta vuelve apenas se hizo la "
-    "asignación, así que 'navegó' significa 'lo pidió', no 'llegó'.",
+    "Navegó con Page.navigate y volvió recién cuando se disparó el evento de "
+    "carga.",
+    "Antes asignaba location.href y contestaba 'navigating' — cierto en el "
+    "instante en que se decía y viejo para cuando alguien lo leía, así que "
+    "toda herramienta llamada después corría una carrera contra la página, y "
+    "el arreglo habitual era que el modelo adivinara un sleep. La descripción "
+    "ya afirmaba que esperaba la carga; ahora la espera. Page.navigate además "
+    "expone lo que una asignación a href se traga: un esquema inválido, una "
+    "URL bloqueada, un host que no resuelve. Espera el evento de carga o que "
+    "el frame se detenga, lo que cubre una navegación respondida con una "
+    "descarga, y reporta el timeout como una navegación sin confirmar y no "
+    "como un fallo, porque la página suele estar. Una aplicación de una sola "
+    "página que rutea sin cargar documento es el caso que todavía no ve.",
 )
 review(
     "browser_eval",
@@ -676,11 +691,21 @@ review(
 )
 review(
     "browser_wait_for",
-    "Hizo polling esperando que existiera un selector CSS, con deadline, "
-    "cortando cuando se cancela la llamada.",
-    "Polling con un tick de 300ms donde la plataforma tiene MutationObserver y "
-    "CDP tiene eventos de DOM. La misma crítica que ui_wait_for y "
-    "wait_for_window, y el mismo arreglo: esperar el evento, no el reloj.",
+    "Esperó desde adentro de la página: un solo evaluate cuya promesa resuelve "
+    "un MutationObserver en cuanto aparece un nodo que coincide.",
+    "Antes le preguntaba al navegador cincuenta veces si el nodo había "
+    "aparecido, y cada una de esas preguntas abría un WebSocket nuevo, "
+    "corría una consulta y lo cerraba — un handshake completo tres veces por "
+    "segundo para que le dijeran 'todavía no'. Un MutationObserver mueve la "
+    "espera a donde ocurre el cambio, que es lo que hace Playwright y por la "
+    "misma razón: la página ya lo sabe. Medido contra un elemento insertado "
+    "cuatro segundos después de la carga devolvió a los 4.00s, y las "
+    "conexiones al puerto de depuración se mantuvieron en dos durante toda la "
+    "espera en vez de rotar. Queda el caso que el observador no sobrevive: "
+    "una navegación a mitad de la espera destruye el contexto de ejecución y "
+    "se lleva la promesa. Eso ahora se reporta como lo que es y no como un "
+    "error de protocolo pelado, pero rearmarlo sobre el documento nuevo "
+    "sería mejor que reportarlo.",
 )
 
 # --- archivos -----------------------------------------------------------------
