@@ -66,6 +66,25 @@ is published in `tools/list` as the standard `readOnlyHint` and
 `destructiveHint` annotations, so a host that understands them can shape its own
 confirmation prompts without knowing anything about SentinelDesk.
 
+Tools that need the room's controls before they run declare that too, and it is
+published alongside:
+
+```json
+"annotations": {
+  "readOnlyHint": false,
+  "destructiveHint": false,
+  "sentineldesk/requiresControl": true
+}
+```
+
+`sentineldesk/requiresControl` is not part of the specification — it is
+namespaced so it cannot collide with something that later is — and it answers a
+question no standard hint does: **will this call be held until the agent holds
+the desktop?** Risk is no substitute. `ui_click` is `write` and gated,
+`set_volume` is `write` and not; `start_restream` is `danger` and gated,
+`write_file` is `danger` and not. A client that wants to call `request_control`
+at the right moment reads this rather than carrying its own copy of the list.
+
 **🔎 Finding the right tool**
 
 | Tool | What it does |

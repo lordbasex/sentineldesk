@@ -181,6 +181,18 @@ func (t toolDef) annotations() map[string]any {
 	return map[string]any{
 		"readOnlyHint":    t.Risk == riskRead,
 		"destructiveHint": t.Risk == riskDanger,
+
+		// Not in the specification, and namespaced so it cannot collide with
+		// something that later is. It answers a question no standard hint does
+		// and that a client cannot work out for itself: will this call be held
+		// at the room gate until the agent holds the controls?
+		//
+		// Risk is no substitute. ui_click is write and gated, set_volume is
+		// write and not; start_restream is danger and gated, write_file is
+		// danger and not. Without this published, a client that wants to ask
+		// for control at the right moment has to carry its own copy of the
+		// list — which is the drift this whole file exists to end.
+		"sentineldesk/requiresControl": t.RequiresControl,
 	}
 }
 
@@ -242,6 +254,22 @@ func buildRiskIndex(tools []toolDef) riskIndex {
 	idx := make(riskIndex, len(tools))
 	for _, t := range tools {
 		idx[t.Name] = t.Risk
+	}
+	return idx
+}
+
+// controlIndex is the set of tools the room gates, derived from the catalogue
+// the same way the risk maps are. It replaced a switch statement in mcp.go for
+// the same reason the risk maps went: a list of names kept apart from the tools
+// it describes is a list that stops describing them.
+type controlIndex map[string]bool
+
+func buildControlIndex(tools []toolDef) controlIndex {
+	idx := make(controlIndex)
+	for _, t := range tools {
+		if t.RequiresControl {
+			idx[t.Name] = true
+		}
 	}
 	return idx
 }

@@ -56,8 +56,9 @@ var promptTail = regexp.MustCompile(`[$#>]\s*$`)
 func (s *Server) terminalTools() []toolDef {
 	return []toolDef{
 		{
-			Name: "terminal_run",
-			Risk: riskDanger,
+			Name:            "terminal_run",
+			Risk:            riskDanger,
+			RequiresControl: true,
 			Description: "Type a command into a terminal window ON THE DESKTOP, wait " +
 				"for it to finish, and return what it printed. Use this instead of " +
 				"run_command when a person is watching: they see the command and its " +

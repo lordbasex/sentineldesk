@@ -142,18 +142,20 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		// ---- mouse fino ----
 		{
-			Name:        "mouse_drag",
-			Risk:        riskWrite,
-			Description: "Drag with the mouse from one point to another (press, move, release).",
+			Name:            "mouse_drag",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Drag with the mouse from one point to another (press, move, release).",
 			InputSchema: schema(map[string]any{
 				"x1": pInt("start X"), "y1": pInt("start Y"), "x2": pInt("end X"), "y2": pInt("end Y"),
 				"button": pInt("button, default 1"),
 			}, "x1", "y1", "x2", "y2"),
 		},
 		{
-			Name:        "mouse_scroll",
-			Risk:        riskWrite,
-			Description: "Scroll the mouse wheel. Positive dy scrolls down, negative up.",
+			Name:            "mouse_scroll",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Scroll the mouse wheel. Positive dy scrolls down, negative up.",
 			InputSchema: schema(map[string]any{
 				"dy": pInt("vertical clicks"), "dx": pInt("horizontal clicks"),
 			}),
@@ -165,16 +167,18 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			InputSchema: schema(map[string]any{}),
 		},
 		{
-			Name:        "mouse_down",
-			Risk:        riskWrite,
-			Description: "Press and hold a mouse button (pair with mouse_up).",
-			InputSchema: schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
+			Name:            "mouse_down",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Press and hold a mouse button (pair with mouse_up).",
+			InputSchema:     schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
 		},
 		{
-			Name:        "mouse_up",
-			Risk:        riskWrite,
-			Description: "Release a mouse button.",
-			InputSchema: schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
+			Name:            "mouse_up",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Release a mouse button.",
+			InputSchema:     schema(map[string]any{"button": pInt("1=left 2=middle 3=right")}),
 		},
 		// ---- screen ----
 		{
@@ -219,33 +223,37 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		// ---- gamepad ----
 		{
-			Name:        "gamepad_button",
-			Risk:        riskWrite,
-			Description: "Press or release a virtual gamepad button. Index follows the W3C Gamepad API: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 8=Select 9=Start 10=L3 11=R3 12=Up 13=Down 14=Left 15=Right 16=Guide.",
+			Name:            "gamepad_button",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Press or release a virtual gamepad button. Index follows the W3C Gamepad API: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 8=Select 9=Start 10=L3 11=R3 12=Up 13=Down 14=Left 15=Right 16=Guide.",
 			InputSchema: schema(map[string]any{
 				"index": pInt("button index 0-16"), "down": pBool("true=press, false=release"),
 			}, "index"),
 		},
 		{
-			Name:        "gamepad_tap",
-			Risk:        riskWrite,
-			Description: "Press and immediately release a gamepad button (a single 'tap', e.g. to confirm a menu).",
+			Name:            "gamepad_tap",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Press and immediately release a gamepad button (a single 'tap', e.g. to confirm a menu).",
 			InputSchema: schema(map[string]any{
 				"index": pInt("button index 0-16"), "hold_ms": pInt("hold time, default 80"),
 			}, "index"),
 		},
 		{
-			Name:        "gamepad_axis",
-			Risk:        riskWrite,
-			Description: "Move a virtual gamepad stick. axis: 0=left X, 1=left Y, 2=right X, 3=right Y. value between -1 and 1.",
+			Name:            "gamepad_axis",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Move a virtual gamepad stick. axis: 0=left X, 1=left Y, 2=right X, 3=right Y. value between -1 and 1.",
 			InputSchema: schema(map[string]any{
 				"axis": pInt("0=LX 1=LY 2=RX 3=RY"), "value": map[string]any{"type": "number", "description": "-1..1"},
 			}, "axis", "value"),
 		},
 		{
-			Name:        "gamepad_state",
-			Risk:        riskWrite,
-			Description: "Set the full gamepad state at once: array of button values (0/1) and array of axis values (-1..1).",
+			Name:            "gamepad_state",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Set the full gamepad state at once: array of button values (0/1) and array of axis values (-1..1).",
 			InputSchema: schema(map[string]any{
 				"buttons": map[string]any{"type": "array", "items": map[string]any{"type": "number"}, "description": "button values"},
 				"axes":    map[string]any{"type": "array", "items": map[string]any{"type": "number"}, "description": "axis values"},
@@ -296,8 +304,9 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		// ---- re-streaming ----
 		{
-			Name: "start_restream",
-			Risk: riskDanger,
+			Name:            "start_restream",
+			Risk:            riskDanger,
+			RequiresControl: true,
 			Description: "Also send the desktop to an external destination: rtmp:// or rtmps:// " +
 				"for YouTube/Twitch/Facebook, srt:// or udp:// for a VLC or OBS you run " +
 				"yourself. It forwards the picture the room is already encoding, so the " +
@@ -316,9 +325,10 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			}, "url"),
 		},
 		{
-			Name:        "stop_restream",
-			Risk:        riskDanger,
-			Description: "Stop sending to an external destination.",
+			Name:            "stop_restream",
+			Risk:            riskDanger,
+			RequiresControl: true,
+			Description:     "Stop sending to an external destination.",
 			InputSchema: schema(map[string]any{
 				"id": pStr("which destination (its platform name); omit to stop them all"),
 			}),

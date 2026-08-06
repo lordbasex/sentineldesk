@@ -103,6 +103,7 @@ type Server struct {
 	// start_recording because stop_recording is what has the file.
 	recDestination string
 	tools          []toolDef
+	control        controlIndex
 
 	// discovery trims tools/list to the core set, read once at startup because
 	// the environment does not change under a running process and re-reading it
@@ -140,6 +141,7 @@ func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *des
 		log.Fatalf("mcp: %v", err)
 	}
 	s.policy.risk = buildRiskIndex(s.tools)
+	s.control = buildControlIndex(s.tools)
 	return s
 }
 
@@ -309,7 +311,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 
 	// Turn-taking, enforced in ONE place so a new input tool cannot forget it.
 	// Policy above is the hard ceiling; this is the cooperative layer below it.
-	if injectsInput(params.Name) {
+	if s.injectsInput(params.Name) {
 		if err := s.mayInject(); err != nil {
 			entry.OK = false
 			entry.Denied = "room arbitration"
@@ -334,28 +336,25 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	}})
 }
 
-// injectsInput lists the tools that put events into X, which is where an agent
-// and a person actually collide.
+// injectsInput reports whether a tool has to hold the room's controls first.
+//
+// The set is the tools that put events into X — which is where an agent and a
+// person actually collide — plus start_restream and stop_restream, which are
+// not input but are held to the same rule for a stronger reason: they publish
+// what is on everyone's screen to somewhere outside the room, and starting or
+// stopping that while a person is working is not the agent's call to make
+// alone.
 //
 // Deliberately narrow. Installing a package or reading a file while somebody
 // works is not a conflict; two hands on the same mouse is. Widening this to
-// every state-changing tool would make the agent useless for background work.
-func injectsInput(name string) bool {
-	switch name {
-	case "mouse_move", "mouse_click", "mouse_down", "mouse_up", "mouse_drag",
-		"mouse_scroll", "type_text", "key_combo",
-		"gamepad_button", "gamepad_axis", "gamepad_state", "gamepad_tap",
-		"ui_click", "ui_set_text", "ui_focus", "fill_form", "terminal_run":
-		return true
-	// Not input, but held to the same rule and for a stronger reason: this
-	// publishes what is on everyone's screen to somewhere outside the room.
-	// Starting or stopping that while a person is working is not the agent's
-	// call to make alone.
-	case "start_restream", "stop_restream":
-		return true
-	}
-	return false
-}
+// every state-changing tool would make the agent useless for background work,
+// and doing so is a product decision rather than a tidy-up.
+//
+// This used to be a switch statement here. It is now the RequiresControl field
+// on each toolDef, indexed at startup, so that the classification sits beside
+// the tool and can be published in tools/list — a client cannot ask for control
+// at the right moment if the server keeps the list to itself.
+func (s *Server) injectsInput(name string) bool { return s.control[name] }
 
 func buildVersion() string { return "1.0.0" }
 

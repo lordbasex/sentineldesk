@@ -164,13 +164,125 @@ func TestCoreToolsExist(t *testing.T) {
 }
 
 // TestInjectingToolsAreNotReadOnly cross-checks the two classifications that
-// exist for different reasons: injectsInput decides who may drive right now,
+// exist for different reasons: RequiresControl decides who may drive right now,
 // Risk decides what the agent may ever do. Nothing that puts events into X can
 // honestly be called read-only.
 func TestInjectingToolsAreNotReadOnly(t *testing.T) {
 	for _, tool := range catalogue(t) {
-		if injectsInput(tool.Name) && tool.Risk == riskRead {
-			t.Errorf("%s injects input but is classified read", tool.Name)
+		if tool.RequiresControl && tool.Risk == riskRead {
+			t.Errorf("%s requires control but is classified read", tool.Name)
+		}
+	}
+}
+
+// gatedBeforeTheRefactor is the switch statement that used to live in mcp.go,
+// frozen here verbatim.
+//
+// Moving the list onto the toolDefs was a mechanical change and had to stay one:
+// which tools the room arbitrates is a product decision about when an agent and
+// a person collide, not a detail of where the list is stored. This is the proof
+// that nothing was added or dropped on the way.
+//
+// Changing this set is allowed — it is not sacred — but it is a separate,
+// deliberate act. Editing this list to make a failing test pass is the mistake
+// it exists to catch.
+var gatedBeforeTheRefactor = []string{
+	"mouse_move", "mouse_click", "mouse_down", "mouse_up", "mouse_drag",
+	"mouse_scroll", "type_text", "key_combo",
+	"gamepad_button", "gamepad_axis", "gamepad_state", "gamepad_tap",
+	"ui_click", "ui_set_text", "ui_focus", "fill_form", "terminal_run",
+	"start_restream", "stop_restream",
+}
+
+func TestControlGateParity(t *testing.T) {
+	want := map[string]bool{}
+	for _, name := range gatedBeforeTheRefactor {
+		want[name] = true
+	}
+
+	got := map[string]bool{}
+	for _, tool := range catalogue(t) {
+		if tool.RequiresControl {
+			got[tool.Name] = true
+		}
+	}
+
+	for name := range want {
+		if !got[name] {
+			t.Errorf("%s was gated before the refactor and is not now", name)
+		}
+	}
+	for name := range got {
+		if !want[name] {
+			t.Errorf("%s is gated now and was not before the refactor", name)
+		}
+	}
+	if len(got) != len(want) {
+		t.Errorf("gated %d tools, want %d", len(got), len(want))
+	}
+}
+
+// TestServerGateReadsTheCatalogue closes the loop: handleToolCall asks
+// s.injectsInput, so the index has to agree with the field it was built from.
+func TestServerGateReadsTheCatalogue(t *testing.T) {
+	s := testServer(t)
+	for _, tool := range s.tools {
+		if s.injectsInput(tool.Name) != tool.RequiresControl {
+			t.Errorf("%s: gate says %v, toolDef says %v",
+				tool.Name, s.injectsInput(tool.Name), tool.RequiresControl)
+		}
+	}
+	if s.injectsInput("no_such_tool") {
+		t.Error("the gate claimed a tool that does not exist needs control")
+	}
+}
+
+// TestRequiresControlIsPublished is the point of the whole change: a client has
+// to be able to learn this from tools/list instead of carrying its own copy.
+func TestRequiresControlIsPublished(t *testing.T) {
+	for _, tool := range catalogue(t) {
+		raw, err := json.Marshal(tool)
+		if err != nil {
+			t.Fatalf("%s: %v", tool.Name, err)
+		}
+		var wire struct {
+			Annotations struct {
+				RequiresControl bool `json:"sentineldesk/requiresControl"`
+			} `json:"annotations"`
+		}
+		if err := json.Unmarshal(raw, &wire); err != nil {
+			t.Fatalf("%s: %v", tool.Name, err)
+		}
+		if wire.Annotations.RequiresControl != tool.RequiresControl {
+			t.Errorf("%s: published %v, want %v",
+				tool.Name, wire.Annotations.RequiresControl, tool.RequiresControl)
+		}
+	}
+}
+
+// TestRiskDoesNotImplyControl records why the annotation is needed at all: a
+// client cannot derive the room gate from the risk level, in either direction.
+func TestRiskDoesNotImplyControl(t *testing.T) {
+	byName := map[string]toolDef{}
+	for _, tool := range catalogue(t) {
+		byName[tool.Name] = tool
+	}
+	for _, c := range []struct {
+		gated, notGated string
+		risk            riskLevel
+	}{
+		{"ui_click", "set_volume", riskWrite},
+		{"start_restream", "write_file", riskDanger},
+	} {
+		a, b := byName[c.gated], byName[c.notGated]
+		if a.Risk != c.risk || b.Risk != c.risk {
+			t.Fatalf("%s and %s no longer share risk %s", c.gated, c.notGated, c.risk)
+		}
+		if !a.RequiresControl {
+			t.Errorf("%s should require control", c.gated)
+		}
+		if b.RequiresControl {
+			t.Errorf("%s should not require control", c.notGated)
 		}
 	}
 }

@@ -42,6 +42,16 @@ type toolDef struct {
 	// riskUnset and fails at startup; there is no safe default to fall back on,
 	// because the two plausible ones point in opposite directions.
 	Risk riskLevel `json:"-"`
+
+	// RequiresControl marks the tools that must hold the room's controls before
+	// they run — the ones that put events into X, plus the two that publish the
+	// desktop outside the room.
+	//
+	// Unlike Risk this has a meaningful default: most tools do not need the
+	// desktop, and false is the conservative answer because it grants nothing.
+	// It lives here for the other reason Risk does — so that a client can be
+	// told, rather than having to know. See registry.go.
+	RequiresControl bool `json:"-"`
 }
 
 // --- JSON Schema helpers -------------------------------------------------
@@ -72,31 +82,35 @@ func (s *Server) buildTools() []toolDef {
 			}),
 		},
 		{
-			Name:        "mouse_move",
-			Risk:        riskWrite,
-			Description: "Move the mouse pointer to absolute screen coordinates (x, y).",
-			InputSchema: schema(map[string]any{"x": pInt("X coordinate"), "y": pInt("Y coordinate")}, "x", "y"),
+			Name:            "mouse_move",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Move the mouse pointer to absolute screen coordinates (x, y).",
+			InputSchema:     schema(map[string]any{"x": pInt("X coordinate"), "y": pInt("Y coordinate")}, "x", "y"),
 		},
 		{
-			Name:        "mouse_click",
-			Risk:        riskWrite,
-			Description: "Click a mouse button. Optionally move to (x, y) first. button: 1=left (default), 2=middle, 3=right. Set double=true for a double click.",
+			Name:            "mouse_click",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Click a mouse button. Optionally move to (x, y) first. button: 1=left (default), 2=middle, 3=right. Set double=true for a double click.",
 			InputSchema: schema(map[string]any{
 				"x": pInt("optional X to move to first"), "y": pInt("optional Y to move to first"),
 				"button": pInt("1=left, 2=middle, 3=right"), "double": pBool("double click"),
 			}),
 		},
 		{
-			Name:        "type_text",
-			Risk:        riskWrite,
-			Description: "Type a string of text into the focused window (handles any character, including accents).",
-			InputSchema: schema(map[string]any{"text": pStr("text to type")}, "text"),
+			Name:            "type_text",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Type a string of text into the focused window (handles any character, including accents).",
+			InputSchema:     schema(map[string]any{"text": pStr("text to type")}, "text"),
 		},
 		{
-			Name:        "key_combo",
-			Risk:        riskWrite,
-			Description: "Press a key or key combination using X keysym names, e.g. 'Return', 'Escape', 'ctrl+c', 'alt+Tab', 'super+d', 'ctrl+shift+t'.",
-			InputSchema: schema(map[string]any{"keys": pStr("key or combo, e.g. ctrl+c")}, "keys"),
+			Name:            "key_combo",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Press a key or key combination using X keysym names, e.g. 'Return', 'Escape', 'ctrl+c', 'alt+Tab', 'super+d', 'ctrl+shift+t'.",
+			InputSchema:     schema(map[string]any{"keys": pStr("key or combo, e.g. ctrl+c")}, "keys"),
 		},
 		{
 			Name:        "launch_app",

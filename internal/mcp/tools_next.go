@@ -82,9 +82,10 @@ func (s *Server) buildNextTools() []toolDef {
 			}, "command"),
 		},
 		{
-			Name:        "fill_form",
-			Risk:        riskWrite,
-			Description: "Fill several fields of a dialog or form in one call, by accessibility name — no clicking or tabbing between them. Optionally press a button at the end. Far more reliable than typing blind.",
+			Name:            "fill_form",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Fill several fields of a dialog or form in one call, by accessibility name — no clicking or tabbing between them. Optionally press a button at the end. Far more reliable than typing blind.",
 			InputSchema: schema(map[string]any{
 				"fields": map[string]any{
 					"type":                 "object",

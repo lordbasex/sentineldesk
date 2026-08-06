@@ -46,11 +46,18 @@ Every tool declares a **risk level** beside its definition — `read` observes,
 `tool_search` to surface the rest. Every other tool stays callable by name —
 discovery narrows what is *advertised*, never what is *permitted*.
 
-**Adding a tool is three edits, not four.** The `toolDef` (name, description,
-schema and `Risk`), the `case` in the matching `dispatchX`, and `injectsInput()`
-in `mcp.go` if it puts events into X. The risk maps that used to be the fourth
-are now derived from the catalogue, and a `toolDef` written without a `Risk`
-stops the daemon from starting instead of inheriting a permission nobody chose.
+Tools that must hold the room's controls before they run — the ones that put
+events into X, plus `start_restream` / `stop_restream` — declare
+`RequiresControl` in the same place, and it is published as
+`sentineldesk/requiresControl`. Risk is no substitute for it: `ui_click` is
+`write` and gated, `set_volume` is `write` and not.
+
+**Adding a tool is two edits, not four.** The `toolDef` — name, description,
+schema, `Risk`, and `RequiresControl` when it applies — and the `case` in the
+matching `dispatchX`. The risk maps and the room-gate switch that used to be the
+other two are now derived from the catalogue, and a `toolDef` written without a
+`Risk` stops the daemon from starting instead of inheriting a permission nobody
+chose.
 
 ---
 

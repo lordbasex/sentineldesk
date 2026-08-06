@@ -158,15 +158,19 @@ None of this is enough on its own. What follows is what is still missing.
 The runtime cannot be built *correctly* without these. Each one, left alone,
 forces stage 2 to either hardcode something the server knows or lie to the user.
 
-### 4.1 The runtime cannot tell which tools need Room control
+### 4.1 The runtime cannot tell which tools need Room control — **fixed**
 
-**This is the most important item in this document.**
+Step 2 of §6 is done. `RequiresControl` is a field on the `toolDef`, the gate
+reads an index derived from the catalogue, and `tools/list` publishes
+`sentineldesk/requiresControl`. `registry_test.go` holds a frozen copy of the
+old switch statement as a parity test, so the set the room arbitrates is
+provably unchanged. Kept here as the record of why.
 
 The room gate is not an obstacle to route around — it is the invariant in §1,
 and the runtime has to cooperate with it deliberately. That means sequencing
 three distinct things for an interactive action: approve the call, acquire the
 desktop, then execute. To do that it must know, *before* calling, whether a tool
-is one the server will gate. Today it cannot:
+is one the server will gate. It could not:
 
 - `injectsInput()` in `internal/mcp/mcp.go` is a `switch` statement, not data.
 - `tools/list` does not publish it. The annotations added in `3f1ee86` carry
@@ -396,7 +400,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | # | Work | Why now | Size |
 |---|---|---|---|
 | ~~1~~ | ~~Fix `Delivery.Deliver` — nil session, ticket per recipient~~ | **Done.** Six regressions in `internal/stream/delivery_test.go` | small |
-| 2 | `injectsInput` becomes a field, derived + published | Blocks the loop's approval/control sequencing (§4.1) | small |
+| ~~2~~ | ~~`injectsInput` becomes a field, derived + published~~ | **Done.** Parity test freezes the pre-refactor set | small |
 | 3 | Structured denial kinds in `tools/call` | Blocks the loop's state machine (§4.2) | small |
 | 4 | Thread `context.Context` through `dispatch`; honour `notifications/cancelled` | Blocks honest cancel (§4.3) | medium |
 | 5 | Audit which tools ignore cancellation; publish the list | Without it, step 4 is a half-truth | medium |

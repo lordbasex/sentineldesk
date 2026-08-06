@@ -60,18 +60,20 @@ func (s *Server) buildUITools() []toolDef {
 			}),
 		},
 		{
-			Name:        "ui_click",
-			Risk:        riskWrite,
-			Description: "Invoke an element's action DIRECTLY by its ref (from ui_find/ui_tree) — presses the button, opens the menu, toggles the checkbox. The pointer never moves, so it cannot miss and it does not matter if the window is partly covered.",
+			Name:            "ui_click",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Invoke an element's action DIRECTLY by its ref (from ui_find/ui_tree) — presses the button, opens the menu, toggles the checkbox. The pointer never moves, so it cannot miss and it does not matter if the window is partly covered.",
 			InputSchema: schema(map[string]any{
 				"ref":    pStr("element ref, e.g. '2/0/3/1'"),
 				"action": pStr("action name if the element has several (default: the first, usually 'click')"),
 			}, "ref"),
 		},
 		{
-			Name:        "ui_set_text",
-			Risk:        riskWrite,
-			Description: "Write text straight into an editable field by ref, replacing its content. Unlike type_text this does not depend on which window has focus.",
+			Name:            "ui_set_text",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Write text straight into an editable field by ref, replacing its content. Unlike type_text this does not depend on which window has focus.",
 			InputSchema: schema(map[string]any{
 				"ref": pStr("element ref of the entry/text field"), "text": pStr("text to set"),
 			}, "ref", "text"),
@@ -83,10 +85,11 @@ func (s *Server) buildUITools() []toolDef {
 			InputSchema: schema(map[string]any{"ref": pStr("element ref")}, "ref"),
 		},
 		{
-			Name:        "ui_focus",
-			Risk:        riskWrite,
-			Description: "Give keyboard focus to an element by ref (then type_text goes where you want).",
-			InputSchema: schema(map[string]any{"ref": pStr("element ref")}, "ref"),
+			Name:            "ui_focus",
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Give keyboard focus to an element by ref (then type_text goes where you want).",
+			InputSchema:     schema(map[string]any{"ref": pStr("element ref")}, "ref"),
 		},
 		{
 			Name:        "ui_wait_for",
@@ -101,10 +104,9 @@ func (s *Server) buildUITools() []toolDef {
 	}
 }
 
-// a11y runs the Python bridge with the right environment: display and session bus.
-// a11yRaw invokes the accessibility bridge and returns its raw output, for the
-// tools that need to process the JSON themselves (ui_diff, fill_form) rather
-// de devolverlo tal cual.
+// a11yRaw invokes the accessibility bridge with the right environment — display
+// and session bus — and returns its raw output, for the tools that process the
+// JSON themselves (ui_diff, fill_form) rather than passing it straight through.
 func (s *Server) a11yRaw(args ...string) (string, error) {
 	cmd := exec.Command("python3", append([]string{a11yScript}, args...)...)
 	cmd.Env = append(os.Environ(),
