@@ -524,6 +524,13 @@ func (s *Server) toolActivateWindow(id string) ([]map[string]any, bool) {
 	if id == "" {
 		return textContent("no window id"), true
 	}
+	if e, err := s.windows(); err == nil {
+		if win, perr := desktop.ParseWindowID(id); perr == nil {
+			if err := e.Activate(win); err == nil {
+				return textContent("activated window %s", id), false
+			}
+		}
+	}
 	if err := s.run("wmctrl", "-i", "-a", id); err != nil {
 		return textContent("activate failed: %v", err), true
 	}

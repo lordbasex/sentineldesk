@@ -1039,3 +1039,82 @@ review(
     4,
     "It used to discard the result, so a failed write was reported as success and the agent went on to paste something that was never there. Getting the fix right took three attempts: capturing stderr made Go create a pipe that xclip's daemonised child inherited and never closed, so it hung for sixty seconds; adding WaitDelay fixed that and made a successful write report as broken, because ErrWaitDelay is the child holding the pipe rather than a failed command. Still a subprocess per write, and still text only — owning the selection from inside the daemon is what would take it to five.",
 )
+
+
+# --- revised after the window tools were rewritten against X -------------------
+#
+# review() assigns into a dict, so an entry here replaces the one above. Kept as
+# an addition rather than an edit in place: the earlier text described a real
+# version of these tools, and the two together say what changed and why. When
+# the older half stops being interesting, delete it — do not silently overwrite
+# the record of what the code used to be.
+
+review(
+    'activate_window',
+    'Focused and raised a window with a _NET_ACTIVE_WINDOW client message.',
+    5,
+    'Asking the window manager rather than raising the window behind its back, which is what makes it work under a manager that reparents and decorates. The message carries a source indication, so focus-stealing rules treat an agent the way they treat anything the user asked for.',
+)
+
+review(
+    'move_window',
+    'Moved a window with _NET_MOVERESIZE_WINDOW, marking only the fields being set.',
+    5,
+    "The flags are what makes 'move without resizing' expressible: the old path built a geometry string and passed -1 sentinels the manager then had to ignore. Verified against a real desktop — a move followed by a resize keeps the position it was given.",
+)
+
+review(
+    'resize_window',
+    'Resized through the same message, leaving position alone.',
+    5,
+    'Shares MoveResize with move_window, which is right: one call that says which fields it means beats two that each pretend to set everything.',
+)
+
+review(
+    'close_window',
+    "Asked the window to close with _NET_CLOSE_WINDOW — the titlebar button's own request.",
+    4,
+    "The polite close: the application gets to save, object or put up a dialog. It still cannot report whether the window actually went, because it is a request and the answer arrives later. Waiting briefly and re-reading the client list would turn 'asked' into 'closed'.",
+)
+
+review(
+    'minimize_window',
+    'Iconified with a WM_CHANGE_STATE message carrying IconicState.',
+    5,
+    'The correct request, and the subtle part: _NET_WM_STATE_HIDDEN is what a manager SETS to report a window is minimised, not something a client asks for. Using it would have been the plausible wrong answer. This also removed the last xdotool dependency from the window family.',
+)
+
+review(
+    'maximize_window',
+    'Added both maximised states in one _NET_WM_STATE message.',
+    5,
+    'Two states per message is what the protocol allows and what this case needs — one change the manager can act on rather than two it has to reconcile. Restore returned the window to the exact geometry it had before, because the manager remembers and this asked rather than resized.',
+)
+
+review(
+    'restore_window',
+    'Removed both maximised states.',
+    5,
+    'The proper inverse, and it does not try to remember a geometry the window manager already has.',
+)
+
+review(
+    'fullscreen_window',
+    'Set, cleared or toggled _NET_WM_STATE_FULLSCREEN, with action defaulting to toggle.',
+    5,
+    'It only toggled before, so an agent that wanted a window full screen had to read the state and guess which way a toggle would go. Naming the action fixes that without changing what an existing caller gets.',
+)
+
+review(
+    'set_window_desktop',
+    'Moved a window to a virtual desktop with _NET_WM_DESKTOP.',
+    5,
+    'Native, and the indices line up with what list_desktops reports because both read the same properties now.',
+)
+
+review(
+    'switch_desktop',
+    'Switched the current desktop with _NET_CURRENT_DESKTOP.',
+    4,
+    'Native. What is still missing is switching by name — list_desktops reads _NET_DESKTOP_NAMES already, so the names exist and only this end cannot take one.',
+)

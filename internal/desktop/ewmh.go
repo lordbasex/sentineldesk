@@ -33,6 +33,8 @@ package desktop
 
 import (
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -280,4 +282,179 @@ func (e *EWMH) Desktops() ([]DesktopInfo, error) {
 		out = append(out, DesktopInfo{Number: i, Name: name, Current: i == current})
 	}
 	return out, nil
+}
+
+// --- writes ------------------------------------------------------------------
+//
+// Everything below asks the window manager rather than doing it directly. That
+// is not politeness: a window manager reparents, decorates and constrains, so
+// moving a client window behind its back leaves the frame where it was. The
+// EWMH way is a client message to the ROOT window with SubstructureRedirect
+// set, which the manager is listening for.
+
+// sourceApplication is the "source indication" every EWMH message carries: 1 is
+// a normal application, 2 is a pager. An agent driving the desktop on somebody's
+// behalf is an application, so a manager applying focus-stealing rules treats it
+// the way it treats anything else the user asked for.
+const sourceApplication = 1
+
+// ParseWindowID accepts the 0x01800003 form every tool takes back, and plain
+// decimal, since xdotool prints that.
+func ParseWindowID(id string) (xproto.Window, error) {
+	s := strings.TrimSpace(id)
+	base := 10
+	if strings.HasPrefix(strings.ToLower(s), "0x") {
+		s, base = s[2:], 16
+	}
+	n, err := strconv.ParseUint(s, base, 32)
+	if err != nil {
+		return 0, fmt.Errorf("window id %q: %w", id, err)
+	}
+	return xproto.Window(n), nil
+}
+
+// send posts a client message to the root window, which is where a window
+// manager listens for requests about windows it manages.
+func (e *EWMH) send(win xproto.Window, msgType string, data ...uint32) error {
+	a, err := e.atom(msgType)
+	if err != nil {
+		return err
+	}
+	var payload [5]uint32
+	copy(payload[:], data)
+
+	ev := xproto.ClientMessageEvent{
+		Format: 32,
+		Window: win,
+		Type:   a,
+		Data:   xproto.ClientMessageDataUnionData32New(payload[:]),
+	}
+	mask := xproto.EventMaskSubstructureNotify | xproto.EventMaskSubstructureRedirect
+	cookie := xproto.SendEventChecked(e.conn, false, e.root, uint32(mask), string(ev.Bytes()))
+	if err := cookie.Check(); err != nil {
+		return fmt.Errorf("%s: %w", msgType, err)
+	}
+	return nil
+}
+
+// Activate focuses and raises a window.
+func (e *EWMH) Activate(win xproto.Window) error {
+	// data[1] is a timestamp; 0 means "now" and is what a client with no event
+	// to quote from should send.
+	return e.send(win, "_NET_ACTIVE_WINDOW", sourceApplication, 0, 0)
+}
+
+// CloseWindow asks a window to close, the way the titlebar button does — the
+// application gets to object, save, or put up a dialog. Named for the window
+// rather than matching the tool, because Close on this type already means the
+// connection.
+func (e *EWMH) CloseWindow(win xproto.Window) error {
+	return e.send(win, "_NET_CLOSE_WINDOW", 0, sourceApplication)
+}
+
+// MoveResize changes position, size, or either on its own.
+//
+// A negative value means "leave this alone", which is what the wmctrl path
+// expressed with -1 sentinels inside a geometry string. Here it is a flag in
+// the message, so asking to move without resizing says exactly that instead of
+// sending a size the manager then has to ignore.
+func (e *EWMH) MoveResize(win xproto.Window, x, y, w, h int) error {
+	// Bits 8..11 mark which of x, y, width and height are present; bit 12 is
+	// the source indication. Gravity 0 means the window's own.
+	flags := uint32(sourceApplication) << 12
+	if x >= 0 {
+		flags |= 1 << 8
+	}
+	if y >= 0 {
+		flags |= 1 << 9
+	}
+	if w > 0 {
+		flags |= 1 << 10
+	}
+	if h > 0 {
+		flags |= 1 << 11
+	}
+	return e.send(win, "_NET_MOVERESIZE_WINDOW", flags,
+		uint32(max(x, 0)), uint32(max(y, 0)), uint32(max(w, 0)), uint32(max(h, 0)))
+}
+
+// StateAction is what to do with a window state.
+type StateAction uint32
+
+const (
+	StateRemove StateAction = 0
+	StateAdd    StateAction = 1
+	StateToggle StateAction = 2
+)
+
+// stateAtoms maps the short names the tools accept to their EWMH properties.
+var stateAtoms = map[string]string{
+	"above": "_NET_WM_STATE_ABOVE", "below": "_NET_WM_STATE_BELOW",
+	"sticky": "_NET_WM_STATE_STICKY", "shaded": "_NET_WM_STATE_SHADED",
+	"fullscreen":        "_NET_WM_STATE_FULLSCREEN",
+	"maximized_vert":    "_NET_WM_STATE_MAXIMIZED_VERT",
+	"maximized_horz":    "_NET_WM_STATE_MAXIMIZED_HORZ",
+	"skip_taskbar":      "_NET_WM_STATE_SKIP_TASKBAR",
+	"skip_pager":        "_NET_WM_STATE_SKIP_PAGER",
+	"hidden":            "_NET_WM_STATE_HIDDEN",
+	"modal":             "_NET_WM_STATE_MODAL",
+	"demands_attention": "_NET_WM_STATE_DEMANDS_ATTENTION",
+}
+
+// KnownStates lists the state names SetState accepts, for a tool that wants to
+// say what it will take rather than fail on a typo.
+func KnownStates() []string {
+	out := make([]string, 0, len(stateAtoms))
+	for name := range stateAtoms {
+		out = append(out, name)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// SetState adds, removes or toggles up to two window states at once.
+//
+// Two, because the protocol allows it and maximising is the case that needs it:
+// vertical and horizontal in one message is one state change the manager can
+// animate, rather than two it has to reconcile.
+func (e *EWMH) SetState(win xproto.Window, action StateAction, states ...string) error {
+	if len(states) == 0 || len(states) > 2 {
+		return fmt.Errorf("SetState takes one or two states, got %d", len(states))
+	}
+	var atoms [2]uint32
+	for i, name := range states {
+		prop, ok := stateAtoms[strings.ToLower(strings.TrimSpace(name))]
+		if !ok {
+			return fmt.Errorf("unknown window state %q; known: %s",
+				name, strings.Join(KnownStates(), ", "))
+		}
+		a, err := e.atom(prop)
+		if err != nil {
+			return err
+		}
+		atoms[i] = uint32(a)
+	}
+	return e.send(win, "_NET_WM_STATE", uint32(action), atoms[0], atoms[1],
+		sourceApplication)
+}
+
+// Minimize iconifies a window.
+//
+// Not through _NET_WM_STATE_HIDDEN: that property is something the manager sets
+// to report a window is minimised, not a request. The request is the older
+// WM_CHANGE_STATE message with IconicState, which is what XIconifyWindow sends
+// and what every manager still honours.
+func (e *EWMH) Minimize(win xproto.Window) error {
+	const iconicState = 3
+	return e.send(win, "WM_CHANGE_STATE", iconicState)
+}
+
+// SetWindowDesktop moves a window to a virtual desktop.
+func (e *EWMH) SetWindowDesktop(win xproto.Window, desktop int) error {
+	return e.send(win, "_NET_WM_DESKTOP", uint32(desktop), sourceApplication)
+}
+
+// SwitchDesktop changes the current virtual desktop.
+func (e *EWMH) SwitchDesktop(desktop int) error {
+	return e.send(e.root, "_NET_CURRENT_DESKTOP", uint32(desktop), 0)
 }

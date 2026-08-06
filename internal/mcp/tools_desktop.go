@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/jezek/xgb/xproto"
 	"github.com/lordbasex/sentineldesk/internal/desktop"
 	"github.com/lordbasex/sentineldesk/internal/media"
 	"os"
@@ -80,10 +81,16 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
-			Name:        "fullscreen_window",
-			Risk:        riskWrite,
-			Description: "Toggle fullscreen on a window.",
-			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
+			Name: "fullscreen_window",
+			Risk: riskWrite,
+			Description: "Put a window full screen, take it out, or toggle. " +
+				"action defaults to toggle, which is what this used to do and " +
+				"only that — say add or remove when you know which you want, " +
+				"rather than reading the state first and guessing.",
+			InputSchema: schema(map[string]any{
+				"id":     pStr("window id"),
+				"action": pStr("add | remove | toggle (default toggle)"),
+			}, "id"),
 		},
 		{
 			Name:        "set_window_desktop",
@@ -361,29 +368,52 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 		c, e := s.toolActiveWindow()
 		return c, e, true
 	case "move_window":
-		c, e := s.wmctrlGeom(argStr(args, "id"), argInt(args, "x"), argInt(args, "y"), -1, -1, "moved")
-		return c, e, true
+		// -1 for the pair being left alone: MoveResize turns that into a flag
+		// saying the field is absent, rather than a size the manager ignores.
+		return s.winOp(args, "moved", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.MoveResize(w, argInt(args, "x"), argInt(args, "y"), -1, -1)
+		}, "wmctrl-geom-move")
 	case "resize_window":
-		c, e := s.wmctrlGeom(argStr(args, "id"), -1, -1, argInt(args, "width"), argInt(args, "height"), "resized")
-		return c, e, true
+		return s.winOp(args, "resized", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.MoveResize(w, -1, -1, argInt(args, "width"), argInt(args, "height"))
+		}, "wmctrl-geom-resize")
 	case "close_window":
-		c, e := s.simpleRun("closed window", "wmctrl", "-i", "-c", argStr(args, "id"))
-		return c, e, true
+		return s.winOp(args, "closed window", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.CloseWindow(w)
+		}, "wmctrl", "-i", "-c", argStr(args, "id"))
 	case "minimize_window":
-		c, e := s.simpleRun("minimized", "xdotool", "windowminimize", argStr(args, "id"))
-		return c, e, true
+		return s.winOp(args, "minimized", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.Minimize(w)
+		}, "xdotool", "windowminimize", argStr(args, "id"))
 	case "maximize_window":
-		c, e := s.simpleRun("maximized", "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "add,maximized_vert,maximized_horz")
-		return c, e, true
+		// Both axes in one message: one state change the manager can act on,
+		// rather than two it has to reconcile.
+		return s.winOp(args, "maximized", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.SetState(w, desktop.StateAdd, "maximized_vert", "maximized_horz")
+		}, "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "add,maximized_vert,maximized_horz")
 	case "restore_window":
-		c, e := s.simpleRun("restored", "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "remove,maximized_vert,maximized_horz")
-		return c, e, true
+		return s.winOp(args, "restored", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.SetState(w, desktop.StateRemove, "maximized_vert", "maximized_horz")
+		}, "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "remove,maximized_vert,maximized_horz")
 	case "fullscreen_window":
-		c, e := s.simpleRun("toggled fullscreen", "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "toggle,fullscreen")
-		return c, e, true
+		// action defaults to toggle, which is what this always did. Naming it
+		// lets a caller say what it wants instead of reading the state first
+		// and guessing which way a toggle will go.
+		act := desktop.StateToggle
+		verb := "toggled fullscreen"
+		switch strings.ToLower(argStr(args, "action")) {
+		case "add", "on", "true":
+			act, verb = desktop.StateAdd, "fullscreen on"
+		case "remove", "off", "false":
+			act, verb = desktop.StateRemove, "fullscreen off"
+		}
+		return s.winOp(args, verb, func(e *desktop.EWMH, w xproto.Window) error {
+			return e.SetState(w, act, "fullscreen")
+		}, "wmctrl", "-i", "-r", argStr(args, "id"), "-b", "toggle,fullscreen")
 	case "set_window_desktop":
-		c, e := s.simpleRun("moved to desktop", "wmctrl", "-i", "-r", argStr(args, "id"), "-t", strconv.Itoa(argInt(args, "desktop")))
-		return c, e, true
+		return s.winOp(args, "moved to desktop", func(e *desktop.EWMH, w xproto.Window) error {
+			return e.SetWindowDesktop(w, argInt(args, "desktop"))
+		}, "wmctrl", "-i", "-r", argStr(args, "id"), "-t", strconv.Itoa(argInt(args, "desktop")))
 	case "wait_for_window":
 		c, e := s.toolWaitForWindow(ctx, argStr(args, "match"), argInt(args, "timeout_ms"))
 		return c, e, true
@@ -392,6 +422,11 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 		c, e := s.toolListDesktops()
 		return c, e, true
 	case "switch_desktop":
+		if e, err := s.windows(); err == nil {
+			if err := e.SwitchDesktop(argInt(args, "desktop")); err == nil {
+				return textContent("switched desktop"), false, true
+			}
+		}
 		c, e := s.simpleRun("switched desktop", "wmctrl", "-s", strconv.Itoa(argInt(args, "desktop")))
 		return c, e, true
 	// ---- procesos ----
@@ -1209,3 +1244,41 @@ func min(a, b int) int {
 }
 
 var _ = json.Marshal
+
+// winOp runs a window operation through the native EWMH path, falling back to
+// the external command when the display cannot be reached.
+//
+// The fallback is the same principle as everything optional here — degrade,
+// do not fail — and it is why the wmctrl arguments are still passed in. When
+// they read "wmctrl-geom-move" there is no single command to fall back to,
+// because the old path built a geometry string; those two lose the fallback
+// rather than reconstruct it, and say so.
+func (s *Server) winOp(args map[string]any, verb string,
+	native func(*desktop.EWMH, xproto.Window) error,
+	fallback ...string) ([]map[string]any, bool, bool) {
+
+	id := argStr(args, "id")
+	if id == "" {
+		return textContent("no window id"), true, true
+	}
+	e, err := s.windows()
+	if err == nil {
+		win, perr := desktop.ParseWindowID(id)
+		if perr != nil {
+			return textContent("%v", perr), true, true
+		}
+		if err := native(e, win); err == nil {
+			return textContent("%s", verb), false, true
+		} else if len(fallback) > 0 && !strings.HasPrefix(fallback[0], "wmctrl-geom") {
+			// Fall through to the external command below.
+			_ = err
+		} else {
+			return textContent("%s failed: %v", verb, err), true, true
+		}
+	}
+	if len(fallback) == 0 || strings.HasPrefix(fallback[0], "wmctrl-geom") {
+		return textContent("%s failed: no display", verb), true, true
+	}
+	c, isErr := s.simpleRun(verb, fallback[0], fallback[1:]...)
+	return c, isErr, true
+}

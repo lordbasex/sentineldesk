@@ -925,3 +925,72 @@ review(
     'Escribió texto en la selección CLIPBOARD de X y reportó si la escritura realmente ocurrió.',
     'Antes descartaba el resultado, así que una escritura fallida se reportaba como éxito y el agente iba a pegar algo que nunca estuvo. Acertarle al arreglo llevó tres intentos: capturar stderr hizo que Go creara un pipe que el hijo demonizado de xclip heredó y nunca cerró, y colgó sesenta segundos; agregar WaitDelay arregló eso e hizo que una escritura exitosa se reportara como rota, porque ErrWaitDelay es el hijo sosteniendo el pipe y no un comando fallido. Sigue siendo un subproceso por escritura, y sigue siendo sólo texto — ser dueño de la selección desde adentro del daemon es lo que lo llevaría a cinco.',
 )
+
+
+# --- revised after the window tools were rewritten against X -------------------
+#
+# review() assigns into a dict, so an entry here replaces the one above. Kept as
+# an addition rather than an edit in place: the earlier text described a real
+# version of these tools, and the two together say what changed and why. When
+# the older half stops being interesting, delete it — do not silently overwrite
+# the record of what the code used to be.
+
+review(
+    'activate_window',
+    'Enfocó y trajo al frente una ventana con un mensaje de cliente _NET_ACTIVE_WINDOW.',
+    'Pedirle al gestor de ventanas en vez de levantar la ventana a sus espaldas, que es lo que la hace funcionar con un gestor que reparenta y decora. El mensaje lleva una indicación de origen, así que las reglas de robo de foco tratan a un agente como a cualquier cosa que pidió el usuario.',
+)
+
+review(
+    'move_window',
+    'Movió una ventana con _NET_MOVERESIZE_WINDOW, marcando sólo los campos que fija.',
+    "Los flags son lo que hace expresable 'mover sin redimensionar': el camino viejo armaba un string de geometría y pasaba centinelas -1 que el gestor después tenía que ignorar. Verificado contra un escritorio real — un move seguido de un resize conserva la posición que se le dio.",
+)
+
+review(
+    'resize_window',
+    'Redimensionó por el mismo mensaje, dejando la posición en paz.',
+    'Comparte MoveResize con move_window, que es lo correcto: una llamada que dice qué campos quiere decir le gana a dos que fingen fijar todo.',
+)
+
+review(
+    'close_window',
+    'Le pidió a la ventana que se cierre con _NET_CLOSE_WINDOW — el pedido propio del botón de la barra de título.',
+    "El cierre cortés: la aplicación puede guardar, objetar o poner un diálogo. Sigue sin poder reportar si la ventana efectivamente se fue, porque es un pedido y la respuesta llega después. Esperar un momento y releer la lista de clientes convertiría 'pedido' en 'cerrada'.",
+)
+
+review(
+    'minimize_window',
+    'Iconificó con un mensaje WM_CHANGE_STATE llevando IconicState.',
+    'El pedido correcto, y la parte sutil: _NET_WM_STATE_HIDDEN es lo que un gestor FIJA para reportar que una ventana está minimizada, no algo que un cliente pide. Usarlo habría sido la respuesta equivocada más plausible. Esto además sacó la última dependencia de xdotool de la familia de ventanas.',
+)
+
+review(
+    'maximize_window',
+    'Agregó los dos estados de maximizado en un solo mensaje _NET_WM_STATE.',
+    'Dos estados por mensaje es lo que permite el protocolo y lo que este caso necesita — un cambio sobre el que el gestor puede actuar, en vez de dos que tiene que reconciliar. Restore devolvió la ventana a la geometría exacta que tenía antes, porque el gestor la recuerda y esto pidió en vez de redimensionar.',
+)
+
+review(
+    'restore_window',
+    'Sacó los dos estados de maximizado.',
+    'La inversa correcta, y no intenta recordar una geometría que el gestor de ventanas ya tiene.',
+)
+
+review(
+    'fullscreen_window',
+    'Fijó, quitó o alternó _NET_WM_STATE_FULLSCREEN, con action por defecto en toggle.',
+    'Antes sólo alternaba, así que un agente que quería una ventana en pantalla completa tenía que leer el estado y adivinar para dónde iba el toggle. Nombrar la acción lo arregla sin cambiarle nada a quien ya la llamaba.',
+)
+
+review(
+    'set_window_desktop',
+    'Movió una ventana a un escritorio virtual con _NET_WM_DESKTOP.',
+    'Nativo, y los índices coinciden con lo que reporta list_desktops porque ahora las dos leen las mismas propiedades.',
+)
+
+review(
+    'switch_desktop',
+    'Cambió el escritorio actual con _NET_CURRENT_DESKTOP.',
+    'Nativo. Lo que sigue faltando es cambiar por nombre — list_desktops ya lee _NET_DESKTOP_NAMES, así que los nombres existen y sólo esta punta no puede tomar uno.',
+)
