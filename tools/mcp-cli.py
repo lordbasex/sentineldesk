@@ -37,17 +37,34 @@ DEFAULT_SOCK = "/run/user/1000/sentineldesk-mcp.sock"
 class MCPClient:
     """An MCP session against the desktop daemon, over the stdio bridge."""
 
-    def __init__(self, container=DEFAULT_CONTAINER, sock=DEFAULT_SOCK, out_dir="/tmp"):
+    def __init__(self, container=DEFAULT_CONTAINER, sock=DEFAULT_SOCK, out_dir="/tmp",
+                 on_notify=None):
         self.out_dir = out_dir
         self._id = 0
         self._resps = {}
+        # Everything the server sent that was not an answer: progress while a
+        # long tool runs, and anything the protocol grows later.
+        self.notifications = []
+        self.on_notify = on_notify
         self.proc = subprocess.Popen(
             ["docker", "exec", "-i", "-u", "sentineldesk", container,
              "/usr/local/bin/sentineldesk", "-mcp-stdio", "-mcp-sock", sock],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         threading.Thread(target=self._reader, daemon=True).start()
-        self.request("initialize", {})
+        hello = self.request("initialize", {
+            "clientInfo": {"name": "mcp-cli", "version": "1.0"},
+        })
+        self.server_info = hello.get("result", {})
+        # The server hands each connection its own number. Whatever supervises
+        # this client needs it to halt this connection and no others.
+        self.connection_id = (
+            self.server_info.get("_meta", {}).get("sentineldesk/connectionId"))
         self.notify("notifications/initialized")
+
+    def cancel(self, request_id, reason="cancelled from mcp-cli"):
+        """Ask the server to stop a call. The answer arrives on the call itself."""
+        self.notify("notifications/cancelled",
+                    {"requestId": request_id, "reason": reason})
 
     def _reader(self):
         for line in self.proc.stdout:
@@ -56,9 +73,17 @@ class MCPClient:
                 continue
             try:
                 msg = json.loads(line)
-                self._resps[msg.get("id")] = msg
             except json.JSONDecodeError:
-                pass
+                continue
+            # A notification has no id. Filing it by id put every one of them
+            # under the same None key, each overwriting the last — harmless
+            # while the server sent none, and wrong the moment it sent progress.
+            if "id" not in msg or msg.get("id") is None:
+                self.notifications.append(msg)
+                if self.on_notify:
+                    self.on_notify(msg)
+                continue
+            self._resps[msg["id"]] = msg
 
     def _send(self, payload):
         self.proc.stdin.write((json.dumps(payload) + "\n").encode())
@@ -84,9 +109,16 @@ class MCPClient:
     def list_tools(self):
         return self.request("tools/list")["result"]["tools"]
 
-    def call(self, name, args=None, timeout=90):
-        """Calls a tool; returns text, or the PNG path when it returns an image."""
-        resp = self.request("tools/call", {"name": name, "arguments": args or {}}, timeout)
+    def call(self, name, args=None, timeout=90, progress_token=None):
+        """Calls a tool; returns text, or the PNG path when it returns an image.
+
+        Pass progress_token to be told what a long tool is doing while it runs;
+        the notifications land in self.notifications and go to on_notify.
+        """
+        params = {"name": name, "arguments": args or {}}
+        if progress_token is not None:
+            params["_meta"] = {"progressToken": progress_token}
+        resp = self.request("tools/call", params, timeout)
         if "error" in resp:
             return f"ERROR: {resp['error'].get('message')}", True
         result = resp["result"]

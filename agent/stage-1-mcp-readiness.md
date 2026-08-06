@@ -499,12 +499,21 @@ and would end the property that the desktop survives the runtime crashing.
 
 ---
 
-## 7. Decisions to make before stage 2
+## 7. Decisions made before stage 2
 
-These are architectural and cannot be derived from the code. Write each as an
-ADR under `docs/adr/` once decided.
+These are architectural and cannot be derived from the code. All four are
+decided and written up under [`docs/adr/`](../docs/adr/):
 
-### 7.1 One Go module or two?
+| | Decision |
+|---|---|
+| [ADR-001](../docs/adr/0001-one-go-module.md) | One Go module, `agent/` as a subtree |
+| [ADR-002](../docs/adr/0002-agent-without-cgo.md) | The agent does not link CGO; pure-Go SQLite |
+| [ADR-003](../docs/adr/0003-tool-search-on-both-sides.md) | Tool search on both sides; the runtime answers its own |
+| [ADR-004](../docs/adr/0004-runtime-lifecycle.md) | The runtime is supervised separately; the desktop outlives it |
+
+The summaries below are what each ADR was decided from.
+
+### 7.1 One Go module or two? — [ADR-001](../docs/adr/0001-one-go-module.md)
 
 `agent/` inside this module can import `github.com/lordbasex/sentineldesk/internal/...`
 — Go's `internal` rule allows it anywhere under the module root. A separate
@@ -517,7 +526,7 @@ whereas starting split and merging later means undoing a published API. "Two
 projects" is a statement about lifecycle and deployment, and one module does not
 prevent it.
 
-### 7.2 The agent binary must not link CGO
+### 7.2 The agent binary must not link CGO — [ADR-002](../docs/adr/0002-agent-without-cgo.md)
 
 `sentineldesk` links GStreamer, so it cannot cross-compile and its release
 builds go through Docker per architecture. `sentineldesk-agent` has no such
@@ -532,21 +541,28 @@ and it is decided by one import line at the start.
 
 ### 7.3 Where does tool search live?
 
-`3f1ee86` added `tool_search` to the MCP server. The runtime should **not** use
-it: after `tools/list` the catalogue is already in memory, and searching it over
-JSON-RPC is a round trip to ask itself a question. The server-side tool exists
-for external hosts — Claude Code, Claude Desktop — that have no runtime.
+**Both sides.** Neither is removed — see
+[ADR-003](../docs/adr/0003-tool-search-on-both-sides.md).
 
-Two consequences:
+The server keeps `tool_search` and `MCP_DISCOVERY`, because an external host —
+Claude Code, Claude Desktop — has no runtime of ours and whatever help it gets
+has to come over the protocol. That is half the value and it stays.
 
-- The ranking logic (`searchTools`, the category rules and aliases in
-  `internal/mcp/registry.go`) should move somewhere both can import, so the two
-  rank identically and there is one place to improve.
-- The runtime should deny itself `tool_search` in its `sentineldesk/policy`
-  handshake, or its model will spend calls on a tool the runtime answers
-  locally.
+The runtime answers its own, locally, from the catalogue it already holds after
+`tools/list`; calling the server's tool would be a round trip to ask itself a
+question. It does not forward the server's `tool_search` to its model, because
+two tools of the same name doing the same thing is a choice the model should not
+have to make.
 
-### 7.4 Does the runtime run under supervisord, and does it degrade?
+An earlier draft of this section read as "the runtime should not use tool
+search", which was badly put and is corrected here: the narrow point was only
+ever about which side *computes* the answer.
+
+The ranking is one implementation shared by both, moved out of `internal/mcp`
+when the runtime exists to import it — not before, since a shared package with
+one consumer is a guess about the second.
+
+### 7.4 Does the runtime run under supervisord, and does it degrade? — [ADR-004](../docs/adr/0004-runtime-lifecycle.md)
 
 The desktop must survive the agent. Whatever the answer, the invariant is:
 **restarting `sentineldesk-agent` does not disturb WebRTC, the Room, or anyone's
