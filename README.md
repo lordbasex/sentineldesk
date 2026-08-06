@@ -264,7 +264,14 @@ the installer downloads one binary and asks *it* for everything else — the
 binary embeds its own deployment files, so configuration and code can never
 disagree about versions:
 
+On a bare install — a Debian netinstall with only standard utilities — get
+`curl` first, because the command below begins with it. The installer fetches
+its own dependencies but cannot fetch the thing that fetches it. (`sudo` too, if
+you will not be root; `ca-certificates` arrives with `curl` and needs no
+naming.)
+
 ```bash
+apt update && apt install -y curl        # and sudo, if you need it
 curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh | sudo bash -s auto
 ```
 

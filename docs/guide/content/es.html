@@ -284,7 +284,22 @@ docker run -d --name sentineldesk … sentineldesk:full</code></pre>
 
   <p>Las tres formas de arriba suponen un clon del repositorio. Para una máquina
   que solamente va a <em>ejecutar</em> esto — un VPS, una Raspberry Pi 5 — hay un
-  instalador, y no necesita nada clonado:</p>
+  instalador, y no necesita nada clonado.</p>
+
+  <p><b>En una instalación pelada, conseguí <code>curl</code> primero.</b> Un
+  Debian netinstall con solo las utilidades estándar no lo trae, y el comando de
+  abajo <em>empieza</em> con él — el instalador sabe conseguir sus propias
+  dependencias, pero no lo que hace falta para conseguir al instalador:</p>
+
+<pre><code># como root
+apt update &amp;&amp; apt install -y curl
+
+# y sudo también, si no vas a correr como root
+apt install -y sudo</code></pre>
+
+  <p><code>ca-certificates</code> viene junto con <code>curl</code> y no hace
+  falta nombrarlo; sin él la descarga por HTTPS fallaría. Todo lo demás que el
+  instalador necesita se lo instala solo.</p>
 
 <pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
   | sudo bash -s auto</code></pre>

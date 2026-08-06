@@ -277,7 +277,22 @@ docker run -d --name sentineldesk … sentineldesk:full</code></pre>
 
   <p>The three ways above assume a clone of the repository. For a machine that
   will just <em>run</em> this — a VPS, a Raspberry Pi 5 — there is an installer,
-  and it needs nothing checked out:</p>
+  and it needs nothing checked out.</p>
+
+  <p><b>On a bare install, get <code>curl</code> first.</b> A Debian netinstall
+  with only standard utilities has no <code>curl</code>, and the command below
+  begins with it — the installer can fetch its own dependencies, but not the
+  thing needed to fetch the installer:</p>
+
+<pre><code># as root
+apt update &amp;&amp; apt install -y curl
+
+# and sudo too, if you will not be running as root
+apt install -y sudo</code></pre>
+
+  <p><code>ca-certificates</code> comes with <code>curl</code> and does not need
+  naming; without it the HTTPS download would fail. Everything else the
+  installer needs it installs itself.</p>
 
 <pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
   | sudo bash -s auto</code></pre>
