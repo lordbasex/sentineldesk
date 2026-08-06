@@ -131,22 +131,18 @@ jobs:
         with:
           path: _site
 
+      # Do not add `timeout:` here hoping to wait longer. The action caps it at
+      # ten minutes and silently clamps anything larger:
+      #
+      #   Warning: timeout value is greater than the allowed maximum
+      #            - timeout set to the maximum of 600000 milliseconds.
+      #
+      # That matters because this step builds nothing. It hands the artefact to
+      # the Pages service and polls until the service reports done, so when a
+      # run fails here having logged only `deployment_in_progress`, the ceiling
+      # being hit is GitHub's, not ours, and there is no input that raises it.
+      # The remedy is to run the workflow again later, not to tune this step.
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
-        with:
-          # The action's default is ten minutes, and it is not generous enough.
-          # This step does not build anything — it hands the artefact to the
-          # Pages service and polls until that service reports done — so the
-          # timeout is a bet on how long GitHub's side takes, not on ours.
-          #
-          # On 6 August 2026 that bet stopped paying: deployments began
-          # reporting deployment_in_progress for the full ten minutes and were
-          # then aborted by the action, on an artefact that had already shrunk
-          # from 27 MB to 2.5 MB. Aborting is the worse outcome — the deployment
-          # was running, and cancelling it wasted the whole attempt and left the
-          # site on the previous release. Thirty minutes gives a slow service
-          # room to finish while still failing the run rather than hanging it if
-          # something is genuinely wrong.
-          timeout: 1800000
 
