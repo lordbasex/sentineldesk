@@ -141,13 +141,24 @@ review(
 )
 review(
     "wait_for_idle",
-    "Esperó a que la pantalla dejara de cambiar y la CPU se calmara, muestreando "
-    "las dos cosas, y respeta la cancelación.",
-    "La respuesta correcta al problema que `wait` adivina. Muestrea el "
-    "framebuffer entero, así que un cursor parpadeando o un reloj lo mantienen "
-    "despierto — limitar el chequeo de quietud a una región, o ignorar píxeles "
-    "que cambian periódicamente, lo haría usable en un escritorio que nunca está "
-    "del todo quieto.",
+    "Esperó sobre X DAMAGE a que dejaran de pintar la pantalla y la CPU se "
+    "calmara, sin capturar nada, y respeta la cancelación.",
+    "La respuesta correcta al problema que `wait` adivina, y antes llegaba por "
+    "el camino más caro posible: cinco veces por segundo agarraba el framebuffer "
+    "entero, lo codificaba en PNG, lo escribía a disco, lo volvía a leer y lo "
+    "hasheaba — así que la herramienta para detectar quietud era lo más "
+    "ocupado del escritorio mientras corría, y la CPU que gastaba era CPU que "
+    "esa misma llamada después citaba como razón de que la máquina no estaba "
+    "quieta. X reporta el pintado por DAMAGE, así que ya no captura nada: una "
+    "espera de diez segundos pasó de unos 215 procesos extra a la misma cuenta "
+    "que una llamada que no hace nada. El número de CPU también estaba mal — "
+    "sumaba `ps -eo pcpu`, que es el promedio de cada proceso sobre toda su "
+    "vida, así que un daemon ocupado al arrancar seguía inflando el total "
+    "mientras viviera; los deltas de /proc/stat miden el intervalo. Queda el "
+    "límite que el método no puede arreglar: DAMAGE reporta un reloj que "
+    "avanza igual que una página que carga, así que un escritorio con "
+    "segundero nunca está quieto. Pedir los rectángulos dañados en vez de sólo "
+    "su existencia permitiría ignorar regiones chicas y periódicas.",
 )
 
 # --- el catálogo y la sala ----------------------------------------------------

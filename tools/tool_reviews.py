@@ -167,13 +167,25 @@ review(
 )
 review(
     "wait_for_idle",
-    "Waited for the screen to stop changing and the CPU to settle, sampling "
-    "both, and honours cancellation.",
-    4,
-    "The right answer to the problem `wait` guesses at. It samples the whole "
-    "framebuffer, so a blinking cursor or a clock keeps it awake — restricting "
-    "the quiet check to a region, or ignoring pixels that change periodically, "
-    "would make it usable on a desktop that is never completely still.",
+    "Waited on X DAMAGE until the screen stopped being painted and the CPU "
+    "settled, without capturing anything, and honours cancellation.",
+    5,
+    "The right answer to the problem `wait` guesses at, and it used to arrive "
+    "by the most expensive route available: five times a second it grabbed the "
+    "whole framebuffer, PNG-encoded it, wrote it to disk, read it back and "
+    "hashed it — so the tool for detecting quiet was the busiest thing on the "
+    "desktop while it ran, and the CPU it burned was CPU the same call then "
+    "cited as a reason the machine was not idle. X reports paint through "
+    "DAMAGE, so nothing is captured now: a ten-second wait went from about 215 "
+    "extra processes to the same count as a call that does nothing. The CPU "
+    "figure was wrong too — it summed `ps -eo pcpu`, which is each process's "
+    "average over its whole lifetime, so a daemon busy at startup kept "
+    "inflating the total for as long as it lived; /proc/stat deltas measure the "
+    "interval instead. What remains is the limit the method cannot fix: DAMAGE "
+    "reports a clock ticking exactly as it reports a page loading, so a desktop "
+    "with a second hand on it is never still. Asking for the damaged rectangles "
+    "rather than just their existence would let small, periodic regions be "
+    "ignored.",
 )
 
 # --- the catalogue, and the room ----------------------------------------------

@@ -206,10 +206,15 @@ func (s *Server) toolSetResolution(ctx context.Context, args map[string]any) ([]
 	return jsonContent(map[string]any{"applied": true, "resolution": got}), false, true
 }
 
-// --- esperas -----------------------------------------------------------------
+// --- waiting -----------------------------------------------------------------
 
-// screenFingerprint returns a hash of the screen. The capture is deliberately
-// cheap: detecting that something changed does not need full fidelity.
+// screenFingerprint returns a hash of the screen.
+//
+// Only reached when the DAMAGE extension is unavailable, because it is not
+// cheap in the least: a full framebuffer grab, a PNG encode, a write to disk, a
+// read back and a hash, all to answer a yes-or-no question X will answer for
+// free. Sampled every 200ms it made the tool that detects quiet the busiest
+// thing on the desktop while it ran.
 func (s *Server) screenFingerprint() string {
 	tmp := filepath.Join(os.TempDir(), "sentineldesk-idle.png")
 	if err := desktop.GrabToFile(s.display, tmp, 0, 0, 0, 0); err != nil {
@@ -223,14 +228,77 @@ func (s *Server) screenFingerprint() string {
 	return hex.EncodeToString(sum[:8])
 }
 
-// cpuBusy returns CPU usage as a percentage, summed across all processes.
-func (s *Server) cpuBusy() float64 {
-	out, err := s.output("sh", "-c", `ps -eo pcpu --no-headers | awk '{s+=$1} END {print s+0}'`)
+// cpuSampler reports how busy the machine is, from /proc/stat.
+//
+// It replaces summing `ps -eo pcpu`, which was both expensive and measuring
+// something else. That column is a process's average over its whole lifetime,
+// not its use now, so a daemon that worked hard at startup went on contributing
+// to the total for as long as it stayed alive — on a desktop up for an hour the
+// figure had almost nothing to do with the present. wait_for_idle then reported
+// that number as its reason for refusing to call the desktop idle.
+//
+// /proc/stat counts jiffies by state since boot, so busy-ness is the change in
+// non-idle over the change in total between two reads. That is a real
+// measurement of an interval rather than an average of averages, and it costs
+// one file read instead of three processes.
+type cpuSampler struct {
+	idle, total uint64
+	primed      bool
+}
+
+// parseCPULine splits the aggregate "cpu" line of /proc/stat into idle and
+// total jiffies. Separate from the file read so it can be tested on a machine
+// that has no /proc at all, which is every machine this project's tests run on
+// besides the container.
+func parseCPULine(line string) (idle, total uint64, ok bool) {
+	f := strings.Fields(line)
+	if len(f) < 5 || f[0] != "cpu" {
+		return 0, 0, false
+	}
+	for i, v := range f[1:] {
+		n, err := strconv.ParseUint(v, 10, 64)
+		if err != nil {
+			break
+		}
+		total += n
+		// Fields 4 and 5 of the cpu line are idle and iowait. Waiting on disk
+		// is not the CPU being busy, and counting it as such would keep a
+		// desktop that is merely reading a file from ever looking settled.
+		if i == 3 || i == 4 {
+			idle += n
+		}
+	}
+	return idle, total, total > 0
+}
+
+func (c *cpuSampler) read() (idle, total uint64, ok bool) {
+	data, err := os.ReadFile("/proc/stat")
 	if err != nil {
+		return 0, 0, false
+	}
+	line, _, _ := strings.Cut(string(data), "\n")
+	return parseCPULine(line)
+}
+
+// prime takes the first sample. Without it the first percent() would compare
+// against zero and report the machine's entire uptime as one busy interval.
+func (c *cpuSampler) prime() {
+	c.idle, c.total, c.primed = c.read()
+}
+
+// percent returns busy-ness over the interval since the previous call.
+func (c *cpuSampler) percent() float64 {
+	idle, total, ok := c.read()
+	if !ok || !c.primed || total <= c.total {
 		return 0
 	}
-	v, _ := strconv.ParseFloat(strings.TrimSpace(out), 64)
-	return v
+	dTotal := total - c.total
+	dIdle := idle - c.idle
+	c.idle, c.total = idle, total
+	if dIdle > dTotal {
+		return 0
+	}
+	return float64(dTotal-dIdle) * 100 / float64(dTotal)
 }
 
 func (s *Server) toolWaitForIdle(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
@@ -250,18 +318,62 @@ func (s *Server) toolWaitForIdle(ctx context.Context, args map[string]any) ([]ma
 
 	start := time.Now()
 	deadline := start.Add(time.Duration(timeout) * time.Millisecond)
-	last := ""
-	stableSince := time.Now()
+	quietFor := time.Duration(quiet) * time.Millisecond
 	lastCPU := 0.0
 
+	var cpu cpuSampler
+	cpu.prime()
+
+	// The event path. X reports paint through DAMAGE, so the screen is never
+	// captured, encoded or hashed — a timestamp moves when the server says
+	// something was drawn, and the wait sleeps exactly as long as the answer
+	// could still change.
+	if d, err := s.damage(); err == nil {
+		for time.Now().Before(deadline) {
+			if !d.QuietFor(ctx, quietFor, time.Until(deadline)) {
+				break // the screen never settled, or the call was cancelled
+			}
+			lastCPU = cpu.percent()
+			if ignoreCPU || lastCPU <= float64(maxCPU) {
+				return jsonContent(map[string]any{
+					"idle": true, "waited_ms": time.Since(start).Milliseconds(),
+					"cpu_percent": int(lastCPU), "reason": "the screen went still and the CPU settled",
+				}), false, true
+			}
+			// Still is not settled: the picture stopped but the machine is
+			// working. Give it an interval and ask again — which also gives the
+			// sampler a window to measure, since it reports change since the
+			// previous call.
+			if !sleepCtx(ctx, 250*time.Millisecond) {
+				break
+			}
+		}
+		// Take a reading before explaining the failure. Reporting whatever the
+		// loop happened to leave behind meant a wait that gave up on a moving
+		// screen — never reaching the CPU check at all — announced 0% and
+		// blamed the CPU for it, which is both halves of the sentence wrong.
+		lastCPU = cpu.percent()
+		return jsonContent(map[string]any{
+			"idle": false, "waited_ms": time.Since(start).Milliseconds(),
+			"cpu_percent": int(lastCPU),
+			// LastChange is the authority on when the picture last moved. The
+			// loop's own bookkeeping is not: it only advances on the passes
+			// that got as far as the CPU check.
+			"reason": idleFailureReason(d.LastChange(), quietFor, lastCPU),
+		}), false, true
+	}
+
+	// No DAMAGE: fall back to taking the picture, the way this always worked.
+	last := ""
+	stableSince := time.Now()
 	for time.Now().Before(deadline) {
 		fp := s.screenFingerprint()
 		if fp != last {
 			last = fp
 			stableSince = time.Now()
 		}
-		lastCPU = s.cpuBusy()
-		screenQuiet := time.Since(stableSince) >= time.Duration(quiet)*time.Millisecond
+		lastCPU = cpu.percent()
+		screenQuiet := time.Since(stableSince) >= quietFor
 		cpuQuiet := ignoreCPU || lastCPU <= float64(maxCPU)
 		if screenQuiet && cpuQuiet {
 			return jsonContent(map[string]any{
@@ -273,17 +385,26 @@ func (s *Server) toolWaitForIdle(ctx context.Context, args map[string]any) ([]ma
 			break
 		}
 	}
-	reason := "timed out with the screen still changing"
-	if time.Since(stableSince) >= time.Duration(quiet)*time.Millisecond {
-		reason = fmt.Sprintf("the screen went still but the CPU is still at %d%%", int(lastCPU))
-	}
 	return jsonContent(map[string]any{
 		"idle": false, "waited_ms": time.Since(start).Milliseconds(),
-		"cpu_percent": int(lastCPU), "reason": reason,
+		"cpu_percent": int(lastCPU),
+		"reason":      idleFailureReason(stableSince, quietFor, lastCPU),
 	}), false, true
 }
 
-// --- macro-acciones ----------------------------------------------------------
+// idleFailureReason distinguishes the two ways this tool gives up, because they
+// call for opposite responses: a screen that never stopped moving means the
+// caller should wait longer or look at what is animating, while a settled
+// screen over a busy machine means the work is happening off-screen and the
+// picture will not tell them when it is done.
+func idleFailureReason(stableSince time.Time, quiet time.Duration, cpu float64) string {
+	if time.Since(stableSince) >= quiet {
+		return fmt.Sprintf("the screen went still but the CPU is still at %d%%", int(cpu))
+	}
+	return "timed out with the screen still changing"
+}
+
+// --- macro actions ------------------------------------------------------------
 
 func (s *Server) toolOpenAppAndWait(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	command := strings.TrimSpace(argStr(args, "command"))

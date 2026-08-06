@@ -441,6 +441,10 @@ type Server struct {
 	watcher   *desktop.Watcher
 	watchErr  error
 
+	damageOnce sync.Once
+	damageW    *desktop.DamageWatcher
+	damageErr  error
+
 	uiMu   sync.Mutex
 	uiLast map[string]uiNode // last snapshot of the tree, for ui_diff
 
@@ -495,8 +499,34 @@ func (s *Server) windows() (*desktop.EWMH, error) {
 func (s *Server) watch() (*desktop.Watcher, error) {
 	s.watchOnce.Do(func() {
 		s.watcher, s.watchErr = desktop.NewWatcher(s.display)
+		if s.watchErr != nil {
+			log.Printf("mcp: root-window events unavailable, waits will poll: %v", s.watchErr)
+		}
 	})
 	return s.watcher, s.watchErr
+}
+
+// damage returns the screen-change watcher, opening it on first use.
+//
+// A display without the DAMAGE extension returns an error here and wait_for_idle
+// falls back to capturing and hashing the screen, which is what it always did.
+// Same shape as the gamepad without /dev/uinput or peer pointers without
+// XShape: the capability is optional and its absence costs performance, never
+// the feature.
+// Its failure is logged rather than swallowed. Degrading quietly is right for
+// the caller and wrong for whoever has to explain the machine: DAMAGE failing
+// to start once cost nothing visible anywhere, no error and no changed answer,
+// only wait_for_idle going on capturing and PNG-encoding the whole screen five
+// times a second while appearing to work. An optional capability should say
+// when it is not there.
+func (s *Server) damage() (*desktop.DamageWatcher, error) {
+	s.damageOnce.Do(func() {
+		s.damageW, s.damageErr = desktop.NewDamageWatcher(s.display)
+		if s.damageErr != nil {
+			log.Printf("mcp: screen-change events unavailable, wait_for_idle will capture instead: %v", s.damageErr)
+		}
+	})
+	return s.damageW, s.damageErr
 }
 
 // SetDelivery wires up browser delivery. Without it, destination:download has
