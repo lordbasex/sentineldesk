@@ -137,13 +137,39 @@ install_binary() {
     install -m 0755 "$tmp" "$BIN"
     rm -f "$tmp" "$tmp.sums"
   fi
-  say "installed: $($BIN -version)"
+  # Deliberately NOT `$BIN -version` here. The binary links GStreamer
+  # dynamically, and at this point nothing has installed it: on a bare Debian
+  # the very next line was
+  #
+  #   error while loading shared libraries: libgstreamer-1.0.so.0
+  #
+  # followed by "installed:" with nothing after it — an alarming way to report
+  # success. Native mode says the version once the packages are in; Docker mode
+  # never can, because in Docker mode the host is not supposed to have them.
+  say "installed: $BIN"
 }
 
 # --- the configuration the binary carries -----------------------------------
+# The deploy tree comes out of the binary, which means something has to be able
+# to RUN the binary — and it links GStreamer dynamically. Native mode calls this
+# after the engine packages are installed, so the host binary works. Docker mode
+# never installs them, on purpose: the whole point of Docker mode is that the
+# host stays clean. Running the host binary there failed outright.
+#
+#   /usr/local/bin/sentineldesk: error while loading shared libraries:
+#   libgstreamer-1.0.so.0: cannot open shared object file
+#
+# and with `set -e` that ended the install, on any host without GStreamer —
+# which is every host Docker mode is meant for. So Docker mode extracts from
+# inside the image, which has the libraries by definition and is the same build.
 extract_deploy() {
   mkdir -p "$OPT"
-  "$BIN" -extract-deploy "$OPT"
+  if [ "$MODE" = docker ]; then
+    docker run --rm --entrypoint /usr/local/bin/sentineldesk \
+      -v "$OPT:/out" "$IMAGE:$IMAGE_TAG" -extract-deploy /out
+  else
+    "$BIN" -extract-deploy "$OPT"
+  fi
 }
 
 # =============================================================================
@@ -256,8 +282,11 @@ install_native_mode() {
     supervisor procps ca-certificates sudo tzdata xkb-data
 
   # The deploy tree comes out of the binary now rather than further down,
-  # because the package lists live in it and the next step reads them.
+  # because the package lists live in it and the next step reads them. This is
+  # also the first moment the binary can run at all: it links GStreamer, which
+  # the block above just installed.
   extract_deploy
+  say "binary: $($BIN -version)"
 
   # The desktop itself comes from the same lists the container image is built
   # from. Duplicating them here is what would let a native install and a
