@@ -486,6 +486,7 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `KEYBOARD_VARIANT` | — | Optional layout variant, passed through untouched |
 | `MCP_POLICY`, `MCP_DENY`, `MCP_ALLOW` | `full` | The MCP permission ceiling — see [docs/mcp.md](docs/mcp.md) |
 | `HTTP_PORT` | `8080` | Port for the web client and signalling |
+| `HTTP_ADDR` | — | Interface to listen on; empty means all. `127.0.0.1` when something else terminates TLS in front |
 
 ## Two images: lite and full
 

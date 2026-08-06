@@ -340,6 +340,39 @@ sudo ./install.sh docker full    # the larger image</code></pre>
   in <code>/etc/sentineldesk/env</code> for a native install and
   <code>/opt/sentineldesk/.env</code> for a Docker one.</p>
 
+  <h4 id="install-machine-cert">A certificate nobody has to click through</h4>
+
+  <p>Self-signed warns every visitor, every time. For anything with an audience
+  you want a real certificate, and <code>--tls-domain</code> installs Caddy in
+  front and gets one from Let's Encrypt:</p>
+
+<pre><code>sudo ./install.sh native lite \
+  --tls-domain desk.example.com --tls-email you@example.com</code></pre>
+
+  <p>Renewal is the reason, more than the certificate. Let's Encrypt issues for
+  90 days and renews at 60, and this server reads its certificate once when it
+  starts — so doing this by hand means copying files and restarting every two
+  months, forever, with a script that fails quietly leaving an expired site.
+  Caddy renews and reloads on its own.</p>
+
+  <div class="note warn">
+    <b>It needs a name, not an IP</b>
+    <p>Let's Encrypt validates a <em>name</em>: no challenge can prove you
+    control a bare address, so <code>--tls-domain 203.0.113.45</code> is refused
+    outright rather than failing later. If you have no domain, a wildcard DNS
+    service gives you one that points at your address for nothing —
+    <code>203-0-113-45.sslip.io</code> — and Let's Encrypt certifies that
+    happily. Ports <b>80 and 443</b> have to reach the machine, or validation
+    cannot complete: <code>journalctl -u caddy -f</code> says so if it does
+    not.</p>
+  </div>
+
+  <p>With Caddy in front the desktop stops serving TLS itself and binds to the
+  loopback only, so port 8080 is no longer reachable from outside — a proxy the
+  traffic can walk around is decoration. That is <code>HTTP_ADDR</code>, and the
+  installer sets it. WebRTC media is untouched: it travels over its own UDP
+  range, direct, not through the proxy.</p>
+
   <h4 id="install-machine-update">Updating is the same command</h4>
 
   <p>Run the installer again. It downloads the current release over the old one,
@@ -426,6 +459,7 @@ make down</code></pre>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>How many people may share one desktop</td></tr>
     <tr><td><code>FILES_ROOT</code></td><td>/home/sentineldesk</td><td>What the file manager may reach</td></tr>
     <tr><td><code>HTTP_PORT</code></td><td>8080</td><td>Port for the web client and signalling</td></tr>
+    <tr><td><code>HTTP_ADDR</code></td><td>—</td><td>Which interface to listen on. Empty means all of them. Set it to <code>127.0.0.1</code> when something else terminates TLS in front, or the backend keeps answering in the clear beside the proxy</td></tr>
   </table>
 
   <h3 id="config-network">Network and ICE</h3>

@@ -348,6 +348,39 @@ sudo ./install.sh docker full    # la imagen grande</code></pre>
   Viven en <code>/etc/sentineldesk/env</code> si es nativa y en
   <code>/opt/sentineldesk/.env</code> si es Docker.</p>
 
+  <h4 id="install-machine-cert">Un certificado que nadie tenga que saltear</h4>
+
+  <p>El autofirmado advierte a cada visitante, siempre. Para algo con público
+  querés un certificado de verdad, y <code>--tls-domain</code> instala Caddy
+  adelante y consigue uno de Let's Encrypt:</p>
+
+<pre><code>sudo ./install.sh native lite \
+  --tls-domain desk.ejemplo.com --tls-email vos@ejemplo.com</code></pre>
+
+  <p>La renovación es la razón, más que el certificado. Let's Encrypt emite por
+  90 días y renueva a los 60, y este servidor lee su certificado una sola vez al
+  arrancar — así que hacerlo a mano son copias y reinicios cada dos meses, para
+  siempre, con un script que falla en silencio y te deja el sitio vencido. Caddy
+  renueva y recarga solo.</p>
+
+  <div class="note warn">
+    <b>Necesita un nombre, no una IP</b>
+    <p>Let's Encrypt valida un <em>nombre</em>: ningún desafío puede probar que
+    controlás una dirección pelada, así que
+    <code>--tls-domain 203.0.113.45</code> se rechaza de entrada en vez de
+    fallar después. Si no tenés dominio, un servicio de DNS comodín te da uno
+    que apunta a tu dirección sin costo — <code>203-0-113-45.sslip.io</code> — y
+    Let's Encrypt lo certifica sin problema. Los puertos <b>80 y 443</b> tienen
+    que llegar a la máquina, o la validación no puede completarse:
+    <code>journalctl -u caddy -f</code> te lo dice si no llegan.</p>
+  </div>
+
+  <p>Con Caddy adelante el escritorio deja de servir TLS por su cuenta y escucha
+  solo en loopback, así que el puerto 8080 ya no es alcanzable desde afuera — un
+  proxy que el tráfico puede esquivar es decoración. Eso es
+  <code>HTTP_ADDR</code>, y lo pone el instalador. El medio de WebRTC no se toca:
+  viaja por su propio rango UDP, directo, sin pasar por el proxy.</p>
+
   <h4 id="install-machine-update">Actualizar es el mismo comando</h4>
 
   <p>Volvé a correr el instalador. Descarga la release actual encima de la vieja,
@@ -436,6 +469,7 @@ make down</code></pre>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>Cuántas personas pueden compartir un escritorio</td></tr>
     <tr><td><code>FILES_ROOT</code></td><td>/home/sentineldesk</td><td>Hasta dónde llega el administrador de archivos</td></tr>
     <tr><td><code>HTTP_PORT</code></td><td>8080</td><td>Puerto del cliente web y la señalización</td></tr>
+    <tr><td><code>HTTP_ADDR</code></td><td>—</td><td>En qué interfaz escuchar. Vacío significa todas. Ponelo en <code>127.0.0.1</code> cuando algo más termina el TLS adelante, o el backend sigue respondiendo en claro al lado del proxy</td></tr>
   </table>
 
   <h3 id="config-network">Red e ICE</h3>

@@ -349,6 +349,39 @@ sudo ./install.sh docker full    # a imagem maior</code></pre>
   em <code>/etc/sentineldesk/env</code> numa instalação nativa e em
   <code>/opt/sentineldesk/.env</code> numa Docker.</p>
 
+  <h4 id="install-machine-cert">Um certificado que ninguém precise ignorar</h4>
+
+  <p>O autoassinado avisa cada visitante, sempre. Para algo com público você quer
+  um certificado de verdade, e <code>--tls-domain</code> instala o Caddy na
+  frente e obtém um do Let's Encrypt:</p>
+
+<pre><code>sudo ./install.sh native lite \
+  --tls-domain desk.exemplo.com --tls-email voce@exemplo.com</code></pre>
+
+  <p>A renovação é a razão, mais que o certificado. O Let's Encrypt emite por 90
+  dias e renova aos 60, e este servidor lê o certificado uma única vez ao
+  iniciar — então fazer isso à mão são cópias e reinícios a cada dois meses, para
+  sempre, com um script que falha em silêncio e deixa o site vencido. O Caddy
+  renova e recarrega sozinho.</p>
+
+  <div class="note warn">
+    <b>Precisa de um nome, não de um IP</b>
+    <p>O Let's Encrypt valida um <em>nome</em>: nenhum desafio prova que você
+    controla um endereço puro, então
+    <code>--tls-domain 203.0.113.45</code> é recusado de imediato em vez de
+    falhar depois. Sem domínio, um serviço de DNS curinga lhe dá um que aponta
+    para o seu endereço de graça — <code>203-0-113-45.sslip.io</code> — e o
+    Let's Encrypt o certifica sem problema. As portas <b>80 e 443</b> precisam
+    alcançar a máquina, ou a validação não se completa:
+    <code>journalctl -u caddy -f</code> avisa quando não alcançam.</p>
+  </div>
+
+  <p>Com o Caddy na frente a área de trabalho deixa de servir TLS por conta
+  própria e escuta apenas no loopback, então a porta 8080 não é mais alcançável
+  de fora — um proxy que o tráfego pode contornar é decoração. Isso é o
+  <code>HTTP_ADDR</code>, e o instalador o define. A mídia do WebRTC não é
+  afetada: viaja pela sua própria faixa UDP, direto, sem passar pelo proxy.</p>
+
   <h4 id="install-machine-update">Atualizar é o mesmo comando</h4>
 
   <p>Rode o instalador de novo. Ele baixa a release atual por cima da antiga,
@@ -435,6 +468,7 @@ make down</code></pre>
     <tr><td><code>MAX_VIEWERS</code></td><td>4</td><td>Quantas pessoas podem compartilhar uma área de trabalho</td></tr>
     <tr><td><code>FILES_ROOT</code></td><td>/home/sentineldesk</td><td>Até onde o gerenciador de arquivos alcança</td></tr>
     <tr><td><code>HTTP_PORT</code></td><td>8080</td><td>Porta do cliente web e da sinalização</td></tr>
+    <tr><td><code>HTTP_ADDR</code></td><td>—</td><td>Em qual interface escutar. Vazio significa todas. Defina <code>127.0.0.1</code> quando outra coisa termina o TLS na frente, ou o backend continua respondendo em claro ao lado do proxy</td></tr>
   </table>
 
   <h3 id="config-network">Rede e ICE</h3>
