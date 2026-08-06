@@ -87,8 +87,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     filezilla \
     # Two-way clipboard (browser <-> desktop)
     xclip \
-    # OCR for the read_screen_text / find_text tools
-    tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa \
+    # OCR for the read_screen_text / find_text tools, in the three languages the
+    # interface itself ships. A language pack does not make OCR good at reading a
+    # desktop — that is a different problem, and read_screen_text says so — but
+    # without one an error dialog in Portuguese comes back as noise.
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-spa tesseract-ocr-por \
     # gdk-pixbuf SVG loader. Without it GTK cannot use SVG icon themes (Papirus).
     librsvg2-common \
     # System D-Bus. Chromium's CEF uses it to detect the network: without it

@@ -542,6 +542,25 @@ func (s *Server) wmctrlGeom(id string, x, y, w, h int, verb string) ([]map[strin
 }
 
 func (s *Server) toolActiveWindow() ([]map[string]any, bool) {
+	// One property read where this used to be three xdotool processes, and the
+	// geometry comes back as numbers rather than as the paragraph xdotool
+	// prints.
+	if e, err := s.windows(); err == nil {
+		info, ok, err := e.ActiveWindow()
+		if err == nil {
+			if !ok {
+				// Nothing focused is an answer. It used to be reported as an
+				// error, which left a caller unable to tell "the desktop is
+				// idle" from "the query broke".
+				return jsonContent(map[string]any{
+					"active": nil,
+					"note":   "no window currently has focus",
+				}), false
+			}
+			return jsonContent(info), false
+		}
+	}
+
 	id, err := s.output("xdotool", "getactivewindow")
 	if err != nil {
 		return textContent("no active window: %v", err), true
@@ -587,6 +606,14 @@ func (s *Server) toolWaitForWindow(ctx context.Context, match string, timeoutMs 
 }
 
 func (s *Server) toolListDesktops() ([]map[string]any, bool) {
+	// _NET_DESKTOP_NAMES rather than the column arithmetic below, which assumed
+	// the name began at field 8 and lost a desktop called "Build 2 of 3".
+	if e, err := s.windows(); err == nil {
+		if list, err := e.Desktops(); err == nil {
+			return jsonContent(list), false
+		}
+	}
+
 	out, err := s.output("wmctrl", "-d")
 	if err != nil {
 		return textContent("list_desktops failed: %v", err), true

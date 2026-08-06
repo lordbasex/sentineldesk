@@ -553,3 +553,252 @@ review(
     "fullscreen_window should have done. It could replace maximize, restore and "
     "fullscreen outright, leaving one tool where there are four.",
 )
+
+# --- the accessibility tree ---------------------------------------------------
+
+review(
+    "ui_tree",
+    "Read the desktop through AT-SPI as roles, names, states and coordinates — "
+    "structure rather than pixels — filtered to the actionable parts.",
+    4,
+    "The right instrument, and the reason read_screen_text scores a two. What "
+    "keeps it off five is the cost: every ui_* call spawns python3 and imports "
+    "pyatspi, which is a few hundred milliseconds of process before any work "
+    "happens. a11y.py should be a small daemon holding one AT-SPI connection, "
+    "the way the MCP socket already is.",
+)
+review(
+    "ui_find",
+    "Searched by role, name or text and returned each match with its ref, its "
+    "actions, its states and screen coordinates.",
+    4,
+    "Returning coordinates alongside the ref is what lets a caller fall back to "
+    "a click when an action is missing, and that is good design. It should also "
+    "say which AT-SPI interfaces each element implements: this sweep found "
+    "Chromium reporting an entry as `editable` while implementing no "
+    "EditableText, so ui_set_text failed on something that looked writable. "
+    "That is knowable before the call, and only this tool can say it.",
+)
+review(
+    "ui_get_text",
+    "Read one element's text by ref, straight from the accessibility interface.",
+    4,
+    "Exact where OCR is probable, and cheap where a screenshot is not. Same "
+    "per-call Python cost as the rest of the family.",
+)
+review(
+    "ui_click",
+    "Invoked an element's own action by ref. The pointer never moves, so it "
+    "cannot miss, and a partly covered window does not matter.",
+    4,
+    "This is the best approach to clicking in the catalogue — mouse_click at "
+    "coordinates is a guess by comparison, and this is why. Only the per-call "
+    "subprocess separates it from five. It could also report which action it "
+    "invoked when an element has several, since 'the first one' is a decision "
+    "the caller cannot currently see.",
+)
+review(
+    "ui_set_text",
+    "Wrote text into a field by ref through AT-SPI, without depending on which "
+    "window has focus.",
+    4,
+    "The right interface, and better than typing when it works. What it cannot "
+    "do is tell you in advance that it will not: Chromium exposes its entries "
+    "as editable and implements no EditableText, so this refuses correctly and "
+    "the caller only finds out by trying. Publishing the interface list in "
+    "ui_find fixes it there rather than here. Inside a page, browser_type is "
+    "the answer.",
+)
+review(
+    "ui_focus",
+    "Gave keyboard focus to an element by ref.",
+    4,
+    "The right pairing for type_text — focus by structure, then type — and it "
+    "avoids the click-to-focus dance that moves the pointer somewhere the user "
+    "did not expect. Same subprocess cost.",
+)
+review(
+    "ui_wait_for",
+    "Polled the tree until an element matching role, name or text appeared, with "
+    "a deadline.",
+    3,
+    "AT-SPI emits events for exactly this — object:children-changed, "
+    "object:state-changed — and polling means both a delay before noticing and a "
+    "Python process per poll. A bridge holding one connection could block on the "
+    "event and answer the instant it fires.",
+)
+review(
+    "ui_diff",
+    "Returned only what changed in the tree since the last call, keeping the "
+    "previous snapshot server-side.",
+    5,
+    "The best answer in the catalogue to the problem that actually limits an "
+    "agent: context. A full ui_tree after every action is most of a model's "
+    "budget spent re-reading what it already knew. Keeping the snapshot on this "
+    "side is what makes it possible. Nothing to change.",
+)
+
+# --- terminal -----------------------------------------------------------------
+
+review(
+    "terminal_open",
+    "Opened a terminal emulator on the desktop, visible to anyone watching, "
+    "with a shell that reports its exit status.",
+    4,
+    "The point is not that an agent needs a terminal — run_command exists — but "
+    "that a person watching can see what it is doing. That is a product "
+    "decision worth the cost. It cannot reuse a terminal a person opened "
+    "themselves, so an agent and a person end up with two.",
+)
+review(
+    "terminal_run",
+    "Typed a command into the terminal with xdotool, waited for the prompt to "
+    "come back, and reported the exit status — counting the terminals first so "
+    "that a command which closes the shell is not waited out to its timeout.",
+    3,
+    "The care in it is real: xdotool rather than raw XTEST because it remaps "
+    "keycodes for the characters command lines are full of, and the "
+    "terminal-count check exists because a positional ref silently starts "
+    "resolving to another window. But it is still typing into a screen and "
+    "reading a prompt back. Echoing a sentinel with the exit code and waiting "
+    "for that exact string would remove the prompt heuristic entirely.",
+)
+review(
+    "terminal_read",
+    "Read the terminal's visible text back through the accessibility tree.",
+    4,
+    "Reading the emulator's own text rather than OCR of its pixels is the right "
+    "choice and the reason this is usable at all. It sees only what is on "
+    "screen, so output that scrolled past is gone — which is the difference "
+    "between this and shell_read.",
+)
+
+# --- browser ------------------------------------------------------------------
+
+review(
+    "browser_open",
+    "Started Chromium with the debugging port and polled until CDP answered, up "
+    "to forty seconds.",
+    3,
+    "Waiting for the port rather than assuming is right. Forty seconds of "
+    "polling is not: the browser writes its DevTools endpoint to a file when it "
+    "is ready, and watching for that would turn a poll into an answer. It also "
+    "cannot reuse a Chromium a person opened without the flag.",
+)
+review(
+    "browser_tabs",
+    "Listed the open targets over CDP's HTTP endpoint.",
+    4,
+    "The authoritative source — this is what the browser says about itself. It "
+    "opens a fresh HTTP client per call, which is cheap here but part of a "
+    "pattern the family shares.",
+)
+review(
+    "browser_goto",
+    "Navigated by setting location.href through CDP.",
+    3,
+    "Setting location.href is the blunt version: Page.navigate is the protocol's "
+    "own command, distinguishes a failed load from a successful one, and "
+    "returns a frame id to wait on. This returns as soon as the assignment is "
+    "made, so 'navigated' means 'asked to', not 'arrived'.",
+)
+review(
+    "browser_eval",
+    "Evaluated JavaScript against the live DOM over CDP.",
+    5,
+    "The most authoritative tool in the browser family: it asks the page "
+    "itself rather than anything's picture of it. Correctly classified as "
+    "dangerous, since it is arbitrary code in whatever origin is loaded. A "
+    "fresh WebSocket per call is the family's shared cost, not a flaw in this "
+    "one.",
+)
+review(
+    "browser_click",
+    "Clicked an element by CSS selector through the DOM.",
+    4,
+    "Addressing by selector cannot miss the way coordinates can, which is the "
+    "same reasoning that makes ui_click better than mouse_click. It dispatches "
+    "the click in JavaScript rather than through Input.dispatchMouseEvent, so a "
+    "page that distinguishes a trusted event from a synthetic one — payment "
+    "flows, some anti-automation checks — will not accept it.",
+)
+review(
+    "browser_type",
+    "Typed into a field by selector.",
+    4,
+    "This is what ui_set_text cannot do inside a page, and the two together "
+    "cover the whole desktop. Same trusted-event caveat as browser_click: "
+    "setting a value in JavaScript does not always fire the events a framework "
+    "listens for.",
+)
+review(
+    "browser_text",
+    "Read the page's visible text through the DOM.",
+    5,
+    "Exact where OCR of a browser window is guesswork, and it respects what is "
+    "actually rendered rather than what is in the markup. Nothing to change at "
+    "this level.",
+)
+review(
+    "browser_wait_for",
+    "Polled for a CSS selector to exist, with a deadline, stopping when the "
+    "call is cancelled.",
+    3,
+    "Polling with a 300ms tick where the platform has MutationObserver and CDP "
+    "has DOM events. The same criticism as ui_wait_for and wait_for_window, and "
+    "the same fix: wait on the event, not on the clock.",
+)
+
+# --- files --------------------------------------------------------------------
+
+review(
+    "read_file",
+    "Read a file with os.ReadFile, or through cat under sudo when as_root is "
+    "asked for, since the daemon itself runs unprivileged.",
+    5,
+    "The split is exactly right: the ordinary path is a direct read with no "
+    "process, and privilege is an explicit request rather than something the "
+    "daemon holds. max_bytes stops a caller filling its own context with a log "
+    "file. Nothing to improve.",
+)
+review(
+    "write_file",
+    "Wrote a file directly, or through a privileged helper for as_root, with "
+    "append and mode as options.",
+    5,
+    "Same shape as read_file and the same reasoning. Correctly classified as "
+    "dangerous. The one thing it cannot do is write atomically — a partial "
+    "write is visible to anything watching the file — which matters for "
+    "configuration a service is reading.",
+)
+review(
+    "list_directory",
+    "Listed a directory with names, sizes, types and modification times.",
+    5,
+    "Direct, and it returns the fields a caller would otherwise need a second "
+    "call for. Nothing to change.",
+)
+
+# --- macro actions ------------------------------------------------------------
+
+review(
+    "open_app_and_wait",
+    "Launched a program, waited for its window to appear, focused it and waited "
+    "for the paint to settle — the four calls an agent would otherwise make, as "
+    "one.",
+    4,
+    "This exists because launch_app cannot say whether the program started, and "
+    "compressing four round trips into one is worth real context. It inherits "
+    "wait_for_window's polling, so fixing that fixes this.",
+)
+review(
+    "fill_form",
+    "Filled several fields by accessible name and optionally pressed a button, "
+    "reporting per-field success.",
+    4,
+    "Reporting each field separately rather than one pass/fail is the right "
+    "choice — a form where three of four fields took is a different problem "
+    "from one that did nothing. It writes through the same AT-SPI interface as "
+    "ui_set_text and inherits its limitation: on Chromium it cannot, and cannot "
+    "say so in advance.",
+)

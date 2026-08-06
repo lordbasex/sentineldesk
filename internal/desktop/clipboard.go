@@ -15,8 +15,11 @@ package desktop
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Clipboard reads and writes the X CLIPBOARD selection through xclip.
@@ -45,8 +48,35 @@ func (c *Clipboard) Get() (string, bool) {
 }
 
 // Set puts text on the CLIPBOARD selection.
-func (c *Clipboard) Set(text string) {
+//
+// It returns an error because it can fail — xclip missing, the display gone —
+// and this used to discard it. A write that silently did nothing was reported
+// as a success, so the agent went on to paste something that was never there.
+// Of the two ways to be wrong about a clipboard, that is the one that wastes
+// somebody's afternoon.
+func (c *Clipboard) Set(text string) error {
 	cmd := exec.Command("xclip", "-selection", "clipboard", "-i", "-display", c.display)
 	cmd.Stdin = strings.NewReader(text)
-	_ = cmd.Run()
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	// WaitDelay, because capturing stderr into a buffer makes Go create a pipe,
+	// and xclip daemonises to own the selection: the surviving child inherits
+	// that pipe and never closes it, so Run would wait for an EOF that is not
+	// coming. The first version of this fix hung for sixty seconds and the tool
+	// sweep caught it on the next run. tools.go already carried a comment
+	// naming xclip as the example — it was right, and it was two files away.
+	cmd.WaitDelay = 2 * time.Second
+
+	// ErrWaitDelay means the command itself finished fine and only the inherited
+	// pipe was still open — which for xclip is not a failure but the whole
+	// point, since the surviving child is what owns the selection. Treating it
+	// as an error made this report a failure for a write that had worked, which
+	// is the same dishonesty as before pointing the other way.
+	if err := cmd.Run(); err != nil && !errors.Is(err, exec.ErrWaitDelay) {
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return fmt.Errorf("xclip: %s", msg)
+		}
+		return fmt.Errorf("xclip: %w", err)
+	}
+	return nil
 }

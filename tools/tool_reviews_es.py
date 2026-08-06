@@ -495,3 +495,231 @@ review(
     "fullscreen_window debería haber hecho. Podría reemplazar de plano a "
     "maximize, restore y fullscreen, dejando una herramienta donde hay cuatro.",
 )
+
+# --- el árbol de accesibilidad ------------------------------------------------
+
+review(
+    "ui_tree",
+    "Leyó el escritorio por AT-SPI como roles, nombres, estados y coordenadas — "
+    "estructura en vez de píxeles — filtrado a la parte accionable.",
+    "El instrumento correcto, y el motivo por el que read_screen_text saca un "
+    "dos. Lo que la deja lejos del cinco es el costo: cada llamada ui_* levanta "
+    "python3 e importa pyatspi, o sea unos cientos de milisegundos de proceso "
+    "antes de que empiece el trabajo. a11y.py debería ser un demonio chico "
+    "sosteniendo una sola conexión AT-SPI, como ya lo es el socket MCP.",
+)
+review(
+    "ui_find",
+    "Buscó por rol, nombre o texto y devolvió cada coincidencia con su ref, sus "
+    "acciones, sus estados y coordenadas de pantalla.",
+    "Devolver coordenadas junto al ref es lo que permite caer a un clic cuando "
+    "falta una acción, y eso es buen diseño. También debería decir qué "
+    "interfaces AT-SPI implementa cada elemento: este barrido encontró a "
+    "Chromium reportando un campo como `editable` sin implementar EditableText, "
+    "así que ui_set_text falló sobre algo que parecía escribible. Eso se puede "
+    "saber antes de llamar, y sólo esta herramienta puede decirlo.",
+)
+review(
+    "ui_get_text",
+    "Leyó el texto de un elemento por ref, directo de la interfaz de "
+    "accesibilidad.",
+    "Exacto donde el OCR es probable, y barato donde una captura no lo es. "
+    "Mismo costo de Python por llamada que el resto de la familia.",
+)
+review(
+    "ui_click",
+    "Invocó la acción propia de un elemento por ref. El puntero no se mueve, así "
+    "que no puede errarle, y no importa si la ventana está parcialmente tapada.",
+    "Este es el mejor enfoque para hacer clic que hay en el catálogo — "
+    "mouse_click sobre coordenadas es una adivinanza al lado — y por eso mismo. "
+    "Sólo el subproceso por llamada lo separa del cinco. También podría reportar "
+    "qué acción invocó cuando un elemento tiene varias, porque 'la primera' es "
+    "una decisión que hoy quien llama no puede ver.",
+)
+review(
+    "ui_set_text",
+    "Escribió texto en un campo por ref a través de AT-SPI, sin depender de qué "
+    "ventana tiene el foco.",
+    "La interfaz correcta, y mejor que tipear cuando funciona. Lo que no puede "
+    "hacer es avisarte de antemano que no va a funcionar: Chromium expone sus "
+    "campos como editables y no implementa EditableText, así que esta rechaza "
+    "correctamente y quien llama se entera recién al intentar. Publicar la lista "
+    "de interfaces en ui_find lo arregla allá y no acá. Dentro de una página, la "
+    "respuesta es browser_type.",
+)
+review(
+    "ui_focus",
+    "Le dio el foco del teclado a un elemento por ref.",
+    "El complemento correcto de type_text — enfocar por estructura y después "
+    "escribir — y evita el baile de clickear para enfocar que mueve el puntero a "
+    "un lugar que el usuario no esperaba. Mismo costo de subproceso.",
+)
+review(
+    "ui_wait_for",
+    "Hizo polling del árbol hasta que apareciera un elemento que coincidiera con "
+    "rol, nombre o texto, con deadline.",
+    "AT-SPI emite eventos justo para esto — object:children-changed, "
+    "object:state-changed — y hacer polling significa a la vez una demora en "
+    "notar y un proceso de Python por vuelta. Un puente sosteniendo una conexión "
+    "podría bloquearse en el evento y contestar en el instante en que ocurre.",
+)
+review(
+    "ui_diff",
+    "Devolvió sólo lo que cambió en el árbol desde la última llamada, guardando "
+    "la instantánea previa del lado del servidor.",
+    "La mejor respuesta del catálogo al problema que realmente limita a un "
+    "agente: el contexto. Un ui_tree completo después de cada acción es la mayor "
+    "parte del presupuesto de un modelo gastada en releer lo que ya sabía. "
+    "Guardar la instantánea de este lado es lo que lo hace posible. Nada que "
+    "cambiar.",
+)
+
+# --- terminal -----------------------------------------------------------------
+
+review(
+    "terminal_open",
+    "Abrió un emulador de terminal en el escritorio, visible para quien esté "
+    "mirando, con una shell que reporta su código de salida.",
+    "El punto no es que un agente necesite una terminal — para eso está "
+    "run_command — sino que una persona mirando pueda ver qué está haciendo. Esa "
+    "es una decisión de producto que vale el costo. No puede reutilizar una "
+    "terminal que abrió una persona, así que agente y persona terminan con dos.",
+)
+review(
+    "terminal_run",
+    "Tipeó un comando en la terminal con xdotool, esperó a que volviera el "
+    "prompt y reportó el código de salida — contando las terminales primero para "
+    "que un comando que cierra la shell no se espere hasta el timeout.",
+    "El cuidado que tiene es real: xdotool en vez de XTEST crudo porque remapea "
+    "keycodes para los caracteres de los que están llenas las líneas de comando, "
+    "y el chequeo de cantidad de terminales existe porque un ref posicional "
+    "empieza a resolver a otra ventana en silencio. Pero sigue siendo tipear en "
+    "una pantalla y leer un prompt de vuelta. Hacer eco de un centinela con el "
+    "código de salida y esperar ese string exacto sacaría la heurística del "
+    "prompt por completo.",
+)
+review(
+    "terminal_read",
+    "Leyó el texto visible de la terminal por el árbol de accesibilidad.",
+    "Leer el texto propio del emulador en vez de hacer OCR de sus píxeles es la "
+    "elección correcta y el motivo por el que esto es usable. Ve sólo lo que "
+    "está en pantalla, así que la salida que scrolleó ya no está — que es la "
+    "diferencia entre esta y shell_read.",
+)
+
+# --- navegador ----------------------------------------------------------------
+
+review(
+    "browser_open",
+    "Arrancó Chromium con el puerto de depuración e hizo polling hasta que CDP "
+    "contestara, hasta cuarenta segundos.",
+    "Esperar al puerto en vez de asumir es lo correcto. Cuarenta segundos de "
+    "polling no: el navegador escribe su endpoint de DevTools en un archivo "
+    "cuando está listo, y vigilar eso convertiría el sondeo en una respuesta. "
+    "Tampoco puede reutilizar un Chromium que una persona abrió sin la bandera.",
+)
+review(
+    "browser_tabs",
+    "Listó los targets abiertos por el endpoint HTTP de CDP.",
+    "La fuente autoritativa — esto es lo que el navegador dice de sí mismo. Abre "
+    "un cliente HTTP nuevo por llamada, que acá es barato pero es parte de un "
+    "patrón que comparte toda la familia.",
+)
+review(
+    "browser_goto",
+    "Navegó asignando location.href por CDP.",
+    "Asignar location.href es la versión burda: Page.navigate es el comando "
+    "propio del protocolo, distingue una carga fallida de una exitosa, y "
+    "devuelve un frame id para esperar. Esta vuelve apenas se hizo la "
+    "asignación, así que 'navegó' significa 'lo pidió', no 'llegó'.",
+)
+review(
+    "browser_eval",
+    "Evaluó JavaScript contra el DOM vivo por CDP.",
+    "La herramienta más autoritativa de la familia del navegador: le pregunta a "
+    "la página misma en vez de a la foto que alguien tenga de ella. Bien "
+    "clasificada como peligrosa, porque es código arbitrario en el origen que "
+    "esté cargado. Un WebSocket nuevo por llamada es el costo compartido de la "
+    "familia, no un defecto de esta.",
+)
+review(
+    "browser_click",
+    "Hizo clic en un elemento por selector CSS a través del DOM.",
+    "Direccionar por selector no puede errarle como sí pueden las coordenadas, "
+    "que es el mismo razonamiento que hace a ui_click mejor que mouse_click. "
+    "Despacha el clic en JavaScript en vez de por Input.dispatchMouseEvent, así "
+    "que una página que distingue un evento confiable de uno sintético — flujos "
+    "de pago, algunos chequeos anti-automatización — no lo va a aceptar.",
+)
+review(
+    "browser_type",
+    "Escribió en un campo por selector.",
+    "Esto es lo que ui_set_text no puede hacer dentro de una página, y las dos "
+    "juntas cubren el escritorio entero. Misma salvedad de evento confiable que "
+    "browser_click: fijar un valor por JavaScript no siempre dispara los eventos "
+    "que escucha un framework.",
+)
+review(
+    "browser_text",
+    "Leyó el texto visible de la página a través del DOM.",
+    "Exacto donde hacer OCR de una ventana de navegador es adivinar, y respeta "
+    "lo que efectivamente se renderizó y no lo que dice el markup. Nada que "
+    "cambiar a este nivel.",
+)
+review(
+    "browser_wait_for",
+    "Hizo polling esperando que existiera un selector CSS, con deadline, "
+    "cortando cuando se cancela la llamada.",
+    "Polling con un tick de 300ms donde la plataforma tiene MutationObserver y "
+    "CDP tiene eventos de DOM. La misma crítica que ui_wait_for y "
+    "wait_for_window, y el mismo arreglo: esperar el evento, no el reloj.",
+)
+
+# --- archivos -----------------------------------------------------------------
+
+review(
+    "read_file",
+    "Leyó un archivo con os.ReadFile, o por cat bajo sudo cuando se pide "
+    "as_root, dado que el daemon corre sin privilegios.",
+    "La división es exactamente la correcta: el camino común es una lectura "
+    "directa sin proceso, y el privilegio es un pedido explícito en vez de algo "
+    "que el daemon sostiene. max_bytes evita que quien llama se llene su propio "
+    "contexto con un archivo de log. Nada que mejorar.",
+)
+review(
+    "write_file",
+    "Escribió un archivo directo, o por un ayudante privilegiado para as_root, "
+    "con append y modo como opciones.",
+    "La misma forma que read_file y el mismo razonamiento. Bien clasificada como "
+    "peligrosa. Lo único que no puede hacer es escribir de forma atómica — una "
+    "escritura parcial es visible para cualquiera que esté mirando el archivo — "
+    "lo que importa para configuración que un servicio está leyendo.",
+)
+review(
+    "list_directory",
+    "Listó un directorio con nombres, tamaños, tipos y fechas de modificación.",
+    "Directa, y devuelve los campos por los que si no habría que hacer una "
+    "segunda llamada. Nada que cambiar.",
+)
+
+# --- acciones compuestas ------------------------------------------------------
+
+review(
+    "open_app_and_wait",
+    "Lanzó un programa, esperó a que apareciera su ventana, la enfocó y esperó a "
+    "que se asentara el dibujado — las cuatro llamadas que un agente haría, en "
+    "una sola.",
+    "Existe porque launch_app no puede decir si el programa arrancó, y comprimir "
+    "cuatro round trips en uno vale contexto real. Hereda el polling de "
+    "wait_for_window, así que arreglar aquello arregla esto.",
+)
+review(
+    "fill_form",
+    "Completó varios campos por nombre accesible y opcionalmente apretó un "
+    "botón, reportando el éxito campo por campo.",
+    "Reportar cada campo por separado en vez de un solo pasa/no pasa es lo "
+    "correcto — un formulario donde tres de cuatro campos entraron es un "
+    "problema distinto de uno que no hizo nada. Escribe por la misma interfaz "
+    "AT-SPI que ui_set_text y hereda su limitación: en Chromium no puede, y "
+    "tampoco puede avisarlo de antemano.",
+)

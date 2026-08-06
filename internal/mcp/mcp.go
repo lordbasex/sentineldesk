@@ -430,6 +430,13 @@ type Server struct {
 	haltMu  sync.RWMutex
 	halted  map[uint64]string // connection id -> why it was halted
 
+	// The native window and desktop reader, opened the first time something
+	// asks rather than at startup: a Server built without a display — every
+	// test in this package — then never touches X at all.
+	ewmhOnce sync.Once
+	ewmh     *desktop.EWMH
+	ewmhErr  error
+
 	uiMu   sync.Mutex
 	uiLast map[string]uiNode // last snapshot of the tree, for ui_diff
 
@@ -464,6 +471,14 @@ func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *des
 	s.control = buildControlIndex(s.tools)
 	s.known = buildNameIndex(s.tools)
 	return s
+}
+
+// windows returns the EWMH reader, opening it on first use.
+func (s *Server) windows() (*desktop.EWMH, error) {
+	s.ewmhOnce.Do(func() {
+		s.ewmh, s.ewmhErr = desktop.NewEWMH(s.display)
+	})
+	return s.ewmh, s.ewmhErr
 }
 
 // SetDelivery wires up browser delivery. Without it, destination:download has

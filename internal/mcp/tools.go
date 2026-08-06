@@ -268,7 +268,9 @@ func (s *Server) dispatch(ctx context.Context, name string, rawArgs json.RawMess
 		text, _ := s.clip.Get()
 		return textContent("%s", text), false
 	case "set_clipboard":
-		s.clip.Set(argStr(args, "text"))
+		if err := s.clip.Set(argStr(args, "text")); err != nil {
+			return textContent("could not set the clipboard: %v", err), true
+		}
 		return textContent("clipboard set"), false
 	}
 	// Advanced tools: windows, processes, OCR, gamepad, files, streaming
@@ -507,6 +509,14 @@ func (s *Server) listWindows() []windowInfo {
 }
 
 func (s *Server) toolListWindows() ([]map[string]any, bool) {
+	// Straight from X. The wmctrl path below is kept as a fallback for a build
+	// where the display cannot be opened, on the same principle as everything
+	// else optional here: degrade, do not fail.
+	if e, err := s.windows(); err == nil {
+		if list, err := e.Windows(); err == nil {
+			return jsonContent(list), false
+		}
+	}
 	return jsonContent(s.listWindows()), false
 }
 

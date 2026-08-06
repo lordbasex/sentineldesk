@@ -671,7 +671,9 @@ func (s *Session) handleInput(ev inputEvent) {
 		// not immediately send it back to us as if it were new.
 		if s.clip != nil {
 			s.lastClip = ev.Clip
-			s.clip.Set(ev.Clip)
+			if err := s.clip.Set(ev.Clip); err != nil {
+				s.logf("clipboard: %v", err)
+			}
 		}
 	case "gp":
 		s.joystick.Apply(ev.GB, ev.GA)
