@@ -58,7 +58,19 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (114)
+## Available tools (115)
+
+Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
+to its definition. It is what the three `MCP_POLICY` levels are built on, and it
+is published in `tools/list` as the standard `readOnlyHint` and
+`destructiveHint` annotations, so a host that understands them can shape its own
+confirmation prompts without knowing anything about SentinelDesk.
+
+**🔎 Finding the right tool**
+
+| Tool | What it does |
+|---|---|
+| `tool_search` | Describe a task in plain words and get back the tools that do it, with their full input schemas — see [Finding tools without loading all of them](#finding-tools-without-loading-all-of-them) |
 
 **👁️ Seeing the screen**
 
@@ -256,6 +268,70 @@ and closed — no stray `ssh` processes are left behind.
 
 Full checklist and design notes: [mcp-tools-checklist.md](mcp-tools-checklist.md).
 
+## Finding tools without loading all of them
+
+A hundred and fifteen schemas is a real amount of a model's context, spent
+before it has read the request. `tool_search` is the way around it: describe the
+task and get back the handful of tools that do it.
+
+```json
+{"name": "tool_search", "arguments": {"query": "give someone remote access"}}
+```
+
+```json
+{
+  "matched": 6, "of": 115,
+  "tools": [
+    {"name": "ssh_connect",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
+    {"name": "ssh_copy_id",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
+    {"name": "ssh_list_remote", "category": "ssh", "risk": "read", "description": "…", "inputSchema": {…}}
+  ]
+}
+```
+
+The schema comes back with the hit, so the tool can be called straight away —
+there is no second round trip to fetch it. Pass `category` to list a whole
+theme, on its own or alongside a query:
+
+```json
+{"name": "tool_search", "arguments": {"category": "ssh"}}
+```
+
+The themes are `ssh`, `shell`, `terminal`, `browser`, `accessibility`,
+`windows`, `input`, `screen`, `files`, `processes`, `packages`, `snapshot`,
+`recording`, `restream`, `room`, `audio`, `clipboard`, `desktops`, `gamepad`,
+`system` and `general`.
+
+Results are filtered by the connection's policy before ranking: a `readonly`
+connection searching for "run a command" gets the read-only tools that match and
+not `run_command`, because turning up a tool the connection may never call is a
+worse answer than turning up none.
+
+### MCP_DISCOVERY — trimming what gets advertised
+
+Searching only saves context if something is not being listed in the first
+place. Most hosts already handle that themselves: Claude Code defers tool
+schemas and loads them on demand, and where it does, this is unnecessary. For
+hosts that do not:
+
+```
+MCP_DISCOVERY=1
+```
+
+`tools/list` then answers with a **core set of twelve** — `tool_search`,
+`screenshot`, `ui_tree`, `ui_find`, `ui_click`, `mouse_click`, `type_text`,
+`key_combo`, `list_windows`, `run_command`, `wait` and `room_state` — enough to
+look at the desktop, read its structure, click, type and run something.
+
+**Everything else stays callable by name.** Discovery narrows what is
+*advertised*, never what is *permitted*; the only thing that can refuse a call
+is the policy, and it is applied separately. A tool left out of the list is one
+the model has not been told about yet, not one it is forbidden to use — which is
+precisely what makes searching for it worth doing.
+
+It is **off by default**, deliberately. A host that defers tool loading does
+this better than the server can, because it can see the conversation.
+
 ## Trying it without Claude Code
 
 You can speak the protocol by hand over the socket:
@@ -323,6 +399,23 @@ MCP_POLICY=readonly   observation only: see the screen, read the tree, list thin
 MCP_DENY=run_command,ssh_*    additionally deny these (a * suffix matches by prefix)
 MCP_ALLOW=screenshot,ui_*     when set, ONLY these
 ```
+
+The three levels are decided by each tool's **risk level**, which is declared on
+the tool itself:
+
+| Risk | What it means | `readonly` | `safe` | `full` |
+|---|---|:-:|:-:|:-:|
+| `read` | Observes; changes nothing | ✅ | ✅ | ✅ |
+| `write` | Drives the desktop — input, windows, volume, the clipboard — but cannot reach the system underneath | ❌ | ✅ | ✅ |
+| `danger` | Runs code, touches the system, or moves data outward | ❌ | ❌ | ✅ |
+
+A name that is not in the catalogue is refused below `full` rather than waved
+through, and a tool defined without a risk level stops the daemon from starting.
+Both are deliberate: the classification used to live in two hand-kept maps in
+another file, and a tool missing from them was refused under `readonly` and
+allowed under `safe` with nothing to indicate either. `terminal_run`, which
+types a command line into a shell and presses Return, spent a while on the
+permitted side of `safe` for exactly that reason.
 
 And **each connection can restrict itself further**, never widen:
 

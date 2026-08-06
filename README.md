@@ -31,7 +31,7 @@ same session, the same room:
   costs bandwidth, not CPU.
 
 People drive it through a control layer in the browser. The agent drives it
-through a local Unix socket with **114 MCP tools**. Neither is a guest of the
+through a local Unix socket with **115 MCP tools**. Neither is a guest of the
 other.
 
 The backend is **a single Go binary** (Pion WebRTC + go-gst): GStreamer runs
@@ -48,7 +48,7 @@ track, and the encoder stays under full control at runtime.
 | Audio | PulseAudio null sink → `opusenc`; a remapped source so the browser's microphone appears as a real input device |
 | Transport | Pion WebRTC v4, GCC congestion control over TWCC, PLI keyframes, NACK, Opus in-band FEC |
 | Human control | WebSocket signalling + DataChannel, XTEST injection, XFixes cursors, XShape peer pointers, EWMH |
-| Agent control | MCP over a `0600` Unix socket, 114 tools |
+| Agent control | MCP over a `0600` Unix socket, 115 tools, each classified by risk |
 | Reading the screen | AT-SPI accessibility tree, Chrome DevTools Protocol — structure, not pixels |
 | Web UI | `go:embed`, served with content ETags |
 
@@ -167,7 +167,7 @@ where the host exposes `/dev/uinput`.
 ### Control plane 2 — the AI agent, over a local Unix socket
 
 The MCP server listens on `/run/user/1000/sentineldesk-mcp.sock`, mode `0600`,
-and exposes **114 tools**. (In the container that path is fixed; a native
+and exposes **115 tools**. (In the container that path is fixed; a native
 install puts the desktop's user on whatever uid is free, so the socket follows
 it — `grep MCP_SOCK /etc/sentineldesk/env`.) The AI host — Claude Code, Claude Desktop, or any
 other agent — spawns `sentineldesk -mcp-stdio` with `docker exec`; that
@@ -226,7 +226,7 @@ internal/config/      environment configuration
 internal/desktop/     X11: input injection, cursor, clipboard, joystick, pointers
 internal/media/       GStreamer: pipelines, encoders, recording, upstream audio
 internal/stream/      sessions, the shared room, auth, rate limiting, TLS, files
-internal/mcp/         the MCP server and its 114 tools
+internal/mcp/         the MCP server, its 115 tools and the risk registry
 internal/webui/       the browser client, embedded with go:embed
 deploy/               Dockerfile, compose files, desktop and supervisor config
 ```
@@ -485,6 +485,7 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `KEYBOARD_LAYOUT` | `us` | X layout: `us`, `es` (Spain), `latam`, `pt`, `fr`, `de`… |
 | `KEYBOARD_VARIANT` | — | Optional layout variant, passed through untouched |
 | `MCP_POLICY`, `MCP_DENY`, `MCP_ALLOW` | `full` | The MCP permission ceiling — see [docs/mcp.md](docs/mcp.md) |
+| `MCP_DISCOVERY` | `0` | Advertise only a core set in `tools/list` and let `tool_search` surface the rest. Off by default: a host that defers tool loading already does this better |
 | `HTTP_PORT` | `8080` | Port for the web client and signalling |
 | `HTTP_ADDR` | — | Interface to listen on; empty means all. `127.0.0.1` when something else terminates TLS in front |
 
@@ -704,10 +705,25 @@ Two details worth knowing:
 
 ## The MCP server
 
-An AI model can drive the desktop through **114 tools** over a local Unix socket:
+An AI model can drive the desktop through **115 tools** over a local Unix socket:
 see the screen, move the mouse, type, manage windows, run commands, administer
 the container. Three permission levels and two lists bound what it may do, and
 each connection can restrict itself further but never widen.
+
+Every tool declares a **risk level** — `read`, `write` or `danger` — next to its
+definition. That single declaration drives the permission levels and is
+published as the MCP standard `readOnlyHint` / `destructiveHint` annotations, so
+a host can shape its own confirmation prompts from it. A tool defined without
+one stops the daemon from starting, which is the point: the classification used
+to live in a separate table, and a tool missing from it was refused under
+`readonly` and allowed under `safe` with nothing to indicate either.
+
+A hundred and fifteen schemas is a real amount of a model's context, so
+`tool_search` finds the handful that matter — "give someone remote access"
+returns the `ssh_*` tools with their schemas attached, ready to call. Set
+`MCP_DISCOVERY=1` and `tools/list` advertises only a core set of twelve; every
+other tool stays callable by name, because discovery narrows what is
+*advertised*, never what is *permitted*.
 
 See [docs/mcp.md](docs/mcp.md) to connect it, and
 [docs/mcp-tools-checklist.md](docs/mcp-tools-checklist.md) for the full list.

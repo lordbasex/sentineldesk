@@ -43,7 +43,7 @@
   </ul>
 
   <p>Las personas lo manejan desde una capa de control en el navegador. El
-  agente lo maneja por un socket local con 114 herramientas MCP. Ninguno es
+  agente lo maneja por un socket local con 115 herramientas MCP. Ninguno es
   invitado del otro.</p>
 
   <div class="note">
@@ -79,7 +79,7 @@
       inyección XTEST, cursores XFixes, punteros de pares con XShape,
       EWMH</td></tr>
     <tr><td>Control del agente</td><td>MCP sobre un socket Unix
-      <code>0600</code>, 114 herramientas</td></tr>
+      <code>0600</code>, 115 herramientas</td></tr>
     <tr><td>Leer la pantalla</td><td>Árbol de accesibilidad AT-SPI, Chrome
       DevTools Protocol — estructura, no píxeles</td></tr>
     <tr><td>Interfaz web</td><td><code>go:embed</code>, servida con ETags sobre
@@ -110,9 +110,12 @@
   </ul>
 
   <h3 id="capabilities-agent">Un agente, por MCP</h3>
-  <p>114 herramientas, por familias:</p>
+  <p>115 herramientas, por familias:</p>
   <table>
     <tr><th>Familia</th><th>Qué cubre</th></tr>
+    <tr><td>Encontrar las demás</td><td>Describís una tarea y te devuelve las
+      herramientas que la hacen, con sus esquemas — así el agente no tiene que
+      tener las 115 en la cabeza a la vez</td></tr>
     <tr><td>Puntero y teclado</td><td>Mover, clic, arrastrar, rueda, escribir,
       combinaciones de teclas, y un joystick virtual</td></tr>
     <tr><td>Ventanas y escritorios</td><td>Listar, activar, mover, redimensionar,
@@ -1101,7 +1104,7 @@ lsof -nP -iUDP:5000</code></pre>
 <section id="ai-agent" data-track="use">
   <h2>El agente de IA</h2>
 
-  <p>SentinelDesk expone <b>114 herramientas</b> por un socket Unix local usando
+  <p>SentinelDesk expone <b>115 herramientas</b> por un socket Unix local usando
   el Model Context Protocol. Un host de IA — Claude Code, Claude Desktop, o
   cualquier cosa que hable MCP — se conecta a través de un puente delgado:</p>
 
@@ -1133,20 +1136,77 @@ lsof -nP -iUDP:5000</code></pre>
   para que el agente lea lo que hay en pantalla como estructura y no como
   píxeles — archivos, paquetes, SSH, y la sala misma.</p>
 
+  <h3 id="ai-agent-search">Encontrar la herramienta correcta</h3>
+  <p>Ciento quince descripciones de herramientas son una porción real de la
+  atención de un modelo, gastada antes de leer tu pedido.
+  <code>tool_search</code> es la salida: describís la tarea y te devuelve el
+  puñado de herramientas que la hacen, con sus esquemas de entrada incluidos
+  para poder llamarlas enseguida.</p>
+
+<pre><code>{"name": "tool_search", "arguments": {"query": "dar acceso remoto a alguien"}}</code></pre>
+
+  <p>Eso devuelve las herramientas <code>ssh_*</code>, ordenadas por relevancia,
+  cada una con su nivel de riesgo y su esquema. Para pedir un tema entero usá
+  <code>{"category": "ssh"}</code> — los temas son <code>ssh</code>,
+  <code>shell</code>, <code>terminal</code>, <code>browser</code>,
+  <code>accessibility</code>, <code>windows</code>, <code>input</code>,
+  <code>screen</code>, <code>files</code>, <code>processes</code>,
+  <code>packages</code>, <code>snapshot</code>, <code>recording</code>,
+  <code>restream</code>, <code>room</code>, <code>audio</code>,
+  <code>clipboard</code>, <code>desktops</code>, <code>gamepad</code>,
+  <code>system</code> y <code>general</code>.</p>
+
+  <p>Buscar sólo ahorra algo si hay algo que no se está listando, y la mayoría
+  de los hosts de IA ya lo resuelven por su cuenta — Claude Code difiere los
+  esquemas y los carga a demanda. Para los que no, poné
+  <code>MCP_DISCOVERY=1</code>: la lista de herramientas pasa a anunciar un
+  conjunto base de doce — suficiente para mirar el escritorio, leer su
+  estructura, hacer clic, escribir y ejecutar algo — y deja que
+  <code>tool_search</code> saque el resto a la luz.</p>
+
+  <p><b>Todas las demás siguen siendo llamables.</b> El descubrimiento acota lo
+  que se <i>anuncia</i>, nunca lo que se <i>permite</i>; de eso se encarga la
+  política, más abajo. Una herramienta que quedó fuera de la lista es una de la
+  que al agente todavía no le hablaron, no una que tenga prohibida.</p>
+
   <h3 id="ai-agent-policy">Limitar lo que puede hacer</h3>
+  <p>Cada herramienta declara qué puede hacerle a la máquina, y los niveles de
+  política se apoyan en esa única declaración:</p>
+  <table>
+    <tr><th>Riesgo</th><th>Qué significa</th><th>Ejemplo</th></tr>
+    <tr><td><code>read</code></td><td>Observa; no cambia nada</td>
+      <td><code>screenshot</code>, <code>ui_tree</code></td></tr>
+    <tr><td><code>write</code></td><td>Maneja el escritorio — entrada, ventanas,
+      volumen, portapapeles — pero no llega al sistema que hay debajo</td>
+      <td><code>mouse_click</code>, <code>type_text</code></td></tr>
+    <tr><td><code>danger</code></td><td>Ejecuta código, toca el sistema o saca
+      datos hacia afuera</td>
+      <td><code>run_command</code>, <code>ssh_exec</code></td></tr>
+  </table>
+
   <table>
     <tr><th>Variable</th><th>Efecto</th></tr>
     <tr><td><code>MCP_POLICY=full</code></td><td>Todo (por defecto)</td></tr>
-    <tr><td><code>MCP_POLICY=safe</code></td><td>Saca las herramientas que
-      ejecutan código o tocan el sistema</td></tr>
-    <tr><td><code>MCP_POLICY=readonly</code></td><td>Sólo las que observan</td></tr>
+    <tr><td><code>MCP_POLICY=safe</code></td><td>Saca las herramientas
+      <code>danger</code>: las que ejecutan código o tocan el sistema</td></tr>
+    <tr><td><code>MCP_POLICY=readonly</code></td><td>Sólo las
+      <code>read</code></td></tr>
     <tr><td><code>MCP_DENY</code> / <code>MCP_ALLOW</code></td><td>Patrones, para
       un control más fino</td></tr>
+    <tr><td><code>MCP_DISCOVERY=1</code></td><td>Anunciar sólo el conjunto base y
+      dejar que <code>tool_search</code> encuentre el resto. No es un permiso —
+      ver arriba</td></tr>
   </table>
 
   <p>Una conexión puede restringirse más a sí misma, pero nunca ampliarse — y
   eso es lo que hace seguro darle a un agente un extremo de sólo lectura sin
   cambiarle nada a nadie más.</p>
+
+  <p>Los niveles de riesgo también se publican como las anotaciones
+  <code>readOnlyHint</code> y <code>destructiveHint</code> del propio Model
+  Context Protocol, así que un host de IA que las entienda puede decidir por su
+  cuenta cuándo preguntarte antes de actuar — sin saber nada de
+  SentinelDesk.</p>
 </section>
 
 <section id="whats-installed" data-track="use">

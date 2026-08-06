@@ -1,17 +1,24 @@
-# Validación del servidor MCP — cierre de la v1
+# MCP server validation — closing out v1
 
-Ejecutado contra un escritorio real recién levantado (`make down` + `make up`),
-imagen `dfb7f40c5af8`, binario `v1.0.1 (dd25509)`, con el sandbox de Chromium activo.
+Run against a real desktop brought up from cold (`make down` + `make up`),
+image `dfb7f40c5af8`, binary `v1.0.1 (dd25509)`, with the Chromium sandbox on.
 
-Cada herramienta se llamó por el mismo camino que usa un agente: el puente
-`sentineldesk -mcp-stdio` sobre el socket Unix local, una petición por vez.
+Every tool was called by the same path an agent uses: the
+`sentineldesk -mcp-stdio` bridge over the local Unix socket, one request at a
+time.
 
-| # | Herramienta | Estado | Evidencia |
+This is a **record of one run**, not a live document. The evidence column holds
+what the tools actually returned that day, verbatim — including the few replies
+that were still in Spanish then and have since been translated in the source.
+The catalogue has moved on: `tool_search` and the risk classification came after
+this run and are not covered here. See [mcp.md](mcp.md) for the current state.
+
+| # | Tool | Status | Evidence |
 |---:|---|:--:|---|
 | 1 | `screenshot` | ✅ | { "path": "/tmp/val-shot.png", "size_bytes": 434369 } |
 | 2 | `mouse_move` | ✅ | moved to (960, 760) |
 | 3 | `mouse_click` | ✅ | clicked button 1 x1 |
-| 4 | `type_text` | ⏸️ | inyecta entrada: requiere que una persona conceda el control desde su barra |
+| 4 | `type_text` | ⏸️ | injects input: needs a person to grant control from their bar |
 | 5 | `key_combo` | ✅ | pressed Escape |
 | 6 | `launch_app` | ✅ | { "as_root": false, "command": "xterm -T VALIDACION -e sleep 600", "note": "still running after 700 ms. A window may tak |
 | 7 | `list_windows` | ✅ | [ { "id": "0x00c00006", "desktop": -1, "x": 0, "y": 0, "w": 1920, "h": 36, "class": "panel.lxpanel", "title": "panel" }, |
@@ -65,10 +72,10 @@ Cada herramienta se llamó por el mismo camino que usa un agente: el puente
 | 55 | `get_desktop_info` | ✅ | { "display": ":0", "encoder": "auto", "joystick": true, "memory_used": "2229/7833 MB", "recording": false, "resolution": |
 | 56 | `ui_tree` | ✅ | { "count": 11, "elements": [ { "name": "lxpanel", "ref": "0", "role": "application" }, { "center_x": 960, "center_y": 18 |
 | 57 | `ui_find` | ✅ | { "count": 0, "elements": [] } |
-| 58 | `ui_click` | ⏸️ | inyecta entrada: requiere que una persona conceda el control desde su barra |
-| 59 | `ui_set_text` | ⏸️ | inyecta entrada: requiere que una persona conceda el control desde su barra |
+| 58 | `ui_click` | ⏸️ | injects input: needs a person to grant control from their bar |
+| 59 | `ui_set_text` | ⏸️ | injects input: needs a person to grant control from their bar |
 | 60 | `ui_get_text` | ✅ | { "name": "Aceptar", "ref": "3/0/0/0/5/2/0/1/3/3", "role": "button", "text": "Aceptar" } |
-| 61 | `ui_focus` | ⏸️ | inyecta entrada: requiere que una persona conceda el control desde su barra |
+| 61 | `ui_focus` | ⏸️ | injects input: needs a person to grant control from their bar |
 | 62 | `ui_wait_for` | ✅ | { "elements": [ { "actions": [ "press", "showContextMenu" ], "center_x": 317, "center_y": 264, "height": 25, "name": "Ac |
 | 63 | `shell_open` | ✅ | { "id": "sh2", "shell": "/bin/bash", "user": "" } |
 | 64 | `shell_exec` | ✅ | { "completed": true, "output": "abierto" } |
@@ -100,7 +107,7 @@ Cada herramienta se llamó por el mismo camino que usa un agente: el puente
 | 90 | `set_resolution` | ✅ | { "applied": true, "resolution": "1600x900" } |
 | 91 | `wait_for_idle` | ✅ | { "cpu_percent": 79, "idle": true, "reason": "the screen went still and the CPU settled", "waited_ms": 1184 } |
 | 92 | `open_app_and_wait` | ✅ | { "opened": true, "waited_ms": 2301, "window": { "id": "0x0120000c", "desktop": 0, "x": 1436, "y": 92, "w": 484, "h": 31 |
-| 93 | `fill_form` | ⏸️ | inyecta entrada: requiere que una persona conceda el control desde su barra |
+| 93 | `fill_form` | ⏸️ | injects input: needs a person to grant control from their bar |
 | 94 | `ui_diff` | ✅ | { "baseline": true, "nodes": 284, "note": "first call: the reference snapshot was stored; the next one returns only the  |
 | 95 | `action_log` | ✅ | { "count": 5, "entries": [ { "time": "2026-08-05T10:36:47.963Z", "tool": "get_clipboard", "ok": true, "ms": 4 }, { "time |
 | 96 | `snapshot_create` | ✅ | { "created": "validacion-v1", "note": "prueba de cierre", "path": "/home/sentineldesk/.sentineldesk-snapshots/validacion |
@@ -124,4 +131,4 @@ Cada herramienta se llamó por el mismo camino que usa un agente: el puente
 | 114 | `browser_wait_for` | ✅ | #t appeared |
 
 
-**107 verificadas · 1 parcial · 5 pendientes de turno · 1 omitida por destructiva — 114 en total.**
+**107 verified · 1 partial · 5 waiting for a turn at the controls · 1 skipped as destructive — 114 in total.**

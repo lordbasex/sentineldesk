@@ -1,6 +1,6 @@
 # MCP server — tool checklist for driving the desktop end to end
 
-> **Status: 114 tools implemented and verified.** Everything marked [x] works in
+> **Status: 115 tools implemented and verified.** Everything marked [x] works in
 > the binary (`sentineldesk`). See [mcp.md](mcp.md) for how to connect it.
 
 Goal: let an AI model use the WebRTC desktop **the way a person does** — see the
@@ -27,6 +27,30 @@ AI host (Claude Code / Desktop / agent)
 State of the underlying logic:
 - ✅ **exists** = already implemented, only needs exposing as a tool.
 - 🔶 **new** = the logic has to be written (X11/EWMH, exec, and so on).
+
+---
+
+## 0. 🔎 The registry (finding the tools)
+
+Every tool declares a **risk level** beside its definition — `read` observes,
+`write` drives the desktop, `danger` runs code or touches the system — and a
+**category** derived from its name. That declaration is the only input the three
+`MCP_POLICY` levels need, and it is published in `tools/list` as the standard
+`readOnlyHint` / `destructiveHint` annotations.
+
+- [x] `tool_search` — describe a task, get the matching tools **with their input
+  schemas** so they can be called without a second round trip. Filtered by the
+  connection's policy before ranking; `category` lists a whole theme. 🔶 new
+
+`MCP_DISCOVERY=1` trims `tools/list` to a core set of twelve and leaves
+`tool_search` to surface the rest. Every other tool stays callable by name —
+discovery narrows what is *advertised*, never what is *permitted*.
+
+**Adding a tool is three edits, not four.** The `toolDef` (name, description,
+schema and `Risk`), the `case` in the matching `dispatchX`, and `injectsInput()`
+in `mcp.go` if it puts events into X. The risk maps that used to be the fourth
+are now derived from the catalogue, and a `toolDef` written without a `Risk`
+stops the daemon from starting instead of inheriting a permission nobody chose.
 
 ---
 

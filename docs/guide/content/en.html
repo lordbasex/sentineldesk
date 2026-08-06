@@ -41,7 +41,7 @@
   </ul>
 
   <p>People drive it through a control layer in the browser. The agent drives it
-  through a local socket with 114 MCP tools. Neither is a guest of the
+  through a local socket with 115 MCP tools. Neither is a guest of the
   other.</p>
 
   <div class="note">
@@ -76,7 +76,7 @@
     <tr><td>Human control</td><td>WebSocket signalling and a DataChannel; XTEST
       injection, XFixes cursors, XShape peer pointers, EWMH</td></tr>
     <tr><td>Agent control</td><td>MCP over a <code>0600</code> Unix socket,
-      114 tools</td></tr>
+      115 tools</td></tr>
     <tr><td>Reading the screen</td><td>AT-SPI accessibility tree, Chrome
       DevTools Protocol — structure, not pixels</td></tr>
     <tr><td>Web interface</td><td><code>go:embed</code>, served with content
@@ -106,9 +106,12 @@
   </ul>
 
   <h3 id="capabilities-agent">An agent, through MCP</h3>
-  <p>114 tools, in families:</p>
+  <p>115 tools, in families:</p>
   <table>
     <tr><th>Family</th><th>What it covers</th></tr>
+    <tr><td>Finding the others</td><td>Describe a task and get back the tools
+      that do it, with their schemas — so the agent does not have to hold all
+      115 in mind at once</td></tr>
     <tr><td>Pointer and keyboard</td><td>Move, click, drag, scroll, type, key
       combinations, and a virtual gamepad</td></tr>
     <tr><td>Windows and desktops</td><td>List, activate, move, resize, minimise,
@@ -1088,7 +1091,7 @@ lsof -nP -iUDP:5000</code></pre>
 <section id="ai-agent" data-track="use">
   <h2>The AI agent</h2>
 
-  <p>SentinelDesk exposes <b>114 tools</b> over a local Unix socket using the
+  <p>SentinelDesk exposes <b>115 tools</b> over a local Unix socket using the
   Model Context Protocol. An AI host — Claude Code, Claude Desktop, or anything
   else that speaks MCP — connects through a thin bridge:</p>
 
@@ -1120,20 +1123,73 @@ lsof -nP -iUDP:5000</code></pre>
   tree — so the agent can read what is on screen as structure rather than as
   pixels — files, packages, SSH, and the room itself.</p>
 
+  <h3 id="ai-agent-search">Finding the right tool</h3>
+  <p>A hundred and fifteen tool descriptions is a real amount of a model's
+  attention, spent before it has read your request. <code>tool_search</code> is
+  the way around it: describe the task and get back the handful of tools that do
+  it, with their input schemas attached so they can be called straight away.</p>
+
+<pre><code>{"name": "tool_search", "arguments": {"query": "give someone remote access"}}</code></pre>
+
+  <p>That returns the <code>ssh_*</code> tools, ranked, each with its risk level
+  and its schema. Ask for a whole theme instead with
+  <code>{"category": "ssh"}</code> — the themes are <code>ssh</code>,
+  <code>shell</code>, <code>terminal</code>, <code>browser</code>,
+  <code>accessibility</code>, <code>windows</code>, <code>input</code>,
+  <code>screen</code>, <code>files</code>, <code>processes</code>,
+  <code>packages</code>, <code>snapshot</code>, <code>recording</code>,
+  <code>restream</code>, <code>room</code>, <code>audio</code>,
+  <code>clipboard</code>, <code>desktops</code>, <code>gamepad</code>,
+  <code>system</code> and <code>general</code>.</p>
+
+  <p>Searching only saves anything if something is not being listed in the first
+  place, and most AI hosts already handle that themselves — Claude Code defers
+  tool schemas and loads them on demand. For hosts that do not, set
+  <code>MCP_DISCOVERY=1</code>: the tool list then advertises a core set of
+  twelve — enough to look at the desktop, read its structure, click, type and
+  run something — and leaves <code>tool_search</code> to surface the rest.</p>
+
+  <p><b>Every other tool stays callable.</b> Discovery narrows what is
+  <i>advertised</i>, never what is <i>permitted</i>; that is the policy's job,
+  below. A tool left out of the list is one the agent has not been told about
+  yet, not one it is forbidden to use.</p>
+
   <h3 id="ai-agent-policy">Limiting what it may do</h3>
+  <p>Every tool declares what it can do to the machine, and the policy levels
+  are built on that one declaration:</p>
+  <table>
+    <tr><th>Risk</th><th>What it means</th><th>Example</th></tr>
+    <tr><td><code>read</code></td><td>Observes; changes nothing</td>
+      <td><code>screenshot</code>, <code>ui_tree</code></td></tr>
+    <tr><td><code>write</code></td><td>Drives the desktop — input, windows,
+      volume, the clipboard — but cannot reach the system underneath</td>
+      <td><code>mouse_click</code>, <code>type_text</code></td></tr>
+    <tr><td><code>danger</code></td><td>Runs code, touches the system, or moves
+      data outward</td><td><code>run_command</code>, <code>ssh_exec</code></td></tr>
+  </table>
+
   <table>
     <tr><th>Variable</th><th>Effect</th></tr>
     <tr><td><code>MCP_POLICY=full</code></td><td>Everything (default)</td></tr>
-    <tr><td><code>MCP_POLICY=safe</code></td><td>Removes the tools that run code
-      or touch the system</td></tr>
-    <tr><td><code>MCP_POLICY=readonly</code></td><td>Only tools that observe</td></tr>
+    <tr><td><code>MCP_POLICY=safe</code></td><td>Removes the
+      <code>danger</code> tools — those that run code or touch the system</td></tr>
+    <tr><td><code>MCP_POLICY=readonly</code></td><td>Only the <code>read</code>
+      tools</td></tr>
     <tr><td><code>MCP_DENY</code> / <code>MCP_ALLOW</code></td><td>Patterns, for
       finer control</td></tr>
+    <tr><td><code>MCP_DISCOVERY=1</code></td><td>Advertise only the core set and
+      let <code>tool_search</code> find the rest. Not a permission — see
+      above</td></tr>
   </table>
 
   <p>A connection may restrict itself further, but never widen — which is what
   makes it safe to hand an agent a read-only endpoint without changing anyone
   else's.</p>
+
+  <p>The risk levels are also published as the Model Context Protocol's own
+  <code>readOnlyHint</code> and <code>destructiveHint</code> annotations, so an
+  AI host that understands them can decide on its own when to ask you before
+  acting — without knowing anything about SentinelDesk.</p>
 </section>
 
 <section id="whats-installed" data-track="use">
