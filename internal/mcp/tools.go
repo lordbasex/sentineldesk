@@ -20,11 +20,13 @@ import (
 	"fmt"
 	"github.com/lordbasex/sentineldesk/internal/desktop"
 	"github.com/lordbasex/sentineldesk/internal/media"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -537,9 +539,12 @@ func (s *Server) toolRunCommand(ctx context.Context, command string, timeoutMs i
 	// wait for an EOF that never comes.
 	cmd.WaitDelay = 2 * time.Second
 	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	tail := &tailWriter{}
+	cmd.Stdout = io.MultiWriter(&stdout, tail)
+	cmd.Stderr = io.MultiWriter(&stderr, tail)
+	stop := reportWhileRunning(ctx, "running", tail)
 	runErr := cmd.Run()
+	stop()
 	exitCode := 0
 	if runErr != nil {
 		if ee, ok := runErr.(*exec.ExitError); ok {
@@ -568,6 +573,91 @@ func (s *Server) toolWait(ctx context.Context, ms int) ([]map[string]any, bool) 
 		return textContent("wait interrupted"), true
 	}
 	return textContent("waited %d ms", ms), false
+}
+
+// progressInterval is how often a running command reports that it is still
+// going. A variable rather than a constant so tests need not wait it out.
+var progressInterval = 2 * time.Second
+
+// tailWriter keeps the most recent non-empty line written through it.
+//
+// A long command's own output is the only honest progress it has: apt does not
+// know what fraction of the way through it is, but "Setting up python3…" tells
+// somebody watching a great deal more than a spinner does. It is written to
+// alongside the buffer that collects the real output, not instead of it.
+type tailWriter struct {
+	mu   sync.Mutex
+	last string
+	buf  []byte
+}
+
+func (w *tailWriter) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.buf = append(w.buf, p...)
+	for {
+		i := bytes.IndexByte(w.buf, '\n')
+		if i < 0 {
+			break
+		}
+		if line := strings.TrimSpace(string(w.buf[:i])); line != "" {
+			w.last = line
+		}
+		w.buf = w.buf[i+1:]
+	}
+	// A command that writes megabytes without a newline should not be able to
+	// grow this without bound.
+	if len(w.buf) > 4096 {
+		w.buf = w.buf[len(w.buf)-4096:]
+	}
+	return len(p), nil
+}
+
+func (w *tailWriter) line() string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	return w.last
+}
+
+// reportWhileRunning ticks out progress notifications until the returned
+// function is called. It costs nothing when the client asked for no progress:
+// progressOf hands back a no-op and the goroutine ticks into it.
+//
+// The stop function WAITS for the reporter to be gone before returning. That is
+// not tidiness: without it the goroutine outlives the call that started it, and
+// can still be reading state the caller believes it has finished with. The race
+// detector found exactly that — a reporter from a finished command reading the
+// interval while the next thing changed it.
+func reportWhileRunning(ctx context.Context, what string, tail *tailWriter) func() {
+	report := progressOf(ctx)
+	interval := progressInterval
+	done := make(chan struct{})
+	finished := make(chan struct{})
+	go func() {
+		defer close(finished)
+		t := time.NewTicker(interval)
+		defer t.Stop()
+		start := time.Now()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				msg := fmt.Sprintf("%s, %ds elapsed", what, int(time.Since(start).Seconds()))
+				if line := tail.line(); line != "" {
+					msg += ": " + line
+				}
+				report(msg, 0)
+			}
+		}
+	}()
+	var once sync.Once
+	return func() {
+		once.Do(func() { close(done) })
+		<-finished
+	}
 }
 
 // sleepCtx waits for d, or until the call is cancelled, and reports whether the

@@ -523,6 +523,47 @@ own cancellation, and nothing reaches into X. It refuses what has not started.
 Lifting it is explicit, because an emergency stop that expires by itself is not
 one.
 
+### Progress on a long call
+
+`install_packages` can run for minutes and `snapshot_create` for longer, and
+until they finished they said nothing — which looks exactly like a hang. Ask for
+progress by putting a token in the call's `_meta`:
+
+```json
+{"jsonrpc": "2.0", "id": 7, "method": "tools/call",
+ "params": {
+   "name": "install_packages",
+   "arguments": {"packages": ["gimp"]},
+   "_meta": {"progressToken": "install-1"}
+ }}
+```
+
+and notifications arrive while it runs:
+
+```json
+{"jsonrpc": "2.0", "method": "notifications/progress",
+ "params": {"progressToken": "install-1", "progress": 3,
+            "message": "running, 6s elapsed: Setting up gimp (2.10.38-1)"}}
+```
+
+The message carries **the command's own last line of output**, because that is
+the only honest progress a shell command has: `apt` does not know what fraction
+of the way through it is, but "Setting up gimp" tells a person watching far more
+than a spinner would. `progress` counts the reports rather than the seconds, so
+that it always increases even when the command goes quiet for a while.
+
+Only the shell-based tools report — the same set that can be cancelled —
+because they are the ones that run long enough to be worth reporting on.
+
+**Nothing is sent unless you asked.** A client that omits the token gets no
+notifications at all, rather than a stream it has to discard. The token is
+echoed back exactly as it arrived, string or number; it is your handle, not
+ours to normalise.
+
+`message` is an extension here: the declared protocol version defines
+`progressToken`, `progress` and `total`, and a client that does not understand
+`message` can ignore it and still track that something is happening.
+
 ### Cancelling a call
 
 Every `tools/call` runs under a context that ends when the client says so:

@@ -371,14 +371,23 @@ this shape.
 The runtime can be built without these. It will be worse, and each of them
 becomes harder to add once there is a client depending on current behaviour.
 
-### 5.1 No progress notifications
+### 5.1 No progress notifications — **fixed**
 
-`install_packages` and `snapshot_create` can run for minutes and say nothing
-until they finish. The Agent Console timeline wants `agent.tool.progress`, and
-there is nothing to feed it. The 2024-11-05 protocol has
-`notifications/progress` with a `progressToken`; it is not implemented.
+Step 7 of §6 is done. A client that puts a `progressToken` in the call's `_meta`
+gets `notifications/progress` while the tool runs, carrying the command's own
+last line of output — the only honest progress a shell command has. Nothing is
+sent to a client that did not ask.
 
-Worth doing for the handful of genuinely long tools rather than all 115.
+The reporter rides on the `context` rather than on the signatures, so it reached
+every tool without touching one of the 115. Only the shell-based tools report,
+which is the same set that can be cancelled and for the same reason: they are
+the ones that run long enough for it to matter.
+
+Two things worth carrying into stage 2. The `message` field is an extension —
+the declared protocol version defines `progressToken`, `progress` and `total`
+only. And `progress` counts reports rather than seconds, because the
+specification wants it to increase and elapsed time stalls on a command that
+goes quiet.
 
 ### 5.2 No `tools/list_changed`
 
@@ -470,7 +479,16 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | ~~4~~ | ~~Thread `context.Context` through `dispatch`; honour `notifications/cancelled`~~ | **Done.** Per-call context, `cancelled` kind, connection close cancels | medium |
 | ~~5~~ | ~~Audit which tools ignore cancellation; publish the list~~ | **Done.** Cancellation is acknowledged immediately whatever the tool does; both lists published | medium |
 | ~~6~~ | ~~Connection identity from `initialize`, carried into the action log~~ | **Done.** Numbered connections, `conn`/`client` in the log, per-connection halt | small |
-| 7 | `notifications/progress` for the long tools | Timeline quality | medium |
+| ~~7~~ | ~~`notifications/progress` for the long tools~~ | **Done.** Opt-in by token; the message carries the command's own output | medium |
+
+**Stage 1 is complete.** Everything §4 called a blocker and both gaps in §5 that
+had a consumer are closed. What remains open is deliberate: §5.2
+(`tools/list_changed`) waits until something can change the catalogue at
+runtime, §5.4 (more catalogue metadata) waits until the overlay needs a field,
+and §5.5 (the declared protocol version) is a decision rather than work.
+
+Stage 2 can start. The decisions in §7 should be written up as ADRs first —
+they are cheap now and expensive once `sentineldesk-agent` exists.
 
 Steps 1–3 are a day. They are also the ones that unblock the most of stage 2.
 

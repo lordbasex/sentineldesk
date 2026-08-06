@@ -23,6 +23,7 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"net"
@@ -1064,6 +1065,165 @@ func TestConnectionWorksWithoutClientInfo(t *testing.T) {
 	c := newSession(t, testServer(t))
 	if got := c.denialOf("wait", map[string]any{"ms": 1}); got != "" {
 		t.Errorf("a connection that never introduced itself was refused: %q", got)
+	}
+}
+
+// --- progress --------------------------------------------------------------------
+
+// readMessage returns the whole outbound message, so a test can look at
+// notifications as well as answers.
+func (c *session) readMessage() map[string]any {
+	c.t.Helper()
+	_ = c.conn.SetDeadline(time.Now().Add(20 * time.Second))
+	raw, err := c.r.ReadBytes('\n')
+	if err != nil {
+		c.t.Fatalf("read: %v", err)
+	}
+	var msg map[string]any
+	if err := json.Unmarshal(raw, &msg); err != nil {
+		c.t.Fatalf("decode: %v", err)
+	}
+	return msg
+}
+
+// callCollecting runs a tool and returns its result plus every notification
+// that arrived first.
+func (c *session) callCollecting(params map[string]any) (map[string]any, []map[string]any) {
+	c.t.Helper()
+	c.send("tools/call", params)
+	var notes []map[string]any
+	for {
+		msg := c.readMessage()
+		if _, isResponse := msg["result"]; isResponse {
+			res, _ := msg["result"].(map[string]any)
+			return res, notes
+		}
+		if _, isErr := msg["error"]; isErr {
+			c.t.Fatalf("error response: %v", msg["error"])
+		}
+		notes = append(notes, msg)
+	}
+}
+
+func TestProgressReachesTheClientWhileACommandRuns(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no shell available")
+	}
+	restore := progressInterval
+	progressInterval = 50 * time.Millisecond
+	t.Cleanup(func() { progressInterval = restore })
+
+	c := newSession(t, testServer(t))
+	res, notes := c.callCollecting(map[string]any{
+		"name": "run_command",
+		"arguments": map[string]any{
+			"command":    "echo first; sleep 0.4; echo second; sleep 0.2",
+			"timeout_ms": 10000,
+		},
+		"_meta": map[string]any{"progressToken": "tok-1"},
+	})
+
+	if isErr, _ := res["isError"].(bool); isErr {
+		t.Fatalf("the command failed: %v", res["content"])
+	}
+	if len(notes) == 0 {
+		t.Fatal("a command that ran for most of a second sent no progress at all")
+	}
+
+	sawToken, sawOutput := false, false
+	for _, n := range notes {
+		if n["method"] != "notifications/progress" {
+			t.Errorf("unexpected notification %v", n["method"])
+			continue
+		}
+		params, _ := n["params"].(map[string]any)
+		if params["progressToken"] == "tok-1" {
+			sawToken = true
+		}
+		if _, ok := params["progress"]; !ok {
+			t.Error("a progress notification with no progress in it")
+		}
+		// The command's own output is the only honest progress it has, so it
+		// should be what the message carries.
+		if msg, _ := params["message"].(string); strings.Contains(msg, "first") ||
+			strings.Contains(msg, "second") {
+			sawOutput = true
+		}
+	}
+	if !sawToken {
+		t.Error("the client's own token did not come back")
+	}
+	if !sawOutput {
+		t.Errorf("no notification carried the command's output: %v", notes)
+	}
+}
+
+// TestNoProgressWithoutAToken: a client that did not ask must not be given a
+// stream of messages it has to discard.
+func TestNoProgressWithoutAToken(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no shell available")
+	}
+	restore := progressInterval
+	progressInterval = 50 * time.Millisecond
+	t.Cleanup(func() { progressInterval = restore })
+
+	c := newSession(t, testServer(t))
+	_, notes := c.callCollecting(map[string]any{
+		"name": "run_command",
+		"arguments": map[string]any{
+			"command": "echo hello; sleep 0.4", "timeout_ms": 10000,
+		},
+	})
+	if len(notes) != 0 {
+		t.Errorf("sent %d notifications to a client that asked for none: %v", len(notes), notes)
+	}
+}
+
+func TestProgressTokenParsing(t *testing.T) {
+	for _, tc := range []struct {
+		name, params, want string
+	}{
+		{"string", `{"_meta":{"progressToken":"abc"}}`, `"abc"`},
+		{"number", `{"_meta":{"progressToken":7}}`, `7`},
+		{"absent", `{"name":"wait"}`, ""},
+		{"null", `{"_meta":{"progressToken":null}}`, ""},
+		{"no meta", `{}`, ""},
+		{"malformed", `not json`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got := progressToken(json.RawMessage(tc.params))
+			if string(got) != tc.want {
+				t.Errorf("got %q, want %q", string(got), tc.want)
+			}
+		})
+	}
+}
+
+func TestTailWriterKeepsTheLastLine(t *testing.T) {
+	w := &tailWriter{}
+	w.Write([]byte("one\ntwo\n"))
+	if got := w.line(); got != "two" {
+		t.Errorf("got %q, want %q", got, "two")
+	}
+	// A partial line is not reported until it is complete.
+	w.Write([]byte("thr"))
+	if got := w.line(); got != "two" {
+		t.Errorf("a partial line was reported: %q", got)
+	}
+	w.Write([]byte("ee\n"))
+	if got := w.line(); got != "three" {
+		t.Errorf("got %q, want %q", got, "three")
+	}
+	// Blank lines do not overwrite the last real one.
+	w.Write([]byte("\n   \n"))
+	if got := w.line(); got != "three" {
+		t.Errorf("a blank line overwrote the last one: %q", got)
+	}
+	// And a command that never emits a newline cannot grow the buffer forever.
+	w.Write(bytes.Repeat([]byte("x"), 100_000))
+	if len(w.buf) > 8192 {
+		t.Errorf("buffer grew to %d bytes", len(w.buf))
 	}
 }
 

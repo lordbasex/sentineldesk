@@ -26,6 +26,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -73,9 +74,15 @@ func (s *Server) runElevated(ctx context.Context, command string, asRoot bool, t
 	cmd.Env = append(os.Environ(), "DISPLAY="+s.display, "DEBIAN_FRONTEND=noninteractive")
 	cmd.WaitDelay = 2 * time.Second
 	var stdout, stderr strings.Builder
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	// The tail goes alongside the buffers, not instead of them: the caller
+	// still gets the whole output, and whoever is watching gets the last line
+	// while it is still running.
+	tail := &tailWriter{}
+	cmd.Stdout = io.MultiWriter(&stdout, tail)
+	cmd.Stderr = io.MultiWriter(&stderr, tail)
+	stop := reportWhileRunning(ctx, "running", tail)
 	runErr := cmd.Run()
+	stop()
 	exitCode := 0
 	if runErr != nil {
 		if ee, ok := runErr.(*exec.ExitError); ok {

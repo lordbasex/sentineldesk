@@ -57,11 +57,21 @@ type rpcRequest struct {
 	Params  json.RawMessage `json:"params,omitempty"`
 }
 
+// rpcResponse is anything the server sends: an answer to a request, or a
+// notification of its own.
+//
+// One struct for both because they go out of the same door, under the same
+// write lock — a progress notification interleaved halfway through a response
+// would be two broken messages rather than one of each. A notification carries
+// Method and Params and no ID; an answer carries ID and Result or Error.
 type rpcResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      json.RawMessage `json:"id,omitempty"`
 	Result  any             `json:"result,omitempty"`
 	Error   *rpcError       `json:"error,omitempty"`
+
+	Method string          `json:"method,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
 }
 
 type rpcError struct {
@@ -170,6 +180,33 @@ type pendingCall struct {
 func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *pendingCall {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Only when the client asked for it. The token is echoed exactly as it
+	// arrived, because it is the client's handle and not ours to normalise.
+	if token := progressToken(req.Params); token != nil {
+		var step atomic.Uint64
+		ctx = withProgress(ctx, func(message string, done float64) {
+			params := map[string]any{
+				"progressToken": token,
+				// The specification wants progress to increase. Elapsed
+				// seconds would stall on a command that produces nothing for a
+				// while, so the count of reports is used instead: it is
+				// monotonic by construction and the message carries the detail.
+				"progress": step.Add(1),
+			}
+			if done > 0 {
+				params["progress"] = done
+			}
+			if message != "" {
+				params["message"] = message
+			}
+			raw, err := json.Marshal(params)
+			if err != nil {
+				return
+			}
+			write(rpcResponse{Method: "notifications/progress", Params: raw})
+		})
+	}
+
 	// Exactly one response per request, whoever gets there first. A
 	// cancellation answers from the connection's goroutine while the handler
 	// is still inside dispatch, so the result that eventually arrives has to be
@@ -192,6 +229,61 @@ func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *
 		pc.done = func() { flight.done(key) }
 	}
 	return pc
+}
+
+// --- progress --------------------------------------------------------------------
+
+// A long tool used to say nothing at all until it finished. install_packages
+// can run for minutes, snapshot_create for longer, and everything watching —
+// a person, a timeline in a console — had the same view as during a hang.
+//
+// The protocol's answer is notifications/progress, and the client opts in by
+// putting a progressToken in the call's _meta. Without one, nothing is sent:
+// a client that did not ask should not be given a stream of messages it has to
+// discard.
+//
+// The reporter rides on the context rather than the signatures. The context is
+// already threaded through every dispatcher and every tool, so this reaches all
+// of them without touching one of the hundred and fifteen, and a tool that has
+// nothing to report simply never asks for it.
+type progressFunc func(message string, done float64)
+
+type progressKeyType struct{}
+
+var progressKey progressKeyType
+
+func withProgress(ctx context.Context, fn progressFunc) context.Context {
+	if fn == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, progressKey, fn)
+}
+
+// progressOf never returns nil, so callers can report unconditionally. When the
+// client asked for nothing, reporting costs one function call that returns.
+func progressOf(ctx context.Context) progressFunc {
+	if fn, ok := ctx.Value(progressKey).(progressFunc); ok && fn != nil {
+		return fn
+	}
+	return func(string, float64) {}
+}
+
+// progressToken pulls the client's token out of the call's _meta. The protocol
+// allows a string or a number, so it is kept as raw JSON and echoed back
+// exactly as it arrived — the client has to recognise its own token.
+func progressToken(params json.RawMessage) json.RawMessage {
+	var p struct {
+		Meta struct {
+			ProgressToken json.RawMessage `json:"progressToken"`
+		} `json:"_meta"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return nil
+	}
+	if len(p.Meta.ProgressToken) == 0 || string(p.Meta.ProgressToken) == "null" {
+		return nil
+	}
+	return p.Meta.ProgressToken
 }
 
 // --- connections ---------------------------------------------------------------
