@@ -266,11 +266,15 @@ reported as total is the exact dishonesty the whole design is trying to avoid.
 **Acceptance.** A test that cancels a `run_command "sleep 30"` and observes the
 process die; a documented list of tools that cannot be cancelled.
 
-### 4.4 `Delivery.Deliver` panics when the agent is in the room
+### 4.4 `Delivery.Deliver` panics when the agent is in the room — **fixed**
 
-Confirmed at `internal/stream/delivery.go`. The agent member is created with a
-nil `session` (`internal/stream/room.go:241`), and the delivery loop calls a
-method that dereferences it:
+Step 1 of §6 is done. `internal/stream/delivery_test.go` covers the four room
+states; against the previous code the agent-controlling case aborts the run with
+`SIGSEGV` at `delivery.go:86`. Kept here as the record of what it was.
+
+The agent member is created with a nil `session`
+(`internal/stream/room.go:241`), and the delivery loop called a method that
+dereferences it:
 
 ```go
 for _, m := range targets {
@@ -296,11 +300,15 @@ There is a second defect in the same function: one single-use ticket is minted
 outside the loop and the same URL is sent to every recipient, so with two
 browsers watching the first consumes it and the second gets a dead link.
 
-**Fix.** Skip members without a session; mint one ticket per recipient; return
-an accurate count; mint nothing when there are no recipients.
+**Fix applied.** Members without a session are skipped; one ticket is minted per
+recipient; nothing is minted when there are no recipients. A human at the
+controls receives it alone, because they are the one who asked; with the agent
+holding them or nobody holding them it goes to every browser present, since
+there is no browser behind the agent to send it to.
 
-**Acceptance.** Regressions for four states — human controller, agent
-controller, control free, empty room.
+Every other delivery loop in `room.go` already guarded `session == nil` — this
+one was the only place that did not, so there are no further latent panics of
+this shape.
 
 ---
 
@@ -387,7 +395,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 
 | # | Work | Why now | Size |
 |---|---|---|---|
-| 1 | Fix `Delivery.Deliver` — nil session, ticket per recipient | It panics; it is a live bug independent of the agent | small |
+| ~~1~~ | ~~Fix `Delivery.Deliver` — nil session, ticket per recipient~~ | **Done.** Six regressions in `internal/stream/delivery_test.go` | small |
 | 2 | `injectsInput` becomes a field, derived + published | Blocks the loop's approval/control sequencing (§4.1) | small |
 | 3 | Structured denial kinds in `tools/call` | Blocks the loop's state machine (§4.2) | small |
 | 4 | Thread `context.Context` through `dispatch`; honour `notifications/cancelled` | Blocks honest cancel (§4.3) | medium |

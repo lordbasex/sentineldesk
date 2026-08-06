@@ -48,9 +48,24 @@ func NewDelivery(files *FileServer, room *Room) *Delivery {
 // Deliver tells the browsers to download the file at absPath.
 //
 // It goes to whoever holds control, because that is the person who asked — or,
-// when nobody does, to everyone present. The count of clients told comes back
-// so the caller can say "saved on the desktop, nobody was watching" instead of
-// silently doing nothing.
+// when nobody does, to every browser present. The count of clients told comes
+// back so the caller can say "saved on the desktop, nobody was watching"
+// instead of silently doing nothing.
+//
+// Two things this has to get right, and an earlier version got both wrong.
+//
+// The first is that not every room member has a browser. The agent is a member
+// like anyone else — that is the point of the room — but it holds no Session,
+// so a delivery loop that treats members and browsers as the same set
+// dereferences nil and takes the whole daemon down with it. It is not an edge
+// case either: when the controls are free the loop reaches every member, so the
+// agent only has to be present, which it is from its first room_state onward.
+//
+// The second is that a ticket is good exactly once. One ticket shared between
+// three browsers is one download and two dead links, so each recipient gets its
+// own. That also means working out who the recipients are before minting
+// anything: with nobody watching there is nothing to hand over, and a ticket
+// nobody can use is just an entry sitting in the map until it expires.
 func (d *Delivery) Deliver(absPath, name string) int {
 	if d == nil || d.files == nil || d.room == nil {
 		return 0
@@ -59,29 +74,47 @@ func (d *Delivery) Deliver(absPath, name string) int {
 		name = filepath.Base(absPath)
 	}
 
-	// The ticket is minted against the real path, bypassing FILES_ROOT: this is
-	// the server handing over a file it just produced, not the browser reaching
-	// into the filesystem, so the confinement that protects the file manager
-	// does not apply here.
-	ticket := d.files.newTicket(absPath)
-	msg, err := json.Marshal(map[string]any{
-		"t":    "download",
-		"url":  "/files/download?t=" + ticket,
-		"name": name,
-	})
-	if err != nil {
-		return 0
-	}
-
 	d.room.mu.RLock()
-	targets := d.room.snapshotMembers()
+	members := d.room.snapshotMembers()
 	controller := d.room.controller
 	d.room.mu.RUnlock()
 
+	// Who actually receives this. A member without a Session is in the room but
+	// not at a browser, so it cannot be told about a download however much it
+	// may be the one that asked for it.
+	var targets []*roomMember
+	for _, m := range members {
+		if m.session == nil {
+			continue
+		}
+		// A human at the controls asked for this, so it is theirs alone. When
+		// the agent holds them, or nobody does, "download" can only mean the
+		// people watching — there is no browser behind the agent to send it to.
+		if controller != "" && controller != agentID && m.id != controller {
+			continue
+		}
+		targets = append(targets, m)
+	}
+	if len(targets) == 0 {
+		return 0
+	}
+
 	sent := 0
 	for _, m := range targets {
-		if controller != "" && m.id != controller {
-			continue
+		// The ticket is minted against the real path, bypassing FILES_ROOT:
+		// this is the server handing over a file it just produced, not the
+		// browser reaching into the filesystem, so the confinement that
+		// protects the file manager does not apply here.
+		msg, err := json.Marshal(map[string]any{
+			"t":    "download",
+			"url":  "/files/download?t=" + d.files.newTicket(absPath),
+			"name": name,
+		})
+		if err != nil {
+			// The payload is the same shape every time, so this cannot fail for
+			// one recipient and succeed for the next. Stop rather than mint the
+			// rest of the tickets for messages that will not be sent.
+			break
 		}
 		m.session.sendOnChannel(string(msg))
 		sent++
