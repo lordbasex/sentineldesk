@@ -22,6 +22,7 @@ package mcp
 // call that also returns far less data.
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -145,10 +146,10 @@ func (s *Server) buildNextTools() []toolDef {
 	}
 }
 
-func (s *Server) dispatchNext(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchNext(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	case "set_resolution":
-		return s.toolSetResolution(args)
+		return s.toolSetResolution(ctx, args)
 	case "wait_for_idle":
 		return s.toolWaitForIdle(args)
 	case "open_app_and_wait":
@@ -160,11 +161,11 @@ func (s *Server) dispatchNext(name string, args map[string]any) ([]map[string]an
 	case "action_log":
 		return s.toolActionLog(args)
 	case "snapshot_create":
-		return s.toolSnapshotCreate(args)
+		return s.toolSnapshotCreate(ctx, args)
 	case "snapshot_list":
 		return s.toolSnapshotList()
 	case "snapshot_restore":
-		return s.toolSnapshotRestore(args)
+		return s.toolSnapshotRestore(ctx, args)
 	case "snapshot_delete":
 		return s.toolSnapshotDelete(args)
 	}
@@ -173,7 +174,7 @@ func (s *Server) dispatchNext(name string, args map[string]any) ([]map[string]an
 
 // --- resolution --------------------------------------------------------------
 
-func (s *Server) toolSetResolution(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolSetResolution(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	w, h := argInt(args, "width"), argInt(args, "height")
 	if w < 320 || h < 240 {
 		return textContent("invalid resolution: %dx%d", w, h), true, true
@@ -189,7 +190,7 @@ func (s *Server) toolSetResolution(args map[string]any) ([]map[string]any, bool,
 		fmt.Sprintf("xrandr --output screen --mode %s 2>/dev/null", mode),
 		fmt.Sprintf("xrandr --fb %s", mode),
 	}
-	out, _ := s.runElevated(strings.Join(steps, "; ")+"; xrandr --query | head -2", false, 15000)
+	out, _ := s.runElevated(ctx, strings.Join(steps, "; ")+"; xrandr --query | head -2", false, 15000)
 
 	// Check what actually happened rather than trusting the exit code: xrandr
 	// complains on stderr about things it went ahead and applied anyway.
@@ -534,7 +535,7 @@ func safeName(n string) (string, error) {
 	return n, nil
 }
 
-func (s *Server) toolSnapshotCreate(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolSnapshotCreate(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	name, err := safeName(argStr(args, "name"))
 	if err != nil {
 		return textContent("%v", err), true, true
@@ -554,7 +555,7 @@ func (s *Server) toolSnapshotCreate(args map[string]any) ([]map[string]any, bool
 			"dpkg-query -W -f='${Package}\\n' > %q; true",
 		tarPath, ".sentineldesk-snapshots",
 		filepath.Dir(home), filepath.Base(home), pkgPath)
-	if _, err := s.runElevated(cmd, false, 600000); err != nil {
+	if _, err := s.runElevated(ctx, cmd, false, 600000); err != nil {
 		return textContent("snapshot failed: %v", err), true, true
 	}
 	info, err := os.Stat(tarPath)
@@ -609,7 +610,7 @@ func (s *Server) toolSnapshotList() ([]map[string]any, bool, bool) {
 	return jsonContent(map[string]any{"snapshots": out, "dir": dir}), false, true
 }
 
-func (s *Server) toolSnapshotRestore(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolSnapshotRestore(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	name, err := safeName(argStr(args, "name"))
 	if err != nil {
 		return textContent("%v", err), true, true
@@ -640,7 +641,7 @@ func (s *Server) toolSnapshotRestore(args map[string]any) ([]map[string]any, boo
 
 	// The tar is unpacked over /home; --overwrite so that modified files
 	// modificados vuelvan al estado guardado.
-	res, err := s.runElevated(
+	res, err := s.runElevated(ctx,
 		fmt.Sprintf("tar xzf %q -C /home --overwrite 2>&1 | tail -5; true", tarPath),
 		true, 600000)
 	if err != nil {

@@ -23,8 +23,12 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -360,24 +364,47 @@ func newSession(t *testing.T, s *Server) *session {
 	return &session{t: t, conn: client, r: bufio.NewReader(client)}
 }
 
-func (c *session) call(method string, params any) map[string]any {
+// send writes a request and returns its id without waiting for the answer, so a
+// test can send something else — a cancellation — while it is still running.
+func (c *session) send(method string, params any) int {
 	c.t.Helper()
 	c.id++
 	req := map[string]any{"jsonrpc": "2.0", "id": c.id, "method": method}
 	if params != nil {
 		req["params"] = params
 	}
+	c.write(req, method)
+	return c.id
+}
+
+// notify writes a request with no id, which is what a notification is.
+func (c *session) notify(method string, params any) {
+	c.t.Helper()
+	req := map[string]any{"jsonrpc": "2.0", "method": method}
+	if params != nil {
+		req["params"] = params
+	}
+	c.write(req, method)
+}
+
+func (c *session) write(req map[string]any, method string) {
+	c.t.Helper()
 	line, err := json.Marshal(req)
 	if err != nil {
 		c.t.Fatalf("%v", err)
 	}
-	_ = c.conn.SetDeadline(time.Now().Add(10 * time.Second))
+	_ = c.conn.SetDeadline(time.Now().Add(20 * time.Second))
 	if _, err := c.conn.Write(append(line, '\n')); err != nil {
 		c.t.Fatalf("write %s: %v", method, err)
 	}
+}
+
+func (c *session) read() map[string]any {
+	c.t.Helper()
+	_ = c.conn.SetDeadline(time.Now().Add(20 * time.Second))
 	raw, err := c.r.ReadBytes('\n')
 	if err != nil {
-		c.t.Fatalf("read %s: %v", method, err)
+		c.t.Fatalf("read: %v", err)
 	}
 	var resp struct {
 		Result map[string]any `json:"result"`
@@ -386,12 +413,18 @@ func (c *session) call(method string, params any) map[string]any {
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &resp); err != nil {
-		c.t.Fatalf("decode %s: %v", method, err)
+		c.t.Fatalf("decode: %v", err)
 	}
 	if resp.Error != nil {
-		c.t.Fatalf("%s: %s", method, resp.Error.Message)
+		c.t.Fatalf("%s", resp.Error.Message)
 	}
 	return resp.Result
+}
+
+func (c *session) call(method string, params any) map[string]any {
+	c.t.Helper()
+	c.send(method, params)
+	return c.read()
 }
 
 func (c *session) listedNames() []string {
@@ -702,6 +735,125 @@ func TestSuccessCarriesNoDenial(t *testing.T) {
 	c := newSession(t, testServer(t))
 	if got := c.denialOf("tool_search", map[string]any{"query": "take a screenshot"}); got != "" {
 		t.Errorf("a successful call reported kind %q", got)
+	}
+}
+
+// --- cancellation ------------------------------------------------------------
+
+func TestInflightBookkeeping(t *testing.T) {
+	f := newInflight()
+	_, c1 := context.WithCancel(context.Background())
+	ctx2, c2 := context.WithCancel(context.Background())
+	f.add("1", c1)
+	f.add("2", c2)
+
+	if !f.cancel("1") {
+		t.Error("cancel reported nothing to cancel")
+	}
+	// A second cancel for the same id is the normal race with a call that has
+	// just finished, and must not be treated as an error.
+	if f.cancel("1") {
+		t.Error("cancel reported a second stop for the same id")
+	}
+	if f.cancel("nope") {
+		t.Error("cancel reported stopping a request that never existed")
+	}
+
+	f.cancelAll()
+	select {
+	case <-ctx2.Done():
+	default:
+		t.Error("cancelAll left a call running")
+	}
+	if len(f.calls) != 0 {
+		t.Errorf("cancelAll left %d entries behind", len(f.calls))
+	}
+}
+
+// TestRequestKeyKeepsTypesApart: JSON-RPC allows a string or a number id and
+// they are different requests, so cancelling id "2" must not stop id 2.
+func TestRequestKeyKeepsTypesApart(t *testing.T) {
+	if requestKey(json.RawMessage(`2`)) == requestKey(json.RawMessage(`"2"`)) {
+		t.Error("id 2 and id \"2\" share a key")
+	}
+	if requestKey(json.RawMessage(" 7 ")) != requestKey(json.RawMessage("7")) {
+		t.Error("whitespace changed the key")
+	}
+}
+
+// TestCancelStopsARunningCommand is the one that matters: before this, closing
+// a client or cancelling a run left the work running, because dispatch took no
+// context and every tool that needed a deadline built one from Background.
+//
+// The command touches a file and then sleeps. Waiting for the file means the
+// process really started and the call is really registered, so the cancellation
+// cannot arrive too early — the alternative is a sleep and a flaky test.
+func TestCancelStopsARunningCommand(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no shell available")
+	}
+	started := filepath.Join(t.TempDir(), "started")
+	c := newSession(t, testServer(t))
+
+	id := c.send("tools/call", map[string]any{
+		"name": "run_command",
+		"arguments": map[string]any{
+			"command":    "touch " + started + "; sleep 30",
+			"timeout_ms": 30000,
+		},
+	})
+
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := os.Stat(started); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the command never started")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	begin := time.Now()
+	c.notify("notifications/cancelled", map[string]any{
+		"requestId": id, "reason": "test",
+	})
+
+	res := c.read()
+	elapsed := time.Since(begin)
+
+	// The command was going to sleep for thirty seconds. Coming back at all is
+	// the result; coming back quickly is what says the process was killed
+	// rather than waited out. The couple of seconds it does take are
+	// cmd.WaitDelay, not the sleep.
+	if elapsed > 10*time.Second {
+		t.Errorf("the call took %v after cancelling", elapsed)
+	}
+
+	// And it has to SAY it was cancelled. The first version of this passed the
+	// timing check and still reported success: a killed process is just a
+	// process with a non-zero exit status, so run_command answered
+	// {"exit_code": -1} with no error, which is true about the process and a
+	// lie about the request.
+	if isErr, _ := res["isError"].(bool); !isErr {
+		t.Errorf("a cancelled command reported success: %v", res["content"])
+	}
+	meta, _ := res["_meta"].(map[string]any)
+	if kind, _ := meta["sentineldesk/denial"].(string); kind != string(denialCancelled) {
+		t.Errorf("kind %q, want %q", kind, denialCancelled)
+	}
+}
+
+// TestCancelUnknownRequestIsHarmless: a cancellation that names a request which
+// already finished is a normal race, not a reason to break the connection.
+func TestCancelUnknownRequestIsHarmless(t *testing.T) {
+	c := newSession(t, testServer(t))
+	c.notify("notifications/cancelled", map[string]any{"requestId": 999, "reason": "nothing"})
+	c.notify("notifications/cancelled", nil)
+
+	// The connection still works.
+	if got := c.denialOf("no_such_tool", nil); got != string(denialUnknown) {
+		t.Errorf("kind %q after a stray cancellation, want %q", got, denialUnknown)
 	}
 }
 

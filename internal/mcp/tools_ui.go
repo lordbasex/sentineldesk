@@ -22,6 +22,7 @@ package mcp
 // tools and normalises the JSON.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -142,7 +143,7 @@ func (s *Server) a11y(args ...string) ([]map[string]any, bool) {
 	return jsonContent(parsed), false
 }
 
-func (s *Server) dispatchUI(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchUI(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	opt := func(flag, key string) []string {
 		if v := argStr(args, key); v != "" {
 			return []string{flag, v}
@@ -269,7 +270,7 @@ func (s *Server) buildBrowserTools() []toolDef {
 	}
 }
 
-func (s *Server) dispatchBrowser(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	case "browser_open":
 		c, e := s.toolBrowserOpen(argStr(args, "url"))

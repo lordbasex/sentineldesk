@@ -468,6 +468,7 @@ in the content, and a kind beside it:
 | `room` | The tool needs the desktop's controls and the agent does not hold them | Call `request_control`, or wait for whoever is driving |
 | `unknown_tool` | No such tool in the catalogue | Check `tools/list` |
 | `tool_error` | The tool ran and reported failure | May be worth retrying |
+| `cancelled` | The call was stopped — see below | Nothing; you asked for this |
 
 The three refusals need genuinely different responses, and matching substrings
 to tell them apart is one wording change away from breaking. A successful call
@@ -480,6 +481,34 @@ by the level still reports `policy`.
 
 The kind is written into `action_log` as well, so an audit can be read by
 machine without parsing prose there either.
+
+### Cancelling a call
+
+Every `tools/call` runs under a context that ends when the client says so:
+
+```json
+{"jsonrpc": "2.0", "method": "notifications/cancelled",
+ "params": {"requestId": 7, "reason": "user pressed stop"}}
+```
+
+The call comes back with `isError` and the `cancelled` kind. Closing the
+connection cancels everything it had running, so a host that dies mid-call no
+longer leaves work going with nobody to answer to.
+
+**Not every tool stops when asked, and that matters.** A cancellable call is one
+that reaches the process through a context, which today means the shell-based
+tools: `run_command`, `install_packages`, `remove_packages`, `search_packages`,
+`service_control`, `set_resolution`, `snapshot_create` and `snapshot_restore`.
+The rest — the accessibility bridge, the browser over CDP, the persistent shells
+and SSH sessions, and anything driving `xdotool` — will finish what they started
+and the cancellation only stops the answer being used.
+
+So `cancelled` means *the request is over*, not *the machine is back where it
+was*. A client should say "cancelling; the current action may finish" rather
+than reporting a clean stop, and should not assume a mutating call left no
+trace. Widening this is tracked as its own piece of work rather than glossed
+over: a partial cancellation reported as a total one is exactly the sort of
+false comfort the rest of this design tries to avoid.
 
 ### About root inside the desktop
 

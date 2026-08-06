@@ -42,6 +42,7 @@ package mcp
 // about yet, not one it is forbidden to use.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -310,6 +311,18 @@ const (
 	// and report in prose, so an invalid_arguments kind would mean touching all
 	// of them. Worth splitting out when something needs it, not before.
 	denialToolError denialKind = "tool_error"
+
+	// denialCancelled — the call was stopped, by notifications/cancelled or by
+	// the connection closing.
+	//
+	// This exists because without it a cancelled call reports success. A killed
+	// process is just a process with a non-zero exit status, so run_command
+	// answered {"exit_code": -1} and no error at all — true about the process
+	// and a lie about the request. A client reading that would tell the model
+	// its command ran and failed, when in fact the client itself had stopped
+	// it. Whatever the tool managed to return describes work that was
+	// interrupted, not work that was done.
+	denialCancelled denialKind = "cancelled"
 )
 
 // toolCallResult builds the tools/call result. An empty kind means success.
@@ -581,7 +594,7 @@ func (s *Server) buildRegistryTools() []toolDef {
 // the Server, because requests from different connections run concurrently and
 // each may have restricted itself differently. Threading it through is a wider
 // signature; the alternative was shared mutable state and a race.
-func (s *Server) dispatchRegistry(name string, args map[string]any, policy *Policy) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchRegistry(ctx context.Context, name string, args map[string]any, policy *Policy) ([]map[string]any, bool, bool) {
 	if name != "tool_search" {
 		return nil, false, false
 	}

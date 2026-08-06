@@ -25,6 +25,7 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/lordbasex/sentineldesk/internal/config"
@@ -36,6 +37,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 )
@@ -64,6 +66,65 @@ type rpcResponse struct {
 type rpcError struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+}
+
+// --- cancellation ------------------------------------------------------------
+
+// inflight tracks the tool calls running on one connection, so that a
+// notifications/cancelled can reach the right one and closing the connection can
+// stop all of them.
+//
+// Per connection rather than per server: JSON-RPC ids are only unique within a
+// connection, and one client cancelling another's work by guessing an id would
+// be a strange thing to make possible.
+type inflight struct {
+	mu    sync.Mutex
+	calls map[string]context.CancelFunc
+}
+
+func newInflight() *inflight { return &inflight{calls: map[string]context.CancelFunc{}} }
+
+func (f *inflight) add(id string, cancel context.CancelFunc) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.calls[id] = cancel
+}
+
+// done releases a finished call. It cancels as well, which is the usual
+// defer cancel() — the context is over either way and its resources should go.
+func (f *inflight) done(id string) { f.cancel(id) }
+
+// cancel stops one call and reports whether there was one to stop. A cancel for
+// a request that already finished is not an error: the race is normal and the
+// client's intent was satisfied either way.
+func (f *inflight) cancel(id string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	cancel, ok := f.calls[id]
+	if ok {
+		delete(f.calls, id)
+		cancel()
+	}
+	return ok
+}
+
+func (f *inflight) cancelAll() {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for id, cancel := range f.calls {
+		cancel()
+		delete(f.calls, id)
+	}
+}
+
+// requestKey turns a JSON-RPC id into a map key.
+//
+// The id is raw JSON because the protocol allows a string or a number and the
+// two are distinct — id 2 and id "2" are different requests. Trimming is enough
+// to normalise: both the request and the cancellation that refers to it come
+// from the same client, encoded the same way.
+func requestKey(raw json.RawMessage) string {
+	return strings.TrimSpace(string(raw))
 }
 
 // --- Server ----------------------------------------------------------------
@@ -197,6 +258,13 @@ func (s *Server) Listen(sockPath string) error {
 // anyone else's.
 func (s *Server) serve(conn net.Conn) {
 	defer conn.Close()
+
+	// Everything this connection started stops when it goes away. Before this
+	// the goroutines simply outlived the socket, so a host that died mid-call
+	// left the work running with nobody to give the answer to.
+	flight := newInflight()
+	defer flight.cancelAll()
+
 	connPolicy := s.policy
 	var policyMu sync.RWMutex
 	var writeMu sync.Mutex
@@ -238,17 +306,30 @@ func (s *Server) serve(conn net.Conn) {
 			continue
 		}
 
+		// Cancellation is handled inline for the same reason the policy change
+		// is: queueing it behind a goroutine would let the call it refers to
+		// run on for as long as the scheduler felt like it.
+		if req.Method == "notifications/cancelled" {
+			var p struct {
+				RequestID json.RawMessage `json:"requestId"`
+				Reason    string          `json:"reason"`
+			}
+			_ = json.Unmarshal(req.Params, &p)
+			flight.cancel(requestKey(p.RequestID))
+			continue
+		}
+
 		policyMu.RLock()
 		active := connPolicy
 		policyMu.RUnlock()
 
 		// One goroutine per request: a slow or wedged tool must not freeze the
 		// rest of the connection. The client pairs responses by id anyway.
-		go s.handle(req, write, active)
+		go s.handle(req, write, active, flight)
 	}
 }
 
-func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy) {
+func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy, flight *inflight) {
 	switch req.Method {
 	case "initialize":
 		write(rpcResponse{ID: req.ID, Result: map[string]any{
@@ -272,7 +353,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy)
 		// which is what makes searching for one worth doing.
 		write(rpcResponse{ID: req.ID, Result: map[string]any{"tools": s.listedTools(policy)}})
 	case "tools/call":
-		s.handleToolCall(req, write, policy)
+		s.handleToolCall(req, write, policy, flight)
 	default:
 		if req.ID != nil {
 			write(rpcResponse{ID: req.ID, Error: &rpcError{Code: -32601, Message: "method not found: " + req.Method}})
@@ -280,7 +361,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy)
 	}
 }
 
-func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy) {
+func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy, flight *inflight) {
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -298,6 +379,22 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	entry := actionEntry{
 		Time: nowStamp(), Tool: params.Name, Args: summarizeArgs(args),
 		VideoAt: videoOffset(s.recorder),
+	}
+
+	// One cancellable context per call, registered under this request's id so a
+	// notifications/cancelled can find it and so closing the connection takes
+	// it with everything else.
+	//
+	// It is created here rather than inside dispatch because this is the only
+	// place that knows the request id. Registering is skipped for a call with
+	// no id — a notification-shaped tools/call, which has nothing to cancel by
+	// and would collide with the next one under the empty key.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	if req.ID != nil {
+		key := requestKey(req.ID)
+		flight.add(key, cancel)
+		defer flight.done(key)
 	}
 
 	// refuse writes the failure once, in both forms: the sentence for whoever
@@ -337,8 +434,19 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	}
 
 	start := time.Now()
-	content, isErr := s.dispatch(params.Name, params.Arguments, policy)
+	content, isErr := s.dispatch(ctx, params.Name, params.Arguments, policy)
 	entry.Millis = time.Since(start).Milliseconds()
+
+	// A cancelled call is not a result, whatever the tool managed to return.
+	// Checked here rather than in each tool because the tools cannot tell the
+	// difference: to run_command a killed process is just a process with a
+	// non-zero exit status, so it answered exit_code -1 and reported success —
+	// true about the process, and a lie about the request.
+	if err := ctx.Err(); err != nil {
+		refuse(denialCancelled, textContent("cancelled: %v", err), "cancelled")
+		return
+	}
+
 	entry.OK = !isErr
 	kind := denialKind("")
 	if isErr {

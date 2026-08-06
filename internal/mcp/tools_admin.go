@@ -60,11 +60,11 @@ func elevate(ctx context.Context, command string, asRoot bool) (*exec.Cmd, error
 }
 
 // runElevated executes and returns stdout, stderr and the exit code.
-func (s *Server) runElevated(command string, asRoot bool, timeoutMs int) (map[string]any, error) {
+func (s *Server) runElevated(ctx context.Context, command string, asRoot bool, timeoutMs int) (map[string]any, error) {
 	if timeoutMs <= 0 {
 		timeoutMs = 15000
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMs)*time.Millisecond)
 	defer cancel()
 	cmd, err := elevate(ctx, command, asRoot)
 	if err != nil {
@@ -281,18 +281,18 @@ func argStrList(m map[string]any, k string) []string {
 
 // --- despacho ---------------------------------------------------------------
 
-func (s *Server) dispatchRoot(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchRoot(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	case "sudo_status":
 		return s.toolSudoStatus()
 	case "install_packages":
-		return s.toolInstallPackages(args)
+		return s.toolInstallPackages(ctx, args)
 	case "remove_packages":
-		return s.toolRemovePackages(args)
+		return s.toolRemovePackages(ctx, args)
 	case "search_packages":
-		return s.toolSearchPackages(args)
+		return s.toolSearchPackages(ctx, args)
 	case "service_control":
-		return s.toolServiceControl(args)
+		return s.toolServiceControl(ctx, args)
 	}
 	return nil, false, false
 }
@@ -339,7 +339,7 @@ func (s *Server) toolSudoStatus() ([]map[string]any, bool, bool) {
 	return jsonContent(out), false, true
 }
 
-func (s *Server) toolInstallPackages(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolInstallPackages(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	pkgs := argStrList(args, "packages")
 	if len(pkgs) == 0 {
 		return textContent("install_packages: the `packages` list is missing"), true, true
@@ -365,7 +365,7 @@ func (s *Server) toolInstallPackages(args map[string]any) ([]map[string]any, boo
 	}
 	cmd += "apt-get install -y --no-install-recommends " + strings.Join(pkgs, " ")
 
-	res, err := s.runElevated(cmd, true, timeout)
+	res, err := s.runElevated(ctx, cmd, true, timeout)
 	if err != nil {
 		return textContent("install_packages: %v", err), true, true
 	}
@@ -385,7 +385,7 @@ func (s *Server) toolInstallPackages(args map[string]any) ([]map[string]any, boo
 	return jsonContent(res), res["exit_code"] != 0, true
 }
 
-func (s *Server) toolRemovePackages(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolRemovePackages(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	pkgs := argStrList(args, "packages")
 	if len(pkgs) == 0 {
 		return textContent("remove_packages: the `packages` list is missing"), true, true
@@ -399,7 +399,7 @@ func (s *Server) toolRemovePackages(args map[string]any) ([]map[string]any, bool
 	if v, ok := args["purge"].(bool); ok && v {
 		verb = "purge"
 	}
-	res, err := s.runElevated("apt-get "+verb+" -y "+strings.Join(pkgs, " "), true, 180000)
+	res, err := s.runElevated(ctx, "apt-get "+verb+" -y "+strings.Join(pkgs, " "), true, 180000)
 	if err != nil {
 		return textContent("remove_packages: %v", err), true, true
 	}
@@ -408,7 +408,7 @@ func (s *Server) toolRemovePackages(args map[string]any) ([]map[string]any, bool
 	return jsonContent(res), res["exit_code"] != 0, true
 }
 
-func (s *Server) toolSearchPackages(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolSearchPackages(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	q := strings.TrimSpace(argStr(args, "query"))
 	if q == "" {
 		return textContent("search_packages: `query` is missing"), true, true
@@ -417,7 +417,7 @@ func (s *Server) toolSearchPackages(args map[string]any) ([]map[string]any, bool
 	if limit <= 0 {
 		limit = 15
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 240*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 240*time.Second)
 	defer cancel()
 	// apt-cache search touches no network and needs no root — but images delete
 	// /var/lib/apt/lists to stay small, and then there is no index to search and
@@ -432,7 +432,7 @@ func (s *Server) toolSearchPackages(args map[string]any) ([]map[string]any, bool
 	}
 	refreshed := false
 	if len(strings.TrimSpace(string(b))) == 0 && aptListsEmpty() && sudoAvailable {
-		if _, e := s.runElevated("apt-get update -qq", true, 200000); e == nil {
+		if _, e := s.runElevated(ctx, "apt-get update -qq", true, 200000); e == nil {
 			refreshed = true
 			b, _ = search()
 		}
@@ -474,7 +474,7 @@ func aptListsEmpty() bool {
 	return true
 }
 
-func (s *Server) toolServiceControl(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolServiceControl(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	action := strings.ToLower(strings.TrimSpace(argStr(args, "action")))
 	if action == "" {
 		action = "status"
@@ -506,7 +506,7 @@ func (s *Server) toolServiceControl(args map[string]any) ([]map[string]any, bool
 			conf = "/etc/supervisor/sentineldesk.conf"
 		}
 	}
-	res, err := s.runElevated(
+	res, err := s.runElevated(ctx,
 		fmt.Sprintf("supervisorctl -c %s %s %s", conf, action, name),
 		true, 60000)
 	if err != nil {

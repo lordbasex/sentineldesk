@@ -16,6 +16,7 @@ package mcp
 // Terminal tools (shell_*), SSH (ssh_*) and low-level windows (window_*).
 
 import (
+	"context"
 	"fmt"
 	"github.com/lordbasex/sentineldesk/internal/shell"
 	"os"
@@ -217,7 +218,7 @@ func (s *Server) buildSysTools() []toolDef {
 	}
 }
 
-func (s *Server) dispatchSys(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchSys(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	// ---------- terminal ----------
 	case "shell_open":

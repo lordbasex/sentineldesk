@@ -207,24 +207,24 @@ func (s *Server) buildTools() []toolDef {
 // --- despacho -------------------------------------------------------------
 
 // dispatch runs a tool and returns its MCP content plus an error flag.
-func (s *Server) dispatch(name string, rawArgs json.RawMessage, policy *Policy) ([]map[string]any, bool) {
+func (s *Server) dispatch(ctx context.Context, name string, rawArgs json.RawMessage, policy *Policy) ([]map[string]any, bool) {
 	args := map[string]any{}
 	if len(rawArgs) > 0 {
 		_ = json.Unmarshal(rawArgs, &args)
 	}
 	// The catalogue asking about itself. It comes first because it is the one
 	// tool whose answer depends on the caller's policy rather than the desktop.
-	if content, isErr, handled := s.dispatchRegistry(name, args, policy); handled {
+	if content, isErr, handled := s.dispatchRegistry(ctx, name, args, policy); handled {
 		return content, isErr
 	}
 	// Sharing the desktop: these answer about the room rather than touching it.
-	if out, isErr, handled := s.callTerminal(name, args); handled {
+	if out, isErr, handled := s.callTerminal(ctx, name, args); handled {
 		if content, ok := out.([]map[string]any); ok {
 			return content, isErr
 		}
 		return jsonContent(out), isErr
 	}
-	if out, isErr, handled := s.callRoom(name, args); handled {
+	if out, isErr, handled := s.callRoom(ctx, name, args); handled {
 		if content, ok := out.([]map[string]any); ok {
 			return content, isErr
 		}
@@ -251,7 +251,7 @@ func (s *Server) dispatch(name string, rawArgs json.RawMessage, policy *Policy) 
 		return s.toolActivateWindow(argStr(args, "id"))
 	case "run_command":
 		asRoot, _ := args["as_root"].(bool)
-		return s.toolRunCommand(argStr(args, "command"), argInt(args, "timeout_ms"), asRoot)
+		return s.toolRunCommand(ctx, argStr(args, "command"), argInt(args, "timeout_ms"), asRoot)
 	case "wait":
 		return s.toolWait(argInt(args, "ms"))
 	case "start_recording":
@@ -270,27 +270,27 @@ func (s *Server) dispatch(name string, rawArgs json.RawMessage, policy *Policy) 
 		return textContent("clipboard set"), false
 	}
 	// Advanced tools: windows, processes, OCR, gamepad, files, streaming
-	if content, isErr, handled := s.dispatchAdvanced(name, args); handled {
+	if content, isErr, handled := s.dispatchAdvanced(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Accessibility tools: operate by structure rather than by pixels
-	if content, isErr, handled := s.dispatchUI(name, args); handled {
+	if content, isErr, handled := s.dispatchUI(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Browser tools over CDP, against the real DOM
-	if content, isErr, handled := s.dispatchBrowser(name, args); handled {
+	if content, isErr, handled := s.dispatchBrowser(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Persistent terminal, SSH and low-level windows
-	if content, isErr, handled := s.dispatchSys(name, args); handled {
+	if content, isErr, handled := s.dispatchSys(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Administration: privileges, packages and services
-	if content, isErr, handled := s.dispatchRoot(name, args); handled {
+	if content, isErr, handled := s.dispatchRoot(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Resolution, smart waits, macro-actions, diffing, snapshots, action log
-	if content, isErr, handled := s.dispatchNext(name, args); handled {
+	if content, isErr, handled := s.dispatchNext(ctx, name, args); handled {
 		return content, isErr
 	}
 	return textContent("unknown tool: %s", name), true
@@ -518,14 +518,14 @@ func (s *Server) toolActivateWindow(id string) ([]map[string]any, bool) {
 	return textContent("activated window %s", id), false
 }
 
-func (s *Server) toolRunCommand(command string, timeoutMs int, asRoot bool) ([]map[string]any, bool) {
+func (s *Server) toolRunCommand(ctx context.Context, command string, timeoutMs int, asRoot bool) ([]map[string]any, bool) {
 	if command == "" {
 		return textContent("no command"), true
 	}
 	if timeoutMs <= 0 {
 		timeoutMs = 15000
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutMs)*time.Millisecond)
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMs)*time.Millisecond)
 	defer cancel()
 	cmd, err := elevate(ctx, command, asRoot)
 	if err != nil {

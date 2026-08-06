@@ -38,6 +38,7 @@ package mcp
 // prompt comes back and the text stops changing.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -207,7 +208,7 @@ func (s *Server) readExitCode(since time.Time) (int, string, bool) {
 	return code, cmd, true
 }
 
-func (s *Server) callTerminal(name string, args map[string]any) (any, bool, bool) {
+func (s *Server) callTerminal(ctx context.Context, name string, args map[string]any) (any, bool, bool) {
 	switch name {
 	case "terminal_open":
 		_ = os.Remove(rcPath)

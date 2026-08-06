@@ -17,6 +17,7 @@ package mcp
 // screen, OCR, gamepad, files, audio and re-streaming.
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/lordbasex/sentineldesk/internal/desktop"
@@ -353,7 +354,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 // dispatchAdvanced runs the window, process, OCR, gamepad, file and streaming
 // tools. The third return value says whether the name was recognised, so that
 // dispatch() can fall through to the next group when it was not.
-func (s *Server) dispatchAdvanced(name string, args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	// ---- windows ----
 	case "get_active_window":

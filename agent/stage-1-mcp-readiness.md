@@ -253,12 +253,27 @@ there; it fires immediately anywhere else the server is embedded, which stage 2
 will do. Fixed and covered, and it contradicted this project's own rule that an
 optional capability degrades rather than taking everything with it.
 
-### 4.3 `tools/call` cannot be cancelled
+### 4.3 `tools/call` cannot be cancelled — **step one done, step two open**
 
-`dispatch()` takes no `context.Context`. Tools that need a deadline build their
+Step 4 of §6 is done: `dispatch` and every dispatcher take a
+`context.Context`, `handleToolCall` creates one per call and registers it under
+the request id, `notifications/cancelled` reaches it, and closing the connection
+cancels everything that connection had running. A cancelled call comes back with
+the `cancelled` kind.
+
+**Step 5 is still open and this is not finished without it.** Only the tools
+that reach the process through `elevate()` actually stop — 3 `exec.CommandContext`
+call sites against 23 plain `exec.Command`. The accessibility bridge, CDP, the
+shell and SSH managers and everything driving `xdotool` will finish what they
+started. Until that is audited, `cancelled` means *the request is over*, not
+*the machine is back where it was*.
+
+The original problem, kept as the record:
+
+`dispatch()` took no `context.Context`. Tools that needed a deadline built their
 own from `context.Background()` — `internal/mcp/tools.go:514`,
-`tools_admin.go:67`, `tools_admin.go:420`. Each request runs in its own
-goroutine and nothing holds a cancel function.
+`tools_admin.go:67`, `tools_admin.go:420`. Each request ran in its own
+goroutine and nothing held a cancel function.
 
 Consequences the runtime cannot hide:
 
@@ -418,8 +433,8 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | ~~1~~ | ~~Fix `Delivery.Deliver` — nil session, ticket per recipient~~ | **Done.** Six regressions in `internal/stream/delivery_test.go` | small |
 | ~~2~~ | ~~`injectsInput` becomes a field, derived + published~~ | **Done.** Parity test freezes the pre-refactor set | small |
 | ~~3~~ | ~~Structured denial kinds in `tools/call`~~ | **Done.** `_meta["sentineldesk/denial"]`, plus the same kind in the action log | small |
-| 4 | Thread `context.Context` through `dispatch`; honour `notifications/cancelled` | Blocks honest cancel (§4.3) | medium |
-| 5 | Audit which tools ignore cancellation; publish the list | Without it, step 4 is a half-truth | medium |
+| ~~4~~ | ~~Thread `context.Context` through `dispatch`; honour `notifications/cancelled`~~ | **Done.** Per-call context, `cancelled` kind, connection close cancels | medium |
+| **5** | Audit which tools ignore cancellation; publish the list | **Step 4 is a half-truth without it** — 3 context-aware exec sites against 23 that are not | medium |
 | 6 | Connection identity from `initialize`, carried into the action log | Emergency gate, and attribution once sub-agents run concurrently (§5.3) | small |
 | 7 | `notifications/progress` for the long tools | Timeline quality | medium |
 

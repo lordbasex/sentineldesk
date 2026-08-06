@@ -39,6 +39,7 @@ package mcp
 // until somebody claims it, so "I have finished" never reads as "you are up".
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -105,7 +106,7 @@ func (s *Server) roomTools() []toolDef {
 	}
 }
 
-func (s *Server) callRoom(name string, args map[string]any) (any, bool, bool) {
+func (s *Server) callRoom(ctx context.Context, name string, args map[string]any) (any, bool, bool) {
 	// Claim the three room tools and nothing else.
 	//
 	// The nil check used to come first and report handled for EVERY name, so a
