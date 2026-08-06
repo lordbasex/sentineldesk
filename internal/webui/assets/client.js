@@ -46,6 +46,23 @@ function setAudioMuted(muted) {
   audioBtn.setAttribute('aria-pressed', String(!muted));
 }
 
+/* WHY the audio is off, which turns out to be the whole question.
+ *
+ * There are two reasons and they want opposite treatment. The browser's
+ * autoplay policy refuses to start unmuted sound before any user gesture, so
+ * playback begins muted and the first click is taken as the gesture that lifts
+ * it. A person choosing Audio off in the rail means something else entirely,
+ * and their click on the desktop a moment later is not consent to undo it.
+ *
+ * Conflating the two made muting useless in the case that needs it most:
+ * streaming this session out to a VLC on the same machine, where the point of
+ * muting is to stop hearing everything twice. Mute, click into the desktop to
+ * pause the video, and the click turned the sound back on.
+ */
+let mutedByAutoplay = true;   // index.html ships <video muted> for exactly this
+                              // reason, so the state it starts in is the
+                              // policy's doing and not anybody's decision.
+
 let pc = null;
 let ws = null;
 let inputChannel = null;
@@ -216,13 +233,16 @@ function createPeer(cfg) {
     } catch (_) { /* browser-dependent */ }
     if (video.srcObject !== e.streams[0]) {
       video.srcObject = e.streams[0];
-      // Audio enabled by default. If the browser's autoplay policy rejects
-      // unmuted playback (no user gesture yet), fall back to muted and let
-      // the first click on the desktop unmute.
-      video.muted = false;
-      setAudioMuted(false);
+      // Audio enabled by default, unless the person already turned it off:
+      // a renegotiation is not a reason to overrule them either.
+      const wanted = video.muted && !mutedByAutoplay;
+      video.muted = wanted;
+      setAudioMuted(wanted);
       video.play().catch(() => {
+        // The autoplay policy rejected unmuted playback. Muted on ITS account,
+        // which the first click may lift.
         video.muted = true;
+        mutedByAutoplay = true;
         setAudioMuted(true);
         video.play().catch(() => {});
       });
@@ -713,9 +733,11 @@ video.addEventListener('mousedown', (e) => {
   video.focus();
   if (warnIfWatching()) { e.preventDefault(); return; }
   // If autoplay forced us to start muted, the first click (a user gesture)
-  // turns the audio on.
-  if (video.muted) {
+  // turns the audio on — and ONLY then. A click is the gesture the browser was
+  // waiting for; it is not permission to undo a choice somebody made.
+  if (video.muted && mutedByAutoplay) {
     video.muted = false;
+    mutedByAutoplay = false;
     setAudioMuted(false);
   }
   const p = remoteCoords(e);
@@ -904,6 +926,9 @@ function placePopover(el, btn) {
 audioBtn.addEventListener('click', (e) => {
   e.currentTarget.blur();
   video.muted = !video.muted;
+  // Deliberate either way: unmuting here IS the user gesture the autoplay
+  // policy wanted, and muting here is a choice nothing else may reverse.
+  mutedByAutoplay = false;
   setAudioMuted(video.muted);
 });
 
