@@ -509,6 +509,7 @@ make down</code></pre>
     <tr><td><code>MIN_VIDEO_BITRATE_KBPS</code></td><td>1200</td><td>Um piso abaixo do laço adaptativo. Um cliente que não dá conta de <em>decodificar</em> parece uma rede congestionada, e sem piso o estimador continua baixando o alvo até a imagem não servir para ninguém</td></tr>
     <tr><td><code>USE_DAMAGE</code></td><td>1</td><td>Rastreamento de dano do X. Desligado, a captura relê o framebuffer inteiro a cada quadro mesmo sem nada ter mudado. Ponha <code>0</code> só num driver onde se comporte mal</td></tr>
     <tr><td><code>SOFTWARE_SCALE_HEIGHT</code></td><td>0</td><td>Codificar numa altura menor e deixar o navegador ampliar de volta. Só serve num host lento demais para 1080p por software; <code>0</code> desliga</td></tr>
+    <tr><td><code>RECORD_THREADS</code></td><td>2</td><td>Threads do codificador para as <em>gravações</em>, que só precisam acompanhar a taxa de quadros e não terminar cada quadro depressa. O valor próprio do codificador vem da contagem de núcleos e custa quase o dobro de CPU pelos mesmos quadros num host grande. Aumente se uma gravação perder quadros num host lento</td></tr>
     <tr><td><code>AUDIO_DEVICE</code></td><td>sentineldesk.monitor</td><td>A fonte do PulseAudio que a captura lê</td></tr>
     <tr><td><code>DISPLAY</code></td><td>:0</td><td>O display X capturado</td></tr>
     <tr><td><code>TLS_DIR</code></td><td>/home/sentineldesk/.tls</td><td>Onde o certificado autoassinado é guardado. Dentro do volume, então sobrevive</td></tr>

@@ -319,23 +319,46 @@ review(
     "Arrancó una grabación lanzando gst-launch-1.0 en su propio grupo de "
     "procesos, capturando y codificando la pantalla una segunda vez en paralelo "
     "al stream en vivo.",
-    "Este es el único lugar donde el proyecto hace lo que su propia arquitectura "
-    "dice que no hace: GStreamer corre in-process en todos lados menos acá, "
-    "donde es un hijo gst-launch. Además implica leer el framebuffer y "
-    "codificar H.264 dos veces para una sola pantalla, que en un escritorio "
-    "cargado es lo más caro que hace el daemon. start_restream ya muestra la "
-    "respuesta: hace un tee del pipeline vivo y no codifica nada extra. La "
-    "grabación debería hacer lo mismo, y de paso arrancaría al instante en vez "
-    "de esperar a que levante un segundo pipeline.",
+    "El segundo encode es una decisión deliberada, no desperdicio, y medirlo lo "
+    "confirma. Leer el framebuffer dos veces cuesta 1% de un núcleo: la captura "
+    "es casi gratis y el codificador es toda la cuenta. Hacer tee del H.264 en "
+    "vivo como hace start_restream dejaría la grabación casi gratis, pero "
+    "heredaría el espaciado de keyframes del stream (10s, contra los 2s que "
+    "quiere un archivo para poder buscar) y su bitrate, que el estimador de "
+    "congestión ata a la peor red de los espectadores. Un archivo cuya calidad "
+    "depende de quién estaba mirando es el default equivocado; corresponde "
+    "detrás de una opción explícita para quien prefiera la CPU. Lo que sí "
+    "estaba mal era todo aquello sobre lo que nadie había expresado una "
+    "preferencia. ximagesrc entrega BGRx y x264enc acepta Y444 igual que I420, "
+    "así que videoconvert elegía la conversión más barata para él y cada "
+    "grabación salía en High 4:4:4 Predictive: el doble de croma para "
+    "codificar, en un perfil que casi ningún decodificador por hardware acepta, "
+    "de modo que el archivo se reproducía por software o directamente no se "
+    "reproducía en los dispositivos más propensos a abrirlo. La cantidad de "
+    "hilos tenía la misma forma: el default de x264enc se deduce de los núcleos "
+    "del host y está dimensionado para terminar cada cuadro rápido, cosa que a "
+    "un archivo en disco no le sirve. Juntas, en un host de 20 núcleos grabando "
+    "una terminal con texto en movimiento, costaban 281% de un núcleo contra "
+    "98% con el formato fijado en I420 y los hilos en 2 — los mismos cuadros a "
+    "la salida, y ahora un archivo que se reproduce en cualquier lado. Queda el "
+    "hijo gst-launch: GStreamer corre in-process en todos lados menos acá, y un "
+    "proceso hijo significa sin bus, así que un pipeline que falla a mitad de "
+    "la grabación es indistinguible de uno que anda.",
 )
 review(
     "stop_recording",
     "Señalizó el grupo de procesos del pipeline para que el contenedor se cierre "
     "correctamente, y reportó ruta y tamaño.",
     "Parar limpio en vez de matar es lo que hace que el mp4 sea reproducible, y "
-    "ese detalle es fácil de errar. Hereda el problema del segundo pipeline de "
-    "start_recording: el stop tiene que esperar a que drene un proceso que no "
-    "existiría si la grabación saliera por tee del encode vivo.",
+    "ese detalle es fácil de errar. Por poco lo erraba: la espera a que drene "
+    "el hijo sondeaba cmd.ProcessState mientras la goroutine que lo cosecha lo "
+    "escribía, o sea las dos compitiendo, y perder esa carrera significaba que "
+    "Stop no viera una salida que ya había ocurrido y matara a gst en medio de "
+    "escribir el índice — produciendo justo el archivo irreproducible que el "
+    "SIGINT existe para evitar. Ahora espera en un canal que cierra el "
+    "cosechador. Queda que la espera exista: nada acá puede distinguir un "
+    "pipeline que todavía está vaciando de uno colgado, porque un hijo "
+    "gst-launch no ofrece un bus al que preguntarle.",
 )
 review(
     "get_recording_status",

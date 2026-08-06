@@ -1,5 +1,5 @@
 SentinelDesk — cada herramienta llamada contra un escritorio real
-Ejecutado el 06 de agosto de 2026, 15:36 contra sentineldesk v1.1.9 (2abacb6) · build 20260806-152530
+Ejecutado el 06 de agosto de 2026, 18:28 contra sentineldesk v1.2.0 (5163e26) · build 20260806-180949
 
 Generado por tools/tool-sweep.py. La tabla resumen, con la misma
 numeración, está en docs/tool-sweep.md.
@@ -19,11 +19,11 @@ Result: {
   "display": ":0",
   "encoder": "auto",
   "joystick": true,
-  "memory_used": "1759/7833 MB",
+  "memory_used": "1619/7833 MB",
   "recording": false,
   "resolution": "1920x1080",
   "restreaming": false,
-  "uptime": "15:35:41 up  3:29,  0 users,  load average: 4.24, 4.96, 5.33",
+  "uptime": "18:28:04 up  6:22,  0 users,  load average: 4.19, 3.84, 4.50",
   "window_manager": "Openbox"
 }
 
@@ -66,7 +66,7 @@ Cómo llevarla más lejos:
 tool: #3   [ok]
 screenshot: Capturar la pantalla entera como PNG
 Argumentos enviados: ninguno
-Result: [image saved: /tmp/mcp-screenshot-1786041341770.png]
+Result: [image saved: /tmp/mcp-screenshot-1786051685447.png]
 
 Qué hizo:
   Capturó el framebuffer de forma nativa por desktop.GrabScreenshotPNG y devolvió PNG,
@@ -86,7 +86,7 @@ Cómo llevarla más lejos:
 tool: #4   [ok]
 screenshot_region: Capturar un rectángulo en vez de la pantalla entera
 Argumentos enviados: {"height": 200, "width": 320, "x": 0, "y": 0}
-Result: [image saved: /tmp/mcp-screenshot_region-1786041341812.png]
+Result: [image saved: /tmp/mcp-screenshot_region-1786051685536.png]
 
 Qué hizo:
   Recortó en el momento de capturar en vez de traer la pantalla y cortarla, así el
@@ -126,28 +126,25 @@ Cómo llevarla más lejos:
 tool: #6   [ok]
 read_screen_text: Pasar la pantalla a texto con OCR
 Argumentos enviados: {"lang": "eng"}
-Result: mel = Pl sentineldesk@1 5bf5ba7 sweep. html - Chromium
+Result: H
 
-vy @ sweep.html x + _ ox
-CG (@File file///tmp/sweep.html x
-You are using an unsupported command-line flag: -no-sandbox. Stability Restore pages? x
+ee ee
 
-Chromium didn't shut down correctly.
-clicked
+we
 
-|sweep | Go
+P|
+=
+~
+be
+~
+po
+=
+=
+Q
+=
+~~
 
-terminal-ok
-
-4 ule
-beg tm
-
-{
-Pi geeer att
-
-“ya
-
-4)
+| reteset
 
 Qué hizo:
   Capturó a 2x y le pasó tesseract. Ese escalado es lo único que hace el OCR usable
@@ -189,8 +186,8 @@ tool: #8   [ok]
 get_mouse_position: Dónde está el puntero ahora
 Argumentos enviados: ninguno
 Result: {
-  "x": 360,
-  "y": 340
+  "x": 960,
+  "y": 540
 }
 
 Qué hizo:
@@ -207,14 +204,8 @@ tool: #9   [ok]
 get_active_window: Qué ventana tiene el foco
 Argumentos enviados: ninguno
 Result: {
-  "id": "0x01a00003",
-  "desktop": 0,
-  "x": 10,
-  "y": 46,
-  "w": 945,
-  "h": 1024,
-  "class": "Chromium",
-  "title": "sweep.html - Chromium"
+  "active": null,
+  "note": "no window currently has focus"
 }
 
 Qué hizo:
@@ -255,26 +246,6 @@ Result: [
     "h": 1080,
     "class": "Pcmanfm",
     "title": "pcmanfm"
-  },
-  {
-    "id": "0x01800003",
-    "desktop": 0,
-    "x": 632,
-    "y": 353,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@15bf5ba7aab7: /"
-  },
-  {
-    "id": "0x01a00003",
-    "desktop": 0,
-    "x": 10,
-    "y": 46,
-    "w": 945,
-    "h": 1024,
-    "class": "Chromium",
-    "title": "sweep.html - Chromium"
   }
 ]
 
@@ -342,7 +313,7 @@ Result: [
   {
     "command": "/usr/bin/python3 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf",
     "cpu": "0.0",
-    "mem": "0.4",
+    "mem": "0.3",
     "name": "supervisord",
     "pid": 1
   }
@@ -366,7 +337,7 @@ is_running: Si un proceso con ese nombre está vivo
 Argumentos enviados: {"name": "Xvfb"}
 Result: {
   "pids": [
-    54
+    38
   ],
   "running": true
 }
@@ -496,7 +467,7 @@ Argumentos enviados: ninguno
 Result: {
   "mute": false,
   "sink": "sentineldesk",
-  "volume": "Volume: front-left: 39321 /  60% / -13.31 dB,   front-right: 39321 /  60% / -13.31 dB"
+  "volume": "Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB"
 }
 
 Qué hizo:
@@ -515,28 +486,8 @@ tool: #16   [ok]
 check_errors: Cualquier diálogo de error o alerta que haya en pantalla
 Argumentos enviados: ninguno
 Result: {
-  "dialogs": [
-    {
-      "ref": "3/0/0/0/5/3/0",
-      "role": "alert",
-      "text": "￼￼￼￼￼",
-      "title": "Infobar"
-    },
-    {
-      "ref": "3/0/1",
-      "role": "alert",
-      "text": "￼",
-      "title": "Restore pages?"
-    },
-    {
-      "ref": "3/1",
-      "role": "alert",
-      "text": "￼",
-      "title": "Restore pages?"
-    }
-  ],
-  "errors_on_screen": true,
-  "hint": "use ui_click with the ref of a button to dismiss one, after reading what it says"
+  "errors_on_screen": false,
+  "note": "nothing is reporting a failure. This only sees graphical dialogs — a command that failed silently in a terminal shows up in terminal_read, and a program that died at launch in the stderr that launch_app returns."
 }
 
 Qué hizo:
@@ -577,9 +528,9 @@ wait_for_idle: Esperar a que la pantalla deje de cambiar y la CPU se calme
 Argumentos enviados: {"ignore_cpu": true, "quiet_ms": 400, "timeout_ms": 4000}
 Result: {
   "cpu_percent": 100,
-  "idle": false,
-  "reason": "the screen went still but the CPU is still at 100%",
-  "waited_ms": 4322
+  "idle": true,
+  "reason": "the screen went still and the CPU settled",
+  "waited_ms": 738
 }
 
 Qué hizo:
@@ -774,30 +725,30 @@ Result: {
   "count": 3,
   "entries": [
     {
-      "time": "2026-08-06T15:35:45.920-03:00",
+      "time": "2026-08-06T18:28:09.977-03:00",
       "tool": "wait",
       "args": "{\"ms\":50}",
       "ok": true,
       "ms": 50,
-      "conn": 6,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-06T15:35:45.989-03:00",
+      "time": "2026-08-06T18:28:10.044-03:00",
       "tool": "wait_for_idle",
       "args": "{\"ignore_cpu\":true,\"quiet_ms\":400,\"timeout_ms\":4000}",
       "ok": true,
-      "ms": 4322,
-      "conn": 6,
+      "ms": 738,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-06T15:35:50.319-03:00",
+      "time": "2026-08-06T18:28:10.794-03:00",
       "tool": "tool_search",
       "args": "{\"limit\":5,\"query\":\"give someone remote access over ssh\"}",
       "ok": true,
       "ms": 0,
-      "conn": 6,
+      "conn": 8,
       "client": "mcp-cli 1.0"
     }
   ]
@@ -821,10 +772,10 @@ tool: #21   [ok]
 room_state: Quién está en la sala, quién maneja, y si esta conexión puede actuar
 Argumentos enviados: ninguno
 Result: {
-  "controller": "",
-  "controller_id": "",
+  "controller": "AI agent",
+  "controller_id": "agent",
   "humans_present": true,
-  "may_inject": false,
+  "may_inject": true,
   "note": "Control is always claimed, never assumed — even with nobody else here. call request_control (immediate when the controls are free) and release_control when the task is done.",
   "participants": [
     {
@@ -832,17 +783,17 @@ Result: {
       "controller": false,
       "id": "u1",
       "name": "Viewer 1",
-      "seconds": 243
+      "seconds": 692
     },
     {
       "agent": true,
-      "controller": false,
+      "controller": true,
       "id": "agent",
       "name": "AI agent",
-      "seconds": 223
+      "seconds": 675
     }
   ],
-  "you_have_control": false
+  "you_have_control": true
 }
 
 Qué hizo:
@@ -869,7 +820,7 @@ request_control: Pedirle el escritorio a la sala antes de tocarlo
 Argumentos enviados: {"timeout_ms": 8000}
 Result: {
   "granted": true,
-  "reason": "nobody was driving"
+  "reason": "you already had control"
 }
 
 Qué hizo:
@@ -1098,7 +1049,7 @@ Result: {
   "as_root": false,
   "command": "xterm -T SWEEPWIN -e sleep 600",
   "note": "still running after 700 ms. A window may take longer to appear — use wait_for_window, or open_app_and_wait next time.",
-  "pid": 2169,
+  "pid": 2872,
   "running": true
 }
 
@@ -1124,7 +1075,7 @@ Argumentos enviados: {"match": "SWEEPWIN", "timeout_ms": 15000}
 Result: {
   "class": "xterm.XTerm",
   "found": true,
-  "id": "0x0140000c",
+  "id": "0x0180000c",
   "title": "SWEEPWIN"
 }
 
@@ -1167,29 +1118,9 @@ Result: [
     "title": "pcmanfm"
   },
   {
-    "id": "0x01800003",
-    "desktop": 0,
-    "x": 632,
-    "y": 353,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@15bf5ba7aab7: /"
-  },
-  {
-    "id": "0x01a00003",
-    "desktop": 0,
-    "x": 10,
-    "y": 46,
-    "w": 945,
-    "h": 1024,
-    "class": "Chromium",
-    "title": "sweep.html - Chromium"
-  },
-  {
-    "id": "0x0140000c",
-    "desktop": 0,
-    "x": 1362,
+    "id": "0x0180000c",
+    "desktop": 2,
+    "x": 718,
     "y": 413,
     "w": 484,
     "h": 316,
@@ -1216,8 +1147,8 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #36   [ok]
 activate_window: Enfocar y traer al frente una ventana por id
-Argumentos enviados: {"id": "0x0140000c"}
-Result: activated window 0x0140000c
+Argumentos enviados: {"id": "0x0180000c"}
+Result: activated window 0x0180000c
 
 Qué hizo:
   Enfocó y trajo al frente una ventana con un mensaje de cliente _NET_ACTIVE_WINDOW.
@@ -1234,13 +1165,13 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #37   [ok]
 window_properties: Las propiedades X crudas de una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: {
   "WM_CLASS": [
     "xterm",
     "XTerm"
   ],
-  "WM_CLIENT_MACHINE": "15bf5ba7aab7",
+  "WM_CLIENT_MACHINE": "41c7ec0e3914",
   "WM_COMMAND": [
     "{ \"/usr/bin/xterm",
     "-T",
@@ -1278,14 +1209,14 @@ Result: {
     "_NET_WM_ACTION_BELOW",
     "_OB_WM_ACTION_UNDECORATE"
   ],
-  "_NET_WM_DESKTOP": 0,
+  "_NET_WM_DESKTOP": 2,
   "_NET_WM_ICON_GEOMETRY": [
-    "544",
+    "140",
     "2",
     "200",
     "32"
   ],
-  "_NET_WM_PID": 2170,
+  "_NET_WM_PID": 2873,
   "_NET_WM_STATE": "",
   "_NET_WM_VISIBLE_ICON_NAME": "SWEEPWIN",
   "_NET_WM_VISIBLE_NAME": "SWEEPWIN",
@@ -1317,484 +1248,305 @@ xwininfo: Window id: 0x21f (the root window) (has no name)
 
   Root window id: 0x21f (the root window) (has no name)
   Parent window id: 0x0 (none)
-     30 children:
-     0x2400001 (has no name): ()  1x1+0+0  +0+0
-     0x1c00003 "chromium": ("chromium" "Chromium")  200x200+0+0  +0+0
-        1 child:
-        0x1c00004 (has no name): ()  1x1+-1+-1  +-1+-1
-     0x600006 (has no name): ()  73x61+400+300  +400+300
-     0x1a00006 (has no name): ()  1x1+0+0  +0+0
-     0x1c00001 "chromium": ("chromium" "Chromium")  10x10+10+10  +10+10
-     0x1a00000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
-     0x1800009 (has no name): ()  1x1+-1+-1  +-1+-1
-     0x1800001 "lxterminal": ("lxterminal" "Lxterminal")  10x10+10+10  +10+10
+     23 children:
+     0x1600001 (has no name): ()  1x1+0+0  +0+0
+     0x400004 (has no name): ()  73x61+400+300  +400+300
+     0x400002 (has no name): ()  75x61+1735+511  +1735+511
      0xc0000e (has no name): ()  1x1+-1+-1  +-1+-1
      0xc0000a "lxpanel": ()  10x10+-100+-100  +-100+-100
      0xa00009 (has no name): ()  1x1+-1+-1  +-1+-1
      0xc00002 "lxpanel": ()  10x10+-100+-100  +-100+-100
      0xc00001 "lxpanel": ("lxpanel" "Lxpanel")  10x10+10+10  +10+10
      0xa00001 "pcmanfm": ("pcmanfm" "Pcmanfm")  10x10+10+10  +10+10
-     0x40011f "Openbox": ("" (none))  1x1+-100+-100  +-100+-100
-     0x40016e (has no name): ()  166x48+877+516  +877+516
+     0x60011f "Openbox": ("" (none))  1x1+-100+-100  +-100+-100
+     0x60016e (has no name): ()  166x48+877+516  +877+516
         5 children:
-        0x400333 (has no name): ()  16x16+62+15  +940+532
-        0x400332 (has no name): ()  16x16+45+15  +923+532
-        0x400331 (has no name): ()  16x16+28+15  +906+532
-        0x400330 (has no name): ()  16x16+11+15  +889+532
-        0x40016f (has no name): ()  64x36+92+6  +970+523
-     0x400173 (has no name): ()  1x1+0+0  +0+0
+        0x600212 (has no name): ()  16x16+62+15  +940+532
+        0x600211 (has no name): ()  16x16+45+15  +923+532
+        0x600210 (has no name): ()  16x16+28+15  +906+532
+        0x60020f (has no name): ()  16x16+11+15  +889+532
+        0x60016f (has no name): ()  64x36+92+6  +970+523
+     0x600173 (has no name): ()  1x1+0+0  +0+0
         1 child:
-        0x400174 (has no name): ()  1x1+0+0  +1+1
-     0x400171 (has no name): ()  1x1+0+0  +0+0
+        0x600174 (has no name): ()  1x1+0+0  +1+1
+     0x600171 (has no name): ()  1x1+0+0  +0+0
         1 child:
-        0x400172 (has no name): ()  1x1+0+0  +1+1
-     0x40016a (has no name): ("OPENBOX_FOCUS_CYCLE_POPUP" "OPENBOX_FOCUS_CYCLE_POPUP")  1x1+0+0  +0+0
+        0x600172 (has no name): ()  1x1+0+0  +1+1
+     0x60016a (has no name): ("OPENBOX_FOCUS_CYCLE_POPUP" "OPENBOX_FOCUS_CYCLE_POPUP")  1x1+0+0  +0+0
         3 children:
-        0x40016d (has no name): ()  1x1+0+0  +1+1
-        0x40016c (has no name): ()  1x1+0+0  +1+1
-        0x40016b (has no name): ()  1x1+0+0  +1+1
-     0x400167 (has no name): ()  1x1+0+0  +0+0
+        0x60016d (has no name): ()  1x1+0+0  +1+1
+        0x60016c (has no name): ()  1x1+0+0  +1+1
+        0x60016b (has no name): ()  1x1+0+0  +1+1
+     0x600167 (has no name): ()  1x1+0+0  +0+0
         2 children:
-        0x400169 (has no name): ()  1x1+0+0  +1+1
-        0x400168 (has no name): ()  1x1+0+0  +1+1
-     0x400166 (has no name): ()  1x1+0+0  +0+0
-     0x400165 (has no name): ()  1x1+0+0  +0+0
-     0x400164 (has no name): ()  1x1+0+0  +0+0
-     0x400163 (has no name): ()  1x1+0+0  +0+0
-     0x400175 (has no name): ()  1920x36+0+0  +0+0
+        0x600169 (has no name): ()  1x1+0+0  +1+1
+        0x600168 (has no name): ()  1x1+0+0  +1+1
+     0x600166 (has no name): ()  1x1+0+0  +0+0
+     0x600165 (has no name): ()  1x1+0+0  +0+0
+     0x600164 (has no name): ()  1x1+0+0  +0+0
+     0x600163 (has no name): ()  1x1+0+0  +0+0
+     0x600175 (has no name): ()  1920x36+0+0  +0+0
         56 children:
         0xc00006 "panel": ("panel" "lxpanel")  1920x36+0+0  +0+0
            1 child:
            0xc00007 (has no name): ()  1x1+-1+-1  +-1+-1
-        0x4001c1 (has no name): ()  1x1+0+0  +0+0
-        0x4001c0 (has no name): ()  1x1+0+0  +0+0
-        0x4001bf (has no name): ()  1x1+0+0  +0+0
-        0x4001be (has no name): ()  1x1+0+0  +0+0
-        0x4001bd (has no name): ()  1x1+0+0  +0+0
-        0x4001bc (has no name): ()  1x1+0+0  +0+0
-        0x4001bb (has no name): ()  1x1+0+0  +0+0
-        0x4001ba (has no name): ()  1x1+0+0  +0+0
-        0x4001b9 (has no name): ()  1x1+0+0  +0+0
-        0x4001b8 (has no name): ()  1x1+0+0  +0+0
-        0x4001b7 (has no name): ()  1x1+0+0  +0+0
-        0x4001b6 (has no name): ()  1x1+0+0  +0+0
-        0x4001b5 (has no name): ()  1x1+0+0  +0+0
-        0x4001b4 (has no name): ()  1x1+0+0  +0+0
-        0x4001b3 (has no name): ()  1x1+0+0  +0+0
-        0x4001b2 (has no name): ()  1x1+0+0  +0+0
-        0x4001b1 (has no name): ()  1x1+0+0  +0+0
-        0x4001b0 (has no name): ()  1x1+0+0  +0+0
-        0x4001af (has no name): ()  1x1+0+0  +0+0
-        0x4001ae (has no name): ()  1x1+0+0  +0+0
-        0x4001ad (has no name): ()  1x1+0+0  +0+0
-        0x4001ac (has no name): ()  1x1+0+0  +0+0
-        0x4001ab (has no name): ()  1x1+0+0  +0+0
-        0x4001aa (has no name): ()  1x1+0+0  +0+0
-        0x4001a9 (has no name): ()  1x1+0+0  +0+0
-        0x4001a8 (has no name): ()  1x1+0+0  +0+0
-        0x4001a7 (has no name): ()  1x1+0+0  +0+0
-        0x4001a6 (has no name): ()  1x1+0+0  +0+0
-        0x4001a5 (has no name): ()  1x1+0+0  +0+0
-        0x4001a4 (has no name): ()  1x1+0+0  +0+0
-        0x4001a3 (has no name): ()  1x1+0+0  +0+0
-        0x4001a2 (has no name): ()  1x1+0+0  +0+0
-        0x4001a1 (has no name): ()  1x1+0+0  +0+0
-        0x4001a0 (has no name): ()  1x1+0+0  +0+0
-        0x40019f (has no name): ()  1x1+0+0  +0+0
-        0x40019e (has no name): ()  1x1+0+0  +0+0
-        0x40019d (has no name): ()  1x1+0+0  +0+0
-        0x40019c (has no name): ()  1x1+0+0  +0+0
-        0x40019b (has no name): ()  1x1+0+0  +0+0
-        0x40019a (has no name): ()  1x1+0+0  +0+0
-        0x400195 (has no name): ()  1x1+0+0  +0+0
+        0x6001c1 (has no name): ()  1x1+0+0  +0+0
+        0x6001c0 (has no name): ()  1x1+0+0  +0+0
+        0x6001bf (has no name): ()  1x1+0+0  +0+0
+        0x6001be (has no name): ()  1x1+0+0  +0+0
+        0x6001bd (has no name): ()  1x1+0+0  +0+0
+        0x6001bc (has no name): ()  1x1+0+0  +0+0
+        0x6001bb (has no name): ()  1x1+0+0  +0+0
+        0x6001ba (has no name): ()  1x1+0+0  +0+0
+        0x6001b9 (has no name): ()  1x1+0+0  +0+0
+        0x6001b8 (has no name): ()  1x1+0+0  +0+0
+        0x6001b7 (has no name): ()  1x1+0+0  +0+0
+        0x6001b6 (has no name): ()  1x1+0+0  +0+0
+        0x6001b5 (has no name): ()  1x1+0+0  +0+0
+        0x6001b4 (has no name): ()  1x1+0+0  +0+0
+        0x6001b3 (has no name): ()  1x1+0+0  +0+0
+        0x6001b2 (has no name): ()  1x1+0+0  +0+0
+        0x6001b1 (has no name): ()  1x1+0+0  +0+0
+        0x6001b0 (has no name): ()  1x1+0+0  +0+0
+        0x6001af (has no name): ()  1x1+0+0  +0+0
+        0x6001ae (has no name): ()  1x1+0+0  +0+0
+        0x6001ad (has no name): ()  1x1+0+0  +0+0
+        0x6001ac (has no name): ()  1x1+0+0  +0+0
+        0x6001ab (has no name): ()  1x1+0+0  +0+0
+        0x6001aa (has no name): ()  1x1+0+0  +0+0
+        0x6001a9 (has no name): ()  1x1+0+0  +0+0
+        0x6001a8 (has no name): ()  1x1+0+0  +0+0
+        0x6001a7 (has no name): ()  1x1+0+0  +0+0
+        0x6001a6 (has no name): ()  1x1+0+0  +0+0
+        0x6001a5 (has no name): ()  1x1+0+0  +0+0
+        0x6001a4 (has no name): ()  1x1+0+0  +0+0
+        0x6001a3 (has no name): ()  1x1+0+0  +0+0
+        0x6001a2 (has no name): ()  1x1+0+0  +0+0
+        0x6001a1 (has no name): ()  1x1+0+0  +0+0
+        0x6001a0 (has no name): ()  1x1+0+0  +0+0
+        0x60019f (has no name): ()  1x1+0+0  +0+0
+        0x60019e (has no name): ()  1x1+0+0  +0+0
+        0x60019d (has no name): ()  1x1+0+0  +0+0
+        0x60019c (has no name): ()  1x1+0+0  +0+0
+        0x60019b (has no name): ()  1x1+0+0  +0+0
+        0x60019a (has no name): ()  1x1+0+0  +0+0
+        0x600195 (has no name): ()  1x1+0+0  +0+0
            4 children:
-           0x400199 (has no name): ()  1x1+0+0  +0+0
-           0x400198 (has no name): ()  1x1+0+0  +0+0
-           0x400197 (has no name): ()  1x1+0+0  +0+0
-           0x400196 (has no name): ()  1x1+0+0  +0+0
-        0x40018d (has no name): ()  1x1+0+0  +0+0
-        0x40018c (has no name): ()  1x1+0+0  +0+0
-        0x400186 (has no name): ()  1x1+0+0  +0+0
-        0x400185 (has no name): ()  1x1+0+0  +0+0
-        0x400184 (has no name): ()  1x1+0+0  +0+0
-        0x400183 (has no name): ()  1x1+0+0  +0+0
-        0x400182 (has no name): ()  1x1+0+0  +0+0
-        0x400181 (has no name): ()  1x1+0+0  +0+0
-        0x400180 (has no name): ()  1x1+0+0  +0+0
+           0x600199 (has no name): ()  1x1+0+0  +0+0
+           0x600198 (has no name): ()  1x1+0+0  +0+0
+           0x600197 (has no name): ()  1x1+0+0  +0+0
+           0x600196 (has no name): ()  1x1+0+0  +0+0
+        0x60018d (has no name): ()  1x1+0+0  +0+0
+        0x60018c (has no name): ()  1x1+0+0  +0+0
+        0x600186 (has no name): ()  1x1+0+0  +0+0
+        0x600185 (has no name): ()  1x1+0+0  +0+0
+        0x600184 (has no name): ()  1x1+0+0  +0+0
+        0x600183 (has no name): ()  1x1+0+0  +0+0
+        0x600182 (has no name): ()  1x1+0+0  +0+0
+        0x600181 (has no name): ()  1x1+0+0  +0+0
+        0x600180 (has no name): ()  1x1+0+0  +0+0
            12 children:
-           0x400194 (has no name): ()  12x12+0+0  +0+0
-           0x400193 (has no name): ()  14x14+0+0  +0+0
-           0x400192 (has no name): ()  12x12+0+0  +0+0
-           0x400191 (has no name): ()  12x12+0+0  +0+0
-           0x400190 (has no name): ()  12x12+0+0  +0+0
-           0x40018f (has no name): ()  12x12+0+0  +0+0
-           0x40018e (has no name): ()  1x1+0+0  +0+0
-           0x40018b (has no name): ()  11x26+0+0  +0+0
-           0x40018a (has no name): ()  25x7+0+0  +0+0
-           0x400189 (has no name): ()  11x26+0+0  +0+0
-           0x400188 (has no name): ()  25x7+0+0  +0+0
-           0x400187 (has no name): ()  1x1+0+0  +0+0
-        0x40017b (has no name): ()  1x1+0+0  +0+0
+           0x600194 (has no name): ()  12x12+0+0  +0+0
+           0x600193 (has no name): ()  14x14+0+0  +0+0
+           0x600192 (has no name): ()  12x12+0+0  +0+0
+           0x600191 (has no name): ()  12x12+0+0  +0+0
+           0x600190 (has no name): ()  12x12+0+0  +0+0
+           0x60018f (has no name): ()  12x12+0+0  +0+0
+           0x60018e (has no name): ()  1x1+0+0  +0+0
+           0x60018b (has no name): ()  11x26+0+0  +0+0
+           0x60018a (has no name): ()  25x7+0+0  +0+0
+           0x600189 (has no name): ()  11x26+0+0  +0+0
+           0x600188 (has no name): ()  25x7+0+0  +0+0
+           0x600187 (has no name): ()  1x1+0+0  +0+0
+        0x60017b (has no name): ()  1x1+0+0  +0+0
            2 children:
-           0x40017d (has no name): ()  1x1+0+0  +0+0
-           0x40017c (has no name): ()  1x1+0+0  +0+0
-        0x40017a (has no name): ()  1x1+0+0  +0+0
+           0x60017d (has no name): ()  1x1+0+0  +0+0
+           0x60017c (has no name): ()  1x1+0+0  +0+0
+        0x60017a (has no name): ()  1x1+0+0  +0+0
            1 child:
-           0x40017f (has no name): ()  1x1+0+0  +0+0
-        0x400179 (has no name): ()  1x1+0+0  +0+0
-        0x400178 (has no name): ()  1x1+0+0  +0+0
+           0x60017f (has no name): ()  1x1+0+0  +0+0
+        0x600179 (has no name): ()  1x1+0+0  +0+0
+        0x600178 (has no name): ()  1x1+0+0  +0+0
            1 child:
-           0x40017e (has no name): ()  1x1+0+0  +0+0
-        0x400176 (has no name): ()  1920x36+0+0  +0+0
+           0x60017e (has no name): ()  1x1+0+0  +0+0
+        0x600176 (has no name): ()  1920x36+0+0  +0+0
            1 child:
-           0x400177 (has no name): ()  1920x36+0+0  +0+0
-     0x400170 (has no name): ()  1x1+0+0  +0+0
-     0x400503 (has no name): ()  486x345+1361+385  +1361+385
+           0x600177 (has no name): ()  1920x36+0+0  +0+0
+     0x600170 (has no name): ()  1x1+0+0  +0+0
+     0x600225 (has no name): ()  486x345+717+385  +717+385
         56 children:
-        0x140000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +1362+413
+        0x180000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +718+413
            1 child:
-           0x1400018 (has no name): ()  484x316+0+0  +1362+413
-        0x40054f (has no name): ()  1x1+0+0  +1361+385
-        0x40054e (has no name): ()  1x1+0+0  +1361+385
-        0x40054d (has no name): ()  1x1+0+0  +1361+385
-        0x40054c (has no name): ()  1x1+0+0  +1361+385
-        0x40054b (has no name): ()  1x1+0+0  +1361+385
-        0x40054a (has no name): ()  1x1+0+0  +1361+385
-        0x400549 (has no name): ()  1x1+0+0  +1361+385
-        0x400548 (has no name): ()  1x1+0+0  +1361+385
-        0x400547 (has no name): ()  1x1+0+0  +1361+385
-        0x400546 (has no name): ()  1x1+0+0  +1361+385
-        0x400545 (has no name): ()  1x1+0+0  +1361+385
-        0x400544 (has no name): ()  1x1+0+0  +1361+385
-        0x400543 (has no name): ()  1x1+0+0  +1361+385
-        0x400542 (has no name): ()  1x1+0+0  +1361+385
-        0x400541 (has no name): ()  1x1+0+0  +1361+385
-        0x400540 (has no name): ()  1x1+0+0  +1361+385
-        0x40053f (has no name): ()  1x1+0+0  +1361+385
-        0x40053e (has no name): ()  1x1+0+0  +1361+385
-        0x40053d (has no name): ()  1x1+0+0  +1361+385
-        0x40053c (has no name): ()  1x1+0+0  +1361+385
-        0x40053b (has no name): ()  1x1+0+0  +1361+385
-        0x40053a (has no name): ()  1x1+0+0  +1361+385
-        0x400539 (has no name): ()  1x1+0+0  +1361+385
-        0x400538 (has no name): ()  1x1+0+0  +1361+385
-        0x400537 (has no name): ()  1x1+0+0  +1361+385
-        0x400536 (has no name): ()  1x1+0+0  +1361+385
-        0x400535 (has no name): ()  1x1+0+0  +1361+385
-        0x400534 (has no name): ()  1x1+0+0  +1361+385
-        0x400533 (has no name): ()  1x1+0+0  +1361+385
-        0x400532 (has no name): ()  1x1+0+0  +1361+385
-        0x400531 (has no name): ()  1x1+0+0  +1361+385
-        0x400530 (has no name): ()  1x1+0+0  +1361+385
-        0x40052f (has no name): ()  26x1+459+344  +1820+729
-        0x40052e (has no name): ()  1x1+0+0  +1361+385
-        0x40052d (has no name): ()  1x25+485+320  +1846+705
-        0x40052c (has no name): ()  26x1+1+344  +1362+729
-        0x40052b (has no name): ()  1x1+0+0  +1361+385
-        0x40052a (has no name): ()  1x25+0+320  +1361+705
-        0x400529 (has no name): ()  432x1+27+344  +1388+729
-        0x400528 (has no name): ()  1x1+0+0  +1361+385
-        0x400523 (has no name): ()  1x1+0+0  +1361+385
+           0x1800018 (has no name): ()  484x316+0+0  +718+413
+        0x600271 (has no name): ()  1x1+0+0  +717+385
+        0x600270 (has no name): ()  1x1+0+0  +717+385
+        0x60026f (has no name): ()  1x1+0+0  +717+385
+        0x60026e (has no name): ()  1x1+0+0  +717+385
+        0x60026d (has no name): ()  1x1+0+0  +717+385
+        0x60026c (has no name): ()  1x1+0+0  +717+385
+        0x60026b (has no name): ()  1x1+0+0  +717+385
+        0x60026a (has no name): ()  1x1+0+0  +717+385
+        0x600269 (has no name): ()  1x1+0+0  +717+385
+        0x600268 (has no name): ()  1x1+0+0  +717+385
+        0x600267 (has no name): ()  1x1+0+0  +717+385
+        0x600266 (has no name): ()  1x1+0+0  +717+385
+        0x600265 (has no name): ()  1x1+0+0  +717+385
+        0x600264 (has no name): ()  1x1+0+0  +717+385
+        0x600263 (has no name): ()  1x1+0+0  +717+385
+        0x600262 (has no name): ()  1x1+0+0  +717+385
+        0x600261 (has no name): ()  1x1+0+0  +717+385
+        0x600260 (has no name): ()  1x1+0+0  +717+385
+        0x60025f (has no name): ()  1x1+0+0  +717+385
+        0x60025e (has no name): ()  1x1+0+0  +717+385
+        0x60025d (has no name): ()  1x1+0+0  +717+385
+        0x60025c (has no name): ()  1x1+0+0  +717+385
+        0x60025b (has no name): ()  1x1+0+0  +717+385
+        0x60025a (has no name): ()  1x1+0+0  +717+385
+        0x600259 (has no name): ()  1x1+0+0  +717+385
+        0x600258 (has no name): ()  1x1+0+0  +717+385
+        0x600257 (has no name): ()  1x1+0+0  +717+385
+        0x600256 (has no name): ()  1x1+0+0  +717+385
+        0x600255 (has no name): ()  1x1+0+0  +717+385
+        0x600254 (has no name): ()  1x1+0+0  +717+385
+        0x600253 (has no name): ()  1x1+0+0  +717+385
+        0x600252 (has no name): ()  1x1+0+0  +717+385
+        0x600251 (has no name): ()  26x1+459+344  +1176+729
+        0x600250 (has no name): ()  1x1+0+0  +717+385
+        0x60024f (has no name): ()  1x25+485+320  +1202+705
+        0x60024e (has no name): ()  26x1+1+344  +718+729
+        0x60024d (has no name): ()  1x1+0+0  +717+385
+        0x60024c (has no name): ()  1x25+0+320  +717+705
+        0x60024b (has no name): ()  432x1+27+344  +744+729
+        0x60024a (has no name): ()  1x1+0+0  +717+385
+        0x600245 (has no name): ()  1x1+0+0  +717+385
            4 children:
-           0x400527 (has no name): ()  1x1+0+0  +1361+385
-           0x400526 (has no name): ()  1x1+0+0  +1361+385
-           0x400525 (has no name): ()  1x1+0+0  +1361+385
-           0x400524 (has no name): ()  1x1+0+0  +1361+385
-        0x40051b (has no name): ()  1x295+485+26  +1846+411
-        0x40051a (has no name): ()  1x295+0+26  +1361+411
-        0x400514 (has no name): ()  484x1+1+27  +1362+412
-        0x400513 (has no name): ()  1x25+485+1  +1846+386
-        0x400512 (has no name): ()  26x1+460+0  +1821+385
-        0x400511 (has no name): ()  26x1+0+0  +1361+385
-        0x400510 (has no name): ()  434x1+26+0  +1387+385
-        0x40050f (has no name): ()  1x25+0+1  +1361+386
-        0x40050e (has no name): ()  484x26+1+1  +1362+386
+           0x600249 (has no name): ()  1x1+0+0  +717+385
+           0x600248 (has no name): ()  1x1+0+0  +717+385
+           0x600247 (has no name): ()  1x1+0+0  +717+385
+           0x600246 (has no name): ()  1x1+0+0  +717+385
+        0x60023d (has no name): ()  1x295+485+26  +1202+411
+        0x60023c (has no name): ()  1x295+0+26  +717+411
+        0x600236 (has no name): ()  484x1+1+27  +718+412
+        0x600235 (has no name): ()  1x25+485+1  +1202+386
+        0x600234 (has no name): ()  26x1+460+0  +1177+385
+        0x600233 (has no name): ()  26x1+0+0  +717+385
+        0x600232 (has no name): ()  434x1+26+0  +743+385
+        0x600231 (has no name): ()  1x25+0+1  +717+386
+        0x600230 (has no name): ()  484x26+1+1  +718+386
            12 children:
-           0x400522 (has no name): ()  12x12+415+7  +1777+393
-           0x400521 (has no name): ()  14x14+11+6  +1373+392
-           0x400520 (has no name): ()  12x12+0+0  +1362+386
-           0x40051f (has no name): ()  12x12+0+0  +1362+386
-           0x40051e (has no name): ()  12x12+461+7  +1823+393
-           0x40051d (has no name): ()  12x12+438+7  +1800+393
-           0x40051c (has no name): ()  368x14+36+6  +1398+392
-           0x400519 (has no name): ()  11x26+473+0  +1835+386
-           0x400518 (has no name): ()  25x7+459+0  +1821+386
-           0x400517 (has no name): ()  11x26+0+0  +1362+386
-           0x400516 (has no name): ()  25x7+0+0  +1362+386
-           0x400515 (has no name): ()  434x7+25+0  +1387+386
-        0x400509 (has no name): ()  1x1+0+0  +1361+385
+           0x600244 (has no name): ()  12x12+415+7  +1133+393
+           0x600243 (has no name): ()  14x14+11+6  +729+392
+           0x600242 (has no name): ()  12x12+0+0  +718+386
+           0x600241 (has no name): ()  12x12+0+0  +718+386
+           0x600240 (has no name): ()  12x12+461+7  +1179+393
+           0x60023f (has no name): ()  12x12+438+7  +1156+393
+           0x60023e (has no name): ()  368x14+36+6  +754+392
+           0x60023b (has no name): ()  11x26+473+0  +1191+386
+           0x60023a (has no name): ()  25x7+459+0  +1177+386
+           0x600239 (has no name): ()  11x26+0+0  +718+386
+           0x600238 (has no name): ()  25x7+0+0  +718+386
+           0x600237 (has no name): ()  434x7+25+0  +743+386
+        0x60022b (has no name): ()  1x1+0+0  +717+385
            2 children:
-           0x40050b (has no name): ()  1x1+0+0  +1361+385
-           0x40050a (has no name): ()  1x1+0+0  +1361+385
-        0x400508 (has no name): ()  1x1+0+0  +1361+385
+           0x60022d (has no name): ()  1x1+0+0  +717+385
+           0x60022c (has no name): ()  1x1+0+0  +717+385
+        0x60022a (has no name): ()  1x1+0+0  +717+385
            1 child:
-           0x40050d (has no name): ()  1x1+0+0  +1361+385
-        0x400507 (has no name): ()  1x1+0+0  +1361+385
-        0x400506 (has no name): ()  1x1+0+0  +1361+385
+           0x60022f (has no name): ()  1x1+0+0  +717+385
+        0x600229 (has no name): ()  1x1+0+0  +717+385
+        0x600228 (has no name): ()  1x1+0+0  +717+385
            1 child:
-           0x40050c (has no name): ()  1x1+0+0  +1361+385
-        0x400504 (has no name): ()  484x316+1+28  +1362+413
+           0x60022e (has no name): ()  1x1+0+0  +717+385
+        0x600226 (has no name): ()  484x316+1+28  +718+413
            1 child:
-           0x400505 (has no name): ()  484x316+0+0  +1362+413
-     0x400445 (has no name): ()  945x1024+10+46  +10+46
-        56 children:
-        0x1a00003 "sweep.html - Chromium": ("chromium" "Chromium")  945x1024+0+0  +10+46
-        0x400491 (has no name): ()  1x1+0+0  +10+46
-        0x400490 (has no name): ()  1x1+0+0  +10+46
-        0x40048f (has no name): ()  1x1+0+0  +10+46
-        0x40048e (has no name): ()  1x1+0+0  +10+46
-        0x40048d (has no name): ()  1x1+0+0  +10+46
-        0x40048c (has no name): ()  1x1+0+0  +10+46
-        0x40048b (has no name): ()  1x1+0+0  +10+46
-        0x40048a (has no name): ()  1x1+0+0  +10+46
-        0x400489 (has no name): ()  1x1+0+0  +10+46
-        0x400488 (has no name): ()  1x1+0+0  +10+46
-        0x400487 (has no name): ()  1x1+0+0  +10+46
-        0x400486 (has no name): ()  1x1+0+0  +10+46
-        0x400485 (has no name): ()  1x1+0+0  +10+46
-        0x400484 (has no name): ()  1x1+0+0  +10+46
-        0x400483 (has no name): ()  1x1+0+0  +10+46
-        0x400482 (has no name): ()  1x1+0+0  +10+46
-        0x400481 (has no name): ()  1x1+0+0  +10+46
-        0x400480 (has no name): ()  1x1+0+0  +10+46
-        0x40047f (has no name): ()  1x1+0+0  +10+46
-        0x40047e (has no name): ()  1x1+0+0  +10+46
-        0x40047d (has no name): ()  1x1+0+0  +10+46
-        0x40047c (has no name): ()  1x1+0+0  +10+46
-        0x40047b (has no name): ()  1x1+0+0  +10+46
-        0x40047a (has no name): ()  1x1+0+0  +10+46
-        0x400479 (has no name): ()  1x1+0+0  +10+46
-        0x400478 (has no name): ()  1x1+0+0  +10+46
-        0x400477 (has no name): ()  1x1+0+0  +10+46
-        0x400476 (has no name): ()  1x1+0+0  +10+46
-        0x400475 (has no name): ()  1x1+0+0  +10+46
-        0x400474 (has no name): ()  1x1+0+0  +10+46
-        0x400473 (has no name): ()  1x1+0+0  +10+46
-        0x400472 (has no name): ()  1x1+0+0  +10+46
-        0x400471 (has no name): ()  1x1+0+0  +10+46
-        0x400470 (has no name): ()  1x1+0+0  +10+46
-        0x40046f (has no name): ()  1x1+0+0  +10+46
-        0x40046e (has no name): ()  1x1+0+0  +10+46
-        0x40046d (has no name): ()  1x1+0+0  +10+46
-        0x40046c (has no name): ()  1x1+0+0  +10+46
-        0x40046b (has no name): ()  1x1+0+0  +10+46
-        0x40046a (has no name): ()  1x1+0+0  +10+46
-        0x400465 (has no name): ()  1x1+0+0  +10+46
-           4 children:
-           0x400469 (has no name): ()  1x1+0+0  +10+46
-           0x400468 (has no name): ()  1x1+0+0  +10+46
-           0x400467 (has no name): ()  1x1+0+0  +10+46
-           0x400466 (has no name): ()  1x1+0+0  +10+46
-        0x40045d (has no name): ()  1x1+0+0  +10+46
-        0x40045c (has no name): ()  1x1+0+0  +10+46
-        0x400456 (has no name): ()  1x1+0+0  +10+46
-        0x400455 (has no name): ()  1x1+0+0  +10+46
-        0x400454 (has no name): ()  1x1+0+0  +10+46
-        0x400453 (has no name): ()  1x1+0+0  +10+46
-        0x400452 (has no name): ()  1x1+0+0  +10+46
-        0x400451 (has no name): ()  1x1+0+0  +10+46
-        0x400450 (has no name): ()  1x1+0+0  +10+46
-           12 children:
-           0x400464 (has no name): ()  12x12+0+0  +10+46
-           0x400463 (has no name): ()  14x14+0+0  +10+46
-           0x400462 (has no name): ()  12x12+0+0  +10+46
-           0x400461 (has no name): ()  12x12+0+0  +10+46
-           0x400460 (has no name): ()  12x12+0+0  +10+46
-           0x40045f (has no name): ()  12x12+0+0  +10+46
-           0x40045e (has no name): ()  1x1+0+0  +10+46
-           0x40045b (has no name): ()  11x26+0+0  +10+46
-           0x40045a (has no name): ()  25x7+0+0  +10+46
-           0x400459 (has no name): ()  11x26+0+0  +10+46
-           0x400458 (has no name): ()  25x7+0+0  +10+46
-           0x400457 (has no name): ()  1x1+0+0  +10+46
-        0x40044b (has no name): ()  1x1+0+0  +10+46
-           2 children:
-           0x40044d (has no name): ()  1x1+0+0  +10+46
-           0x40044c (has no name): ()  1x1+0+0  +10+46
-        0x40044a (has no name): ()  1x1+0+0  +10+46
-           1 child:
-           0x40044f (has no name): ()  1x1+0+0  +10+46
-        0x400449 (has no name): ()  1x1+0+0  +10+46
-        0x400448 (has no name): ()  1x1+0+0  +10+46
-           1 child:
-           0x40044e (has no name): ()  1x1+0+0  +10+46
-        0x400446 (has no name): ()  945x1024+0+0  +10+46
-           1 child:
-           0x400447 (has no name): ()  945x1024+0+0  +10+46
-     0x4003d4 (has no name): ()  658x465+631+325  +631+325
-        56 children:
-        0x1800003 "sentineldesk@15bf5ba7aab7: /": ("lxterminal" "Lxterminal")  656x436+1+28  +632+353
-           1 child:
-           0x1800004 (has no name): ()  1x1+-1+-1  +631+352
-        0x400420 (has no name): ()  1x1+0+0  +631+325
-        0x40041f (has no name): ()  1x1+0+0  +631+325
-        0x40041e (has no name): ()  1x1+0+0  +631+325
-        0x40041d (has no name): ()  1x1+0+0  +631+325
-        0x40041c (has no name): ()  1x1+0+0  +631+325
-        0x40041b (has no name): ()  1x1+0+0  +631+325
-        0x40041a (has no name): ()  1x1+0+0  +631+325
-        0x400419 (has no name): ()  1x1+0+0  +631+325
-        0x400418 (has no name): ()  1x1+0+0  +631+325
-        0x400417 (has no name): ()  1x1+0+0  +631+325
-        0x400416 (has no name): ()  1x1+0+0  +631+325
-        0x400415 (has no name): ()  1x1+0+0  +631+325
-        0x400414 (has no name): ()  1x1+0+0  +631+325
-        0x400413 (has no name): ()  1x1+0+0  +631+325
-        0x400412 (has no name): ()  1x1+0+0  +631+325
-        0x400411 (has no name): ()  1x1+0+0  +631+325
-        0x400410 (has no name): ()  1x1+0+0  +631+325
-        0x40040f (has no name): ()  1x1+0+0  +631+325
-        0x40040e (has no name): ()  1x1+0+0  +631+325
-        0x40040d (has no name): ()  1x1+0+0  +631+325
-        0x40040c (has no name): ()  1x1+0+0  +631+325
-        0x40040b (has no name): ()  1x1+0+0  +631+325
-        0x40040a (has no name): ()  1x1+0+0  +631+325
-        0x400409 (has no name): ()  1x1+0+0  +631+325
-        0x400408 (has no name): ()  1x1+0+0  +631+325
-        0x400407 (has no name): ()  1x1+0+0  +631+325
-        0x400406 (has no name): ()  1x1+0+0  +631+325
-        0x400405 (has no name): ()  1x1+0+0  +631+325
-        0x400404 (has no name): ()  1x1+0+0  +631+325
-        0x400403 (has no name): ()  1x1+0+0  +631+325
-        0x400402 (has no name): ()  1x1+0+0  +631+325
-        0x400401 (has no name): ()  1x1+0+0  +631+325
-        0x400400 (has no name): ()  26x1+631+464  +1262+789
-        0x4003ff (has no name): ()  1x1+0+0  +631+325
-        0x4003fe (has no name): ()  1x25+657+440  +1288+765
-        0x4003fd (has no name): ()  26x1+1+464  +632+789
-        0x4003fc (has no name): ()  1x1+0+0  +631+325
-        0x4003fb (has no name): ()  1x25+0+440  +631+765
-        0x4003fa (has no name): ()  604x1+27+464  +658+789
-        0x4003f9 (has no name): ()  1x1+0+0  +631+325
-        0x4003f4 (has no name): ()  1x1+0+0  +631+325
-           4 children:
-           0x4003f8 (has no name): ()  1x1+0+0  +631+325
-           0x4003f7 (has no name): ()  1x1+0+0  +631+325
-           0x4003f6 (has no name): ()  1x1+0+0  +631+325
-           0x4003f5 (has no name): ()  1x1+0+0  +631+325
-        0x4003ec (has no name): ()  1x415+657+26  +1288+351
-        0x4003eb (has no name): ()  1x415+0+26  +631+351
-        0x4003e5 (has no name): ()  656x1+1+27  +632+352
-        0x4003e4 (has no name): ()  1x25+657+1  +1288+326
-        0x4003e3 (has no name): ()  26x1+632+0  +1263+325
-        0x4003e2 (has no name): ()  26x1+0+0  +631+325
-        0x4003e1 (has no name): ()  606x1+26+0  +657+325
-        0x4003e0 (has no name): ()  1x25+0+1  +631+326
-        0x4003df (has no name): ()  656x26+1+1  +632+326
-           12 children:
-           0x4003f3 (has no name): ()  12x12+587+7  +1219+333
-           0x4003f2 (has no name): ()  14x14+11+6  +643+332
-           0x4003f1 (has no name): ()  12x12+0+0  +632+326
-           0x4003f0 (has no name): ()  12x12+0+0  +632+326
-           0x4003ef (has no name): ()  12x12+633+7  +1265+333
-           0x4003ee (has no name): ()  12x12+610+7  +1242+333
-           0x4003ed (has no name): ()  540x14+36+6  +668+332
-           0x4003ea (has no name): ()  11x26+645+0  +1277+326
-           0x4003e9 (has no name): ()  25x7+631+0  +1263+326
-           0x4003e8 (has no name): ()  11x26+0+0  +632+326
-           0x4003e7 (has no name): ()  25x7+0+0  +632+326
-           0x4003e6 (has no name): ()  606x7+25+0  +657+326
-        0x4003da (has no name): ()  1x1+0+0  +631+325
-           2 children:
-           0x4003dc (has no name): ()  1x1+0+0  +631+325
-           0x4003db (has no name): ()  1x1+0+0  +631+325
-        0x4003d9 (has no name): ()  1x1+0+0  +631+325
-           1 child:
-           0x4003de (has no name): ()  1x1+0+0  +631+325
-        0x4003d8 (has no name): ()  1x1+0+0  +631+325
-        0x4003d7 (has no name): ()  1x1+0+0  +631+325
-           1 child:
-           0x4003dd (has no name): ()  1x1+0+0  +631+325
-        0x4003d5 (has no name): ()  656x436+1+28  +632+353
-           1 child:
-           0x4003d6 (has no name): ()  656x436+0+0  +632+353
-     0x4001c2 (has no name): ()  1920x1080+0+0  +0+0
+           0x600227 (has no name): ()  484x316+0+0  +718+413
+     0x6001c2 (has no name): ()  1920x1080+0+0  +0+0
         56 children:
         0xa00003 "pcmanfm": ("pcmanfm" "Pcmanfm")  1920x1080+0+0  +0+0
            1 child:
            0xa00004 (has no name): ()  1x1+-1+-1  +-1+-1
-        0x40020e (has no name): ()  1x1+0+0  +0+0
-        0x40020d (has no name): ()  1x1+0+0  +0+0
-        0x40020c (has no name): ()  1x1+0+0  +0+0
-        0x40020b (has no name): ()  1x1+0+0  +0+0
-        0x40020a (has no name): ()  1x1+0+0  +0+0
-        0x400209 (has no name): ()  1x1+0+0  +0+0
-        0x400208 (has no name): ()  1x1+0+0  +0+0
-        0x400207 (has no name): ()  1x1+0+0  +0+0
-        0x400206 (has no name): ()  1x1+0+0  +0+0
-        0x400205 (has no name): ()  1x1+0+0  +0+0
-        0x400204 (has no name): ()  1x1+0+0  +0+0
-        0x400203 (has no name): ()  1x1+0+0  +0+0
-        0x400202 (has no name): ()  1x1+0+0  +0+0
-        0x400201 (has no name): ()  1x1+0+0  +0+0
-        0x400200 (has no name): ()  1x1+0+0  +0+0
-        0x4001ff (has no name): ()  1x1+0+0  +0+0
-        0x4001fe (has no name): ()  1x1+0+0  +0+0
-        0x4001fd (has no name): ()  1x1+0+0  +0+0
-        0x4001fc (has no name): ()  1x1+0+0  +0+0
-        0x4001fb (has no name): ()  1x1+0+0  +0+0
-        0x4001fa (has no name): ()  1x1+0+0  +0+0
-        0x4001f9 (has no name): ()  1x1+0+0  +0+0
-        0x4001f8 (has no name): ()  1x1+0+0  +0+0
-        0x4001f7 (has no name): ()  1x1+0+0  +0+0
-        0x4001f6 (has no name): ()  1x1+0+0  +0+0
-        0x4001f5 (has no name): ()  1x1+0+0  +0+0
-        0x4001f4 (has no name): ()  1x1+0+0  +0+0
-        0x4001f3 (has no name): ()  1x1+0+0  +0+0
-        0x4001f2 (has no name): ()  1x1+0+0  +0+0
-        0x4001f1 (has no name): ()  1x1+0+0  +0+0
-        0x4001f0 (has no name): ()  1x1+0+0  +0+0
-        0x4001ef (has no name): ()  1x1+0+0  +0+0
-        0x4001ee (has no name): ()  1x1+0+0  +0+0
-        0x4001ed (has no name): ()  1x1+0+0  +0+0
-        0x4001ec (has no name): ()  1x1+0+0  +0+0
-        0x4001eb (has no name): ()  1x1+0+0  +0+0
-        0x4001ea (has no name): ()  1x1+0+0  +0+0
-        0x4001e9 (has no name): ()  1x1+0+0  +0+0
-        0x4001e8 (has no name): ()  1x1+0+0  +0+0
-        0x4001e7 (has no name): ()  1x1+0+0  +0+0
-        0x4001e2 (has no name): ()  1x1+0+0  +0+0
+        0x60020e (has no name): ()  1x1+0+0  +0+0
+        0x60020d (has no name): ()  1x1+0+0  +0+0
+        0x60020c (has no name): ()  1x1+0+0  +0+0
+        0x60020b (has no name): ()  1x1+0+0  +0+0
+        0x60020a (has no name): ()  1x1+0+0  +0+0
+        0x600209 (has no name): ()  1x1+0+0  +0+0
+        0x600208 (has no name): ()  1x1+0+0  +0+0
+        0x600207 (has no name): ()  1x1+0+0  +0+0
+        0x600206 (has no name): ()  1x1+0+0  +0+0
+        0x600205 (has no name): ()  1x1+0+0  +0+0
+        0x600204 (has no name): ()  1x1+0+0  +0+0
+        0x600203 (has no name): ()  1x1+0+0  +0+0
+        0x600202 (has no name): ()  1x1+0+0  +0+0
+        0x600201 (has no name): ()  1x1+0+0  +0+0
+        0x600200 (has no name): ()  1x1+0+0  +0+0
+        0x6001ff (has no name): ()  1x1+0+0  +0+0
+        0x6001fe (has no name): ()  1x1+0+0  +0+0
+        0x6001fd (has no name): ()  1x1+0+0  +0+0
+        0x6001fc (has no name): ()  1x1+0+0  +0+0
+        0x6001fb (has no name): ()  1x1+0+0  +0+0
+        0x6001fa (has no name): ()  1x1+0+0  +0+0
+        0x6001f9 (has no name): ()  1x1+0+0  +0+0
+        0x6001f8 (has no name): ()  1x1+0+0  +0+0
+        0x6001f7 (has no name): ()  1x1+0+0  +0+0
+        0x6001f6 (has no name): ()  1x1+0+0  +0+0
+        0x6001f5 (has no name): ()  1x1+0+0  +0+0
+        0x6001f4 (has no name): ()  1x1+0+0  +0+0
+        0x6001f3 (has no name): ()  1x1+0+0  +0+0
+        0x6001f2 (has no name): ()  1x1+0+0  +0+0
+        0x6001f1 (has no name): ()  1x1+0+0  +0+0
+        0x6001f0 (has no name): ()  1x1+0+0  +0+0
+        0x6001ef (has no name): ()  1x1+0+0  +0+0
+        0x6001ee (has no name): ()  1x1+0+0  +0+0
+        0x6001ed (has no name): ()  1x1+0+0  +0+0
+        0x6001ec (has no name): ()  1x1+0+0  +0+0
+        0x6001eb (has no name): ()  1x1+0+0  +0+0
+        0x6001ea (has no name): ()  1x1+0+0  +0+0
+        0x6001e9 (has no name): ()  1x1+0+0  +0+0
+        0x6001e8 (has no name): ()  1x1+0+0  +0+0
+        0x6001e7 (has no name): ()  1x1+0+0  +0+0
+        0x6001e2 (has no name): ()  1x1+0+0  +0+0
            4 children:
-           0x4001e6 (has no name): ()  1x1+0+0  +0+0
-           0x4001e5 (has no name): ()  1x1+0+0  +0+0
-           0x4001e4 (has no name): ()  1x1+0+0  +0+0
-           0x4001e3 (has no name): ()  1x1+0+0  +0+0
-        0x4001da (has no name): ()  1x1+0+0  +0+0
-        0x4001d9 (has no name): ()  1x1+0+0  +0+0
-        0x4001d3 (has no name): ()  1x1+0+0  +0+0
-        0x4001d2 (has no name): ()  1x1+0+0  +0+0
-        0x4001d1 (has no name): ()  1x1+0+0  +0+0
-        0x4001d0 (has no name): ()  1x1+0+0  +0+0
-        0x4001cf (has no name): ()  1x1+0+0  +0+0
-        0x4001ce (has no name): ()  1x1+0+0  +0+0
-        0x4001cd (has no name): ()  1x1+0+0  +0+0
+           0x6001e6 (has no name): ()  1x1+0+0  +0+0
+           0x6001e5 (has no name): ()  1x1+0+0  +0+0
+           0x6001e4 (has no name): ()  1x1+0+0  +0+0
+           0x6001e3 (has no name): ()  1x1+0+0  +0+0
+        0x6001da (has no name): ()  1x1+0+0  +0+0
+        0x6001d9 (has no name): ()  1x1+0+0  +0+0
+        0x6001d3 (has no name): ()  1x1+0+0  +0+0
+        0x6001d2 (has no name): ()  1x1+0+0  +0+0
+        0x6001d1 (has no name): ()  1x1+0+0  +0+0
+        0x6001d0 (has no name): ()  1x1+0+0  +0+0
+        0x6001cf (has no name): ()  1x1+0+0  +0+0
+        0x6001ce (has no name): ()  1x1+0+0  +0+0
+        0x6001cd (has no name): ()  1x1+0+0  +0+0
            12 children:
-           0x4001e1 (has no name): ()  12x12+0+0  +0+0
-           0x4001e0 (has no name): ()  14x14+0+0  +0+0
-           0x4001df (has no name): ()  12x12+0+0  +0+0
-           0x4001de (has no name): ()  12x12+0+0  +0+0
-           0x4001dd (has no name): ()  12x12+0+0  +0+0
-           0x4001dc (has no name): ()  12x12+0+0  +0+0
-           0x4001db (has no name): ()  1x1+0+0  +0+0
-           0x4001d8 (has no name): ()  11x26+0+0  +0+0
-           0x4001d7 (has no name): ()  25x7+0+0  +0+0
-           0x4001d6 (has no name): ()  11x26+0+0  +0+0
-           0x4001d5 (has no name): ()  25x7+0+0  +0+0
-           0x4001d4 (has no name): ()  1x1+0+0  +0+0
-        0x4001c8 (has no name): ()  1x1+0+0  +0+0
+           0x6001e1 (has no name): ()  12x12+0+0  +0+0
+           0x6001e0 (has no name): ()  14x14+0+0  +0+0
+           0x6001df (has no name): ()  12x12+0+0  +0+0
+           0x6001de (has no name): ()  12x12+0+0  +0+0
+           0x6001dd (has no name): ()  12x12+0+0  +0+0
+           0x6001dc (has no name): ()  12x12+0+0  +0+0
+           0x6001db (has no name): ()  1x1+0+0  +0+0
+           0x6001d8 (has no name): ()  11x26+0+0  +0+0
+           0x6001d7 (has no name): ()  25x7+0+0  +0+0
+           0x6001d6 (has no name): ()  11x26+0+0  +0+0
+           0x6001d5 (has no name): ()  25x7+0+0  +0+0
+           0x6001d4 (has no name): ()  1x1+0+0  +0+0
+        0x6001c8 (has no name): ()  1x1+0+0  +0+0
            2 children:
-           0x4001ca (has no name): ()  1x1+0+0  +0+0
-           0x4001c9 (has no name): ()  1x1+0+0  +0+0
-        0x4001c7 (has no name): ()  1x1+0+0  +0+0
+           0x6001ca (has no name): ()  1x1+0+0  +0+0
+           0x6001c9 (has no name): ()  1x1+0+0  +0+0
+        0x6001c7 (has no name): ()  1x1+0+0  +0+0
            1 child:
-           0x4001cc (has no name): ()  1x1+0+0  +0+0
-        0x4001c6 (has no name): ()  1x1+0+0  +0+0
-        0x4001c5 (has no name): ()  1x1+0+0  +0+0
+           0x6001cc (has no name): ()  1x1+0+0  +0+0
+        0x6001c6 (has no name): ()  1x1+0+0  +0+0
+        0x6001c5 (has no name): ()  1x1+0+0  +0+0
            1 child:
-           0x4001cb (has no name): ()  1x1+0+0  +0+0
-        0x4001c3 (has no name): ()  1920x1080+0+0  +0+0
+           0x6001cb (has no name): ()  1x1+0+0  +0+0
+        0x6001c3 (has no name): ()  1920x1080+0+0  +0+0
            1 child:
-           0x4001c4 (has no name): ()  1920x1080+0+0  +0+0
+           0x6001c4 (has no name): ()  1920x1080+0+0  +0+0
 
 Qué hizo:
   Recorrió el árbol de ventanas de X, reportando padres, hijos y override-redirect.
@@ -1811,7 +1563,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #39   [ok]
 move_window: Mover una ventana a una posición
-Argumentos enviados: {"id": "0x0140000c", "x": 120, "y": 120}
+Argumentos enviados: {"id": "0x0180000c", "x": 120, "y": 120}
 Result: moved
 
 Qué hizo:
@@ -1829,7 +1581,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #40   [ok]
 resize_window: Redimensionar una ventana
-Argumentos enviados: {"height": 400, "id": "0x0140000c", "width": 640}
+Argumentos enviados: {"height": 400, "id": "0x0180000c", "width": 640}
 Result: resized
 
 Qué hizo:
@@ -1845,7 +1597,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #41   [ok]
 minimize_window: Minimizar una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: minimized
 
 Qué hizo:
@@ -1863,7 +1615,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #42   [ok]
 restore_window: Restaurar una ventana minimizada
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: restored
 
 Qué hizo:
@@ -1879,7 +1631,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #43   [ok]
 maximize_window: Maximizar una ventana
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: maximized
 
 Qué hizo:
@@ -1897,7 +1649,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #44   [ok]
 fullscreen_window: Poner una ventana en pantalla completa
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: toggled fullscreen
 
 Qué hizo:
@@ -1914,8 +1666,8 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #45   [ok]
 window_set_state: Cambiar un estado EWMH como 'above'
-Argumentos enviados: {"action": "add", "id": "0x0140000c", "state": "above"}
-Result: add above en 0x0140000c
+Argumentos enviados: {"action": "add", "id": "0x0180000c", "state": "above"}
+Result: add above en 0x0180000c
 
 Qué hizo:
   Fijó un estado EWMH — above, below, sticky, shaded, skip_taskbar y el resto — con un
@@ -1933,7 +1685,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #46   [ok]
 set_window_desktop: Mandar una ventana a un escritorio virtual
-Argumentos enviados: {"desktop": 0, "id": "0x0140000c"}
+Argumentos enviados: {"desktop": 0, "id": "0x0180000c"}
 Result: moved to desktop
 
 Qué hizo:
@@ -1966,7 +1718,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #48   [ok]
 close_window: Cerrar la ventana que abrió el barrido
-Argumentos enviados: {"id": "0x0140000c"}
+Argumentos enviados: {"id": "0x0180000c"}
 Result: closed window
 
 Qué hizo:
@@ -2018,7 +1770,7 @@ Result: {
   "command": "echo sweep-terminal-ok",
   "exit_code": 0,
   "finished": true,
-  "output": "echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@15bf5ba7aab7:/$",
+  "output": "echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@41c7ec0e3914:/$",
   "succeeded": true
 }
 
@@ -2046,7 +1798,7 @@ Result: {
   "last_command": "echo sweep-terminal-ok",
   "last_exit_code": 0,
   "last_succeeded": true,
-  "text": "sentineldesk@15bf5ba7aab7:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@15bf5ba7aab7:/$"
+  "text": "sentineldesk@41c7ec0e3914:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@41c7ec0e3914:/$"
 }
 
 Qué hizo:
@@ -2110,20 +1862,14 @@ list_directory: Listar un directorio
 Argumentos enviados: {"path": "/tmp"}
 Result: [
   {
-    "modified": "2026-08-06T15:31:45-03:00",
+    "modified": "2026-08-06T18:16:37-03:00",
     "name": ".X0-lock",
     "size": 11,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:45-03:00",
+    "modified": "2026-08-06T18:16:37-03:00",
     "name": ".X11-unix",
-    "size": 4096,
-    "type": "dir"
-  },
-  {
-    "modified": "2026-08-06T15:33:08-03:00",
-    "name": "org.chromium.Chromium.4762Ki",
     "size": 4096,
     "type": "dir"
   },
@@ -2134,49 +1880,31 @@ Result: [
     "type": "dir"
   },
   {
-    "modified": "2026-08-06T15:35:50-03:00",
+    "modified": "2026-08-06T18:28:10-03:00",
     "name": "sentineldesk-idle.png",
-    "size": 2300200,
+    "size": 4632570,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:35:57-03:00",
+    "modified": "2026-08-06T18:28:16-03:00",
     "name": "sentineldesk-rc",
     "size": 25,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:44-03:00",
+    "modified": "2026-08-06T18:16:36-03:00",
     "name": "supervisor.sock",
     "size": 0,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:44-03:00",
+    "modified": "2026-08-06T18:16:36-03:00",
     "name": "supervisord.pid",
     "size": 2,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:33:25-03:00",
-    "name": "sweep-down.txt",
-    "size": 19,
-    "type": "file"
-  },
-  {
-    "modified": "2026-08-06T15:33:24-03:00",
-    "name": "sweep-up.txt",
-    "size": 19,
-    "type": "file"
-  },
-  {
-    "modified": "2026-08-06T15:33:08-03:00",
-    "name": "sweep.html",
-    "size": 148,
-    "type": "file"
-  },
-  {
-    "modified": "2026-08-06T15:35:59-03:00",
+    "modified": "2026-08-06T18:28:17-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
@@ -2202,7 +1930,7 @@ Cómo llevarla más lejos:
 tool: #55   [ok]
 browser_open: Arrancar Chromium con DevTools y esperar a que responda
 Argumentos enviados: {"url": "file:///tmp/sweep.html"}
-Result: navigating
+Result: browser open with CDP (1 tabs)
 
 Qué hizo:
   Arrancó Chromium con el puerto de depuración e hizo polling hasta que CDP
@@ -2241,7 +1969,7 @@ browser_tabs: Listar las pestañas abiertas
 Argumentos enviados: ninguno
 Result: [
   {
-    "id": "A636A4028FD77C477D3E169236E35A63",
+    "id": "5A9403E9C55234ADF01519DC2450CE07",
     "title": "sweep.html",
     "url": "file:///tmp/sweep.html"
   }
@@ -2359,7 +2087,7 @@ tool: #63   [ok]
 ui_tree: Leer el escritorio como estructura en vez de como píxeles
 Argumentos enviados: {"interactive": true, "limit": 40}
 Result: {
-  "count": 312,
+  "count": 283,
   "elements": [
     {
       "name": "lxpanel",
@@ -2452,9 +2180,9 @@ Result: {
       ],
       "center_x": 240,
       "center_y": 18,
-      "description": "sentineldesk@15bf5ba7aab7: /",
+      "description": "sentineldesk@41c7ec0e3914: /",
       "height": 32,
-      "name": "sentineldesk@15bf5ba7aab7: /",
+      "name": "sentineldesk@41c7ec0e3914: /",
       "ref": "0/0/0/5/1/0",
       "role": "toggle button",
       "state": [
@@ -2487,30 +2215,10 @@ Result: {
       "y": 2
     },
     {
-      "actions": [
-        "click"
-      ],
-      "center_x": 644,
-      "center_y": 18,
-      "description": "sentineldesk@15bf5ba7aab7: /",
-      "height": 32,
-      "name": "sentineldesk@15bf5ba7aab7: /",
-      "ref": "0/0/0/5/1/2",
-      "role": "toggle button",
-      "state": [
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "width": 200,
-      "x": 544,
-      "y": 2
-    },
-    {
       "center_x": 1892,
       "center_y": 18,
       "height": 36,
-      "name": "15:35",
+      "name": "18:28",
       "ref": "0/0/0/9/0/0",
       "role": "label",
       "state": [
@@ -2518,7 +2226,7 @@ Result: {
         "visible",
         "showing"
       ],
-      "text": "15:35",
+      "text": "18:28",
       "width": 44,
       "x": 1870,
       "y": 0
@@ -2551,7 +2259,7 @@ Result: {
       "center_x": 960,
       "center_y": 557,
       "height": 465,
-      "name": "sentineldesk@15bf5ba7aab7: /",
+      "name": "sentineldesk@41c7ec0e3914: /",
       "ref": "2/0",
       "role": "frame",
       "state": [
@@ -3005,6 +2713,27 @@ Result: {
       "width": -1,
       "x": -1,
       "y": -1
+    },
+    {
+      "actions": [
+        "menu"
+      ],
+      "center_x": 953,
+      "center_y": 584,
+      "description": "sentineldesk@41c7ec0e3914: /",
+      "height": 410,
+      "name": "Terminal",
+      "ref": "2/0/0/1/0/0/0",
+      "role": "terminal",
+      "state": [
+        "enabled",
+        "visible",
+        "showing"
+      ],
+      "text": "sentineldesk@41c7ec0e3914:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@41c7ec0e3914:/$",
+      "width": 642,
+      "x": 632,
+      "y": 379
     }
   ]
 }
@@ -3470,7 +3199,7 @@ Result: {
       "center_x": 960,
       "center_y": 557,
       "height": 465,
-      "name": "sentineldesk@15bf5ba7aab7: /",
+      "name": "sentineldesk@41c7ec0e3914: /",
       "ref": "2/0",
       "role": "frame",
       "state": [
@@ -3484,7 +3213,7 @@ Result: {
     }
   ],
   "found": true,
-  "waited_ms": 752
+  "waited_ms": 674
 }
 
 Qué hizo:
@@ -3506,7 +3235,7 @@ ui_diff: Sólo lo que cambió en el árbol desde la última llamada
 Argumentos enviados: {"reset": true}
 Result: {
   "baseline": true,
-  "nodes": 358,
+  "nodes": 317,
   "note": "first call: the reference snapshot was stored; the next one returns only the changes"
 }
 
@@ -3663,22 +3392,37 @@ Cómo llevarla más lejos:
 tool: #74   [ok]
 start_recording: Grabar la pantalla a un archivo en paralelo al stream en vivo
 Argumentos enviados: {"audio": false, "container": "mp4", "fps": 15}
-Result: recording to /home/sentineldesk/Recordings/rec-20260806-153604.mp4
+Result: recording to /home/sentineldesk/Recordings/rec-20260806-182823.mp4
 
 Qué hizo:
   Arrancó una grabación lanzando gst-launch-1.0 en su propio grupo de procesos,
   capturando y codificando la pantalla una segunda vez en paralelo al stream en vivo.
 
-Puntaje del método: 3/5  ●●●○○
+Puntaje del método: 4/5  ●●●●○
 
 Cómo llevarla más lejos:
-  Este es el único lugar donde el proyecto hace lo que su propia arquitectura dice que
-  no hace: GStreamer corre in-process en todos lados menos acá, donde es un hijo
-  gst-launch. Además implica leer el framebuffer y codificar H.264 dos veces para una
-  sola pantalla, que en un escritorio cargado es lo más caro que hace el daemon.
-  start_restream ya muestra la respuesta: hace un tee del pipeline vivo y no codifica
-  nada extra. La grabación debería hacer lo mismo, y de paso arrancaría al instante en
-  vez de esperar a que levante un segundo pipeline.
+  El segundo encode es una decisión deliberada, no desperdicio, y medirlo lo confirma.
+  Leer el framebuffer dos veces cuesta 1% de un núcleo: la captura es casi gratis y el
+  codificador es toda la cuenta. Hacer tee del H.264 en vivo como hace start_restream
+  dejaría la grabación casi gratis, pero heredaría el espaciado de keyframes del
+  stream (10s, contra los 2s que quiere un archivo para poder buscar) y su bitrate,
+  que el estimador de congestión ata a la peor red de los espectadores. Un archivo
+  cuya calidad depende de quién estaba mirando es el default equivocado; corresponde
+  detrás de una opción explícita para quien prefiera la CPU. Lo que sí estaba mal era
+  todo aquello sobre lo que nadie había expresado una preferencia. ximagesrc entrega
+  BGRx y x264enc acepta Y444 igual que I420, así que videoconvert elegía la conversión
+  más barata para él y cada grabación salía en High 4:4:4 Predictive: el doble de
+  croma para codificar, en un perfil que casi ningún decodificador por hardware
+  acepta, de modo que el archivo se reproducía por software o directamente no se
+  reproducía en los dispositivos más propensos a abrirlo. La cantidad de hilos tenía
+  la misma forma: el default de x264enc se deduce de los núcleos del host y está
+  dimensionado para terminar cada cuadro rápido, cosa que a un archivo en disco no le
+  sirve. Juntas, en un host de 20 núcleos grabando una terminal con texto en
+  movimiento, costaban 281% de un núcleo contra 98% con el formato fijado en I420 y
+  los hilos en 2 — los mismos cuadros a la salida, y ahora un archivo que se reproduce
+  en cualquier lado. Queda el hijo gst-launch: GStreamer corre in-process en todos
+  lados menos acá, y un proceso hijo significa sin bus, así que un pipeline que falla
+  a mitad de la grabación es indistinguible de uno que anda.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3687,7 +3431,7 @@ get_recording_status: Si hay una grabación corriendo, y cuánto pesa
 Argumentos enviados: ninguno
 Result: {
   "container": "mp4",
-  "path": "/home/sentineldesk/Recordings/rec-20260806-153604.mp4",
+  "path": "/home/sentineldesk/Recordings/rec-20260806-182823.mp4",
   "recording": true,
   "seconds": 0,
   "size_bytes": 0
@@ -3730,8 +3474,8 @@ tool: #77   [ok]
 stop_recording: Parar y cerrar el archivo correctamente
 Argumentos enviados: ninguno
 Result: {
-  "path": "/home/sentineldesk/Recordings/rec-20260806-153604.mp4",
-  "size_bytes": 560038
+  "path": "/home/sentineldesk/Recordings/rec-20260806-182823.mp4",
+  "size_bytes": 556906
 }
 
 Qué hizo:
@@ -3742,9 +3486,14 @@ Puntaje del método: 4/5  ●●●●○
 
 Cómo llevarla más lejos:
   Parar limpio en vez de matar es lo que hace que el mp4 sea reproducible, y ese
-  detalle es fácil de errar. Hereda el problema del segundo pipeline de
-  start_recording: el stop tiene que esperar a que drene un proceso que no existiría
-  si la grabación saliera por tee del encode vivo.
+  detalle es fácil de errar. Por poco lo erraba: la espera a que drene el hijo
+  sondeaba cmd.ProcessState mientras la goroutine que lo cosecha lo escribía, o sea
+  las dos compitiendo, y perder esa carrera significaba que Stop no viera una salida
+  que ya había ocurrido y matara a gst en medio de escribir el índice — produciendo
+  justo el archivo irreproducible que el SIGINT existe para evitar. Ahora espera en un
+  canal que cierra el cosechador. Queda que la espera exista: nada acá puede
+  distinguir un pipeline que todavía está vaciando de uno colgado, porque un hijo
+  gst-launch no ofrece un bus al que preguntarle.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
@@ -3753,89 +3502,9 @@ list_recordings: Las grabaciones que hay en disco
 Argumentos enviados: ninguno
 Result: [
   {
-    "modified": "2026-08-06T13:10:55-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-131054.mp4",
-    "size_bytes": 564480
-  },
-  {
-    "modified": "2026-08-06T13:12:26-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-131225.mp4",
-    "size_bytes": 540715
-  },
-  {
-    "modified": "2026-08-06T13:13:47-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-131346.mp4",
-    "size_bytes": 470566
-  },
-  {
-    "modified": "2026-08-06T13:16:03-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-131602.mp4",
-    "size_bytes": 405324
-  },
-  {
-    "modified": "2026-08-06T13:23:58-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-132357.mp4",
-    "size_bytes": 577324
-  },
-  {
-    "modified": "2026-08-06T13:39:16-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-133915.mp4",
-    "size_bytes": 550873
-  },
-  {
-    "modified": "2026-08-06T13:40:30-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-134028.mp4",
-    "size_bytes": 467098
-  },
-  {
-    "modified": "2026-08-06T13:56:53-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-135652.mp4",
-    "size_bytes": 413174
-  },
-  {
-    "modified": "2026-08-06T14:03:13-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-140312.mp4",
-    "size_bytes": 314341
-  },
-  {
-    "modified": "2026-08-06T14:04:26-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-140424.mp4",
-    "size_bytes": 320872
-  },
-  {
-    "modified": "2026-08-06T14:25:37-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-142536.mp4",
-    "size_bytes": 312968
-  },
-  {
-    "modified": "2026-08-06T14:57:02-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-145701.mp4",
-    "size_bytes": 584947
-  },
-  {
-    "modified": "2026-08-06T15:11:21-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-151120.mp4",
-    "size_bytes": 600846
-  },
-  {
-    "modified": "2026-08-06T15:16:15-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-151613.mp4",
-    "size_bytes": 540424
-  },
-  {
-    "modified": "2026-08-06T15:17:53-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-151751.mp4",
-    "size_bytes": 480464
-  },
-  {
-    "modified": "2026-08-06T15:33:14-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-153313.mp4",
-    "size_bytes": 568562
-  },
-  {
-    "modified": "2026-08-06T15:36:05-03:00",
-    "path": "/home/sentineldesk/Recordings/rec-20260806-153604.mp4",
-    "size_bytes": 560038
+    "modified": "2026-08-06T18:28:24-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260806-182823.mp4",
+    "size_bytes": 556906
   }
 ]
 
@@ -3986,7 +3655,7 @@ tool: #86   [ok]
 shell_open: Abrir una sesión de shell que sobrevive entre llamadas
 Argumentos enviados: {"shell": "/bin/bash"}
 Result: {
-  "id": "sh2",
+  "id": "sh1",
   "shell": "/bin/bash",
   "user": ""
 }
@@ -4005,7 +3674,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #87   [ok]
 shell_exec: Correr un comando en esa sesión y esperarlo
-Argumentos enviados: {"command": "echo sweep-shell-ok", "id": "sh2", "timeout_ms": 10000}
+Argumentos enviados: {"command": "echo sweep-shell-ok", "id": "sh1", "timeout_ms": 10000}
 Result: {
   "completed": true,
   "output": "sweep-shell-ok"
@@ -4027,7 +3696,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #88   [ok]
 shell_input: Mandar teclas crudas, sin esperar
-Argumentos enviados: {"enter": true, "id": "sh2", "text": "echo second"}
+Argumentos enviados: {"enter": true, "id": "sh1", "text": "echo second"}
 Result: sent 12 bytes
 
 Qué hizo:
@@ -4064,10 +3733,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #90   [ok]
 shell_read: Leer y limpiar lo que produjo la sesión
-Argumentos enviados: {"id": "sh2"}
+Argumentos enviados: {"id": "sh1"}
 Result: echo second
 second
-sentineldesk@15bf5ba7aab7:/$
+sentineldesk@41c7ec0e3914:/$
 
 Qué hizo:
   Leyó y limpió todo lo que produjo la sesión desde la última lectura.
@@ -4087,7 +3756,7 @@ Argumentos enviados: ninguno
 Result: [
   {
     "alive": true,
-    "id": "sh2",
+    "id": "sh1",
     "pending": 0,
     "seconds": 1,
     "user": ""
@@ -4108,7 +3777,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #92   [ok]
 shell_close: Terminar la sesión
-Argumentos enviados: {"id": "sh2"}
+Argumentos enviados: {"id": "sh1"}
 Result: session closed
 
 Qué hizo:
@@ -4189,11 +3858,12 @@ search_packages: Buscar en apt sin instalar nada
 Argumentos enviados: {"limit": 3, "query": "openssh-server"}
 Result: {
   "count": 2,
+  "note": "the apt index was empty, so apt-get update was run",
   "query": "openssh-server",
   "results": [
     {
       "description": "secure shell (SSH) server, for secure access from remote machines",
-      "installed": "1:10.0p1-7+deb13u4",
+      "installed": "",
       "package": "openssh-server"
     },
     {
@@ -4226,7 +3896,7 @@ Result: {
   "exit_code": 3,
   "service": "all",
   "stderr": "",
-  "stdout": "at-spi                           RUNNING   pid 57, uptime 0:04:23\ndbus-session                     RUNNING   pid 55, uptime 0:04:23\ndesktop-init                     EXITED    Aug 06 03:31 PM\nlxpanel                          RUNNING   pid 63, uptime 0:04:23\nopenbox                          RUNNING   pid 58, uptime 0:04:23\npcmanfm-desktop                  RUNNING   pid 61, uptime 0:04:23\npulseaudio                       RUNNING   pid 56, uptime 0:04:23\nsentineldesk                     RUNNING   pid 67, uptime 0:04:23\nwallpaper-rotate                 EXITED    Aug 06 03:33 PM\nxvfb                             RUNNING   pid 54, uptime 0:04:23\n"
+  "stdout": "at-spi                           RUNNING   pid 41, uptime 0:11:52\ndbus-session                     RUNNING   pid 39, uptime 0:11:52\ndesktop-init                     EXITED    Aug 06 06:16 PM\nlxpanel                          RUNNING   pid 47, uptime 0:11:52\nopenbox                          RUNNING   pid 42, uptime 0:11:52\npcmanfm-desktop                  RUNNING   pid 45, uptime 0:11:52\npulseaudio                       RUNNING   pid 40, uptime 0:11:52\nsentineldesk                     RUNNING   pid 51, uptime 0:11:52\nwallpaper-rotate                 RUNNING   pid 49, uptime 0:11:52\nxvfb                             RUNNING   pid 38, uptime 0:11:52\n"
 }
 
 Qué hizo:
@@ -4252,7 +3922,7 @@ Result: {
   "installed": {
     "openssh-server": "1:10.0p1-7+deb13u4"
   },
-  "log": "Reading package lists...\nBuilding dependency tree...\nReading state information...\nSuggested packages:\n  molly-guard monkeysphere ssh-askpass ufw\nRecommended packages:\n  ncurses-term xauth\nThe following NEW packages will be installed:\n  openssh-server\n0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.\nNeed to get 602 kB of archives.\nAfter this operation, 3511 kB of additional disk space will be used.\nGet:1 http://deb.debian.org/debian trixie/main amd64 openssh-server amd64 1:10.0p1-7+deb13u4 [602 kB]\nPreconfiguring packages ...\nFetched 602 kB in 0s (12.7 MB/s)\nSelecting previously unselected package openssh-server.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 142956 files and directories currently installed.)\r\nPreparing to unpack .../openssh-server_1%3a10.0p1-7+deb13u4_amd64.deb ...\r\nUnpacking openssh-server (1:10.0p1-7+deb13u4) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of restart.\r\nProcessing triggers for man-db (2.13.1-1) ...\r",
+  "log": "…\nSetting up openssh-sftp-server (1:10.0p1-7+deb13u4) ...\r\nSetting up libtext-wrapi18n-perl (0.06-10) ...\r\nSetting up sensible-utils (0.0.25) ...\r\nSetting up libwtmpdb0:amd64 (0.73.0-3+deb13u1) ...\r\nSetting up ucf (3.0052) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nCreating config file /etc/ssh/sshd_config with new version\r\nCreating SSH2 RSA key; this may take some time ...\r\n3072 SHA256:StpRdVYnuXixhswk9v1BgFE+th97hm4/a/Smk7EerFY root@41c7ec0e3914 (RSA)\r\nCreating SSH2 ECDSA key; this may take some time ...\r\n256 SHA256:G4GA+O692dAupW65Y0zIWdKe+aS76rvoz9PsKk4QrCc root@41c7ec0e3914 (ECDSA)\r\nCreating SSH2 ED25519 key; this may take some time ...\r\n256 SHA256:7EOSHR5D417mSZD+jQeD6g69ISTJYgXHvL/M04+EZpo root@41c7ec0e3914 (ED25519)\r\nCreating user 'sshd' (sshd user) with UID 995 and GID 65534.\r\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of start.\r\nCreated symlink '/etc/systemd/system/sshd.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/multi-user.target.wants/ssh.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd@.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.socket.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nProcessing triggers for man-db (2.13.1-1) ...\r\nProcessing triggers for libc-bin (2.41-12+deb13u3) ...\r",
   "stderr": ""
 }
 
@@ -4316,7 +3986,7 @@ ssh_connect: Abrir una sesión SSH contra un host
 Argumentos enviados: {"host": "127.0.0.1", "key_path": "/home/sentineldesk/.ssh/sweep", "user": "sentineldesk"}
 Result: {
   "host": "127.0.0.1:22",
-  "id": "ssh2",
+  "id": "ssh1",
   "user": "sentineldesk"
 }
 
@@ -4336,7 +4006,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #101   [ok]
 ssh_exec: Correr un comando en el host remoto
-Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh2", "timeout_sec": 20}
+Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh1", "timeout_sec": 20}
 Result: {
   "exit_code": 0,
   "stderr": "",
@@ -4358,7 +4028,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #102   [ok]
 ssh_upload: Mandar un archivo por SFTP
-Argumentos enviados: {"id": "ssh2", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh1", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
 Result: uploaded 19 bytes to /tmp/sweep-up.txt
 
 Qué hizo:
@@ -4376,7 +4046,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #103   [ok]
 ssh_download: Traer un archivo por SFTP
-Argumentos enviados: {"id": "ssh2", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh1", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
 Result: downloaded 19 bytes to /tmp/sweep-down.txt
 
 Qué hizo:
@@ -4391,73 +4061,73 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #104   [ok]
 ssh_list_remote: Listar un directorio en el host remoto
-Argumentos enviados: {"id": "ssh2", "path": "/tmp"}
+Argumentos enviados: {"id": "ssh1", "path": "/tmp"}
 Result: [
   {
-    "modified": "2026-08-06T15:36:13-03:00",
+    "modified": "2026-08-06T18:28:34-03:00",
     "name": "sweep-down.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:44-03:00",
+    "modified": "2026-08-06T18:16:36-03:00",
     "name": "supervisor.sock",
     "size": 0,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:44-03:00",
+    "modified": "2026-08-06T18:16:36-03:00",
     "name": "supervisord.pid",
     "size": 2,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:35:59-03:00",
+    "modified": "2026-08-06T18:28:18-03:00",
+    "name": "org.chromium.Chromium.UF8aYs",
+    "size": 4096,
+    "type": "dir"
+  },
+  {
+    "modified": "2026-08-06T18:28:18-03:00",
     "name": "sweep.html",
     "size": 148,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:36:07-03:00",
+    "modified": "2026-08-06T18:28:26-03:00",
     "name": "sentineldesk-rc",
     "size": 14,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:45-03:00",
+    "modified": "2026-08-06T18:16:37-03:00",
     "name": ".X0-lock",
     "size": 11,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:36:13-03:00",
+    "modified": "2026-08-06T18:28:34-03:00",
     "name": "sweep-up.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:31:45-03:00",
+    "modified": "2026-08-06T18:16:37-03:00",
     "name": ".X11-unix",
     "size": 4096,
     "type": "dir"
   },
   {
-    "modified": "2026-08-06T15:35:59-03:00",
+    "modified": "2026-08-06T18:28:17-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T15:35:50-03:00",
+    "modified": "2026-08-06T18:28:10-03:00",
     "name": "sentineldesk-idle.png",
-    "size": 2300200,
+    "size": 4632570,
     "type": "file"
-  },
-  {
-    "modified": "2026-08-06T15:33:08-03:00",
-    "name": "org.chromium.Chromium.4762Ki",
-    "size": 4096,
-    "type": "dir"
   },
   {
     "modified": "2026-08-06T14:48:26-03:00",
@@ -4480,10 +4150,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #105   [ok]
 ssh_tunnel_local: Reenviar un puerto local hacia el lado remoto
-Argumentos enviados: {"id": "ssh2", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
+Argumentos enviados: {"id": "ssh1", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
 Result: {
   "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)",
-  "tunnel_id": "ssh2-l1"
+  "tunnel_id": "ssh1-l1"
 }
 
 Qué hizo:
@@ -4499,11 +4169,11 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #106   [ok]
 ssh_tunnels: Los túneles abiertos en esta sesión
-Argumentos enviados: {"id": "ssh2"}
+Argumentos enviados: {"id": "ssh1"}
 Result: [
   {
     "connections": 0,
-    "id": "ssh2-l1",
+    "id": "ssh1-l1",
     "kind": "local",
     "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)"
   }
@@ -4522,10 +4192,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #107   [ok]
 ssh_tunnel_remote: Reenviar un puerto remoto de vuelta hacia acá
-Argumentos enviados: {"id": "ssh2", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
+Argumentos enviados: {"id": "ssh1", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
 Result: {
   "spec": "127.0.0.1:22:127.0.0.1:18081 → 127.0.0.1:8080 (reverse)",
-  "tunnel_id": "ssh2-r2"
+  "tunnel_id": "ssh1-r2"
 }
 
 Qué hizo:
@@ -4541,7 +4211,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #108   [ok]
 ssh_tunnel_close: Cerrar un túnel por id
-Argumentos enviados: {"id": "ssh2", "tunnel_id": "ssh2-l1"}
+Argumentos enviados: {"id": "ssh1", "tunnel_id": "ssh1-l1"}
 Result: tunnel closed
 
 Qué hizo:
@@ -4557,7 +4227,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #109   [ok]
 ssh_copy_id: Instalar la clave pública en el host remoto
-Argumentos enviados: {"id": "ssh2", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
+Argumentos enviados: {"id": "ssh1", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
 Result: key installed on sentineldesk@127.0.0.1:22: installed
 
 Qué hizo:
@@ -4575,7 +4245,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #110   [ok]
 ssh_disconnect: Terminar la sesión SSH
-Argumentos enviados: {"id": "ssh2"}
+Argumentos enviados: {"id": "ssh1"}
 Result: SSH session closed
 
 Qué hizo:
@@ -4600,7 +4270,7 @@ Result: {
   "created": "sweep",
   "note": "created by tool-sweep",
   "path": "/home/sentineldesk/.sentineldesk-snapshots/sweep.tar.gz",
-  "size": 42463595
+  "size": 34786169
 }
 
 Qué hizo:
@@ -4627,10 +4297,10 @@ Result: {
   "dir": "/home/sentineldesk/.sentineldesk-snapshots",
   "snapshots": [
     {
-      "created": "2026-08-06T15:36:16-03:00",
+      "created": "2026-08-06T18:28:37-03:00",
       "name": "sweep",
       "note": "created by tool-sweep",
-      "size": 42463595
+      "size": 34786169
     }
   ]
 }
@@ -4795,12 +4465,12 @@ open_app_and_wait: Lanzar, esperar la ventana y enfocarla, en una sola llamada
 Argumentos enviados: {"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL", "timeout_ms": 20000}
 Result: {
   "opened": true,
-  "waited_ms": 4830,
+  "waited_ms": 2417,
   "window": {
-    "id": "0x0140000c",
+    "id": "0x0240000c",
     "desktop": 0,
     "x": 1363,
-    "y": 209,
+    "y": 441,
     "w": 484,
     "h": 316,
     "class": "xterm.XTerm",

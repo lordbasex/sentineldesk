@@ -650,3 +650,85 @@ The lesson is worth carrying into stage 2: a unit test on a security primitive
 proves the primitive, not the system that uses it. The runtime will restrict its
 own MCP connection at handshake, and that restriction was decorative for as long
 as this bug existed.
+
+## 10. The second full pass, and what measuring found that reading did not
+
+Stage 1 closed once, on a green sweep. Reopening it to answer one question
+about `start_recording` turned up three defects in a tool that had already been
+called, already passed, and already been reviewed — which is worth recording,
+because the difference was not more care. It was looking at the artifact the
+tool produces instead of the result it returns.
+
+`start_recording` returns a path. The sweep asserted the path existed and the
+file grew, both true, both true the entire time the tool was broken. Running
+`ffprobe` over that file said `profile=High 4:4:4 Predictive`: every recording
+this project has ever made was encoded at full chroma resolution in a profile
+almost no hardware decoder accepts, so the files play back in software or not at
+all on the devices most likely to open them. Nothing selected that. `ximagesrc`
+emits BGRx, `x264enc` takes Y444 as readily as I420, and `videoconvert` — asked
+for no format in particular — picked the conversion cheapest for itself, which
+is the one that discards nothing.
+
+The second defect had the same shape. Both encoders document `threads=0` as
+"automatic", and what they compute is sized for finishing each frame as quickly
+as possible — a property a file on disk has no use for, bought with real CPU
+spent on coordination. Neither defect is visible in the tool's output. Both are
+visible in one `ffprobe` and one `/proc` read.
+
+Measured against a scrolling terminal, on a 20-core host, with a viewer
+attached:
+
+| | CPU (one core) | frames | profile |
+|---|---|---|---|
+| as it shipped | 281% | 449/450 | High 4:4:4 Predictive |
+| threads pinned to 2 | 148% | 447/450 | High 4:4:4 Predictive |
+| + chroma pinned to I420 | 98% | 450/450 | High |
+
+The third defect was a data race, found by reading rather than measuring:
+`Start` reaped the child in a goroutine while `Stop` polled `cmd.ProcessState`,
+which `Wait` writes. Losing that race means `Stop` misses an exit that already
+happened and kills gst partway through writing the container index — producing
+exactly the unplayable file the SIGINT handshake exists to prevent. It now waits
+on a channel the reaper closes.
+
+### On the measurements themselves
+
+Four of the test designs used to reach those numbers were wrong, and each would
+have produced a confident figure:
+
+- `videoconvert` in front of a `fakesink` measured 1% — identical to capture
+  alone — because `fakesink` accepts any caps, so the element negotiated BGRx to
+  BGRx and did nothing. Reported as "conversion is free" it would have been a
+  finding.
+- A worst-case run piped fullscreen noise to `ximagesink`, which is not in the
+  image. `wmctrl` showed no such window ever existed; that run measured the same
+  idle desktop twice and its numbers were void.
+- Comparing encoder settings in blocks — all of A, then all of B — charged
+  whatever the live user happened to be doing to whichever variant ran at the
+  time. The same settings measured 134% and 162% in consecutive runs, a spread
+  wider than every difference under test. Interleaving fixed it.
+- `constrained-baseline` was credited with a 42-point saving attributed to
+  CABAC. Baseline *mandates* 4:2:0, so that row changed chroma and entropy
+  coding together; separated, chroma accounts for 32 of the 42 and CABAC never
+  had to be given up.
+
+An earlier round in this same investigation concluded that `use-damage=1` saved
+8% in the recorder, from a single pair of runs. Three repetitions showed the
+within-group spread exceeded the between-group difference entirely: it was
+noise, and the capture it was meant to optimise turned out to cost 1% of a core
+against the encoder's 134%.
+
+### Where the sweep now stands
+
+**112 ran · 2 degraded · 1 skipped · 0 failed**, across 115 tools in 122 calls,
+against `v1.2.0`. The two degraded are `ui_set_text` and `fill_form`, both
+writing through AT-SPI `EditableText`, which Chromium advertises on its entries
+and does not implement — inside a page, `browser_type` is the working path. The
+skip is `snapshot_restore`, which would overwrite the live home directory: the
+one tool the sweep cannot make safe against something it created itself.
+
+The lesson for stage 2 is narrow and practical. A tool that reports success has
+told the runtime one thing: that it did not throw. Whether it did the job is a
+separate question, and for anything producing an artifact — a file, a rendered
+page, an encoded stream — it is answerable only by opening the artifact. The
+runtime should treat "the tool returned ok" as the weakest evidence it has.

@@ -15,6 +15,7 @@ package media
 
 import (
 	"fmt"
+	"github.com/lordbasex/sentineldesk/internal/config"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +28,7 @@ import (
 // process, running alongside the WebRTC stream — ximagesrc happily serves more
 // than one reader. The -e flag makes gst send EOS on SIGINT so the container is
 // finalised properly (the mp4 moov atom, the webm index): without it the file
-// queda corrupto.
+// is left corrupt.
 type Recorder struct {
 	display     string
 	audioDevice string
@@ -35,6 +36,7 @@ type Recorder struct {
 
 	mu        sync.Mutex
 	cmd       *exec.Cmd
+	done      chan struct{} // closed once cmd.Wait has returned
 	path      string
 	container string
 	startedAt time.Time
@@ -95,32 +97,76 @@ func (r *Recorder) Start(o RecordOpts) (string, error) {
 	r.path = path
 	r.container = o.Container
 	r.startedAt = time.Now()
-	go cmd.Wait() // reap it when it exits
+
+	// Reap it when it exits, and publish that fact through a channel rather than
+	// letting Stop read cmd.ProcessState. Wait writes ProcessState from this
+	// goroutine, so a Stop that polled the field would be racing it — and losing
+	// that race means Stop never sees the exit, kills a process that had already
+	// finished, and reports a file that gst was still writing the index into.
+	// Closing a channel is the one signal both sides can see safely.
+	done := make(chan struct{})
+	r.done = done
+	go func() {
+		_ = cmd.Wait()
+		close(done)
+	}()
 	return path, nil
 }
 
 func (r *Recorder) buildArgs(o RecordOpts, path string) ([]string, error) {
+	// Pin the encoder's thread count instead of leaving it at the default.
+	//
+	// Both x264enc and vp8enc treat threads=0 as "work it out from the host",
+	// and what they work out is sized for finishing one frame as fast as
+	// possible. A recording does not need that: it needs to keep pace with 30fps
+	// and nothing more, and every thread beyond that spends real CPU on
+	// coordination while making prediction worse. Measured on a 20-core host
+	// against a scrolling terminal, the default cost 281% of a core and pinning
+	// it to 2 cost 148% — the same 449 of 450 frames out the other end.
+	//
+	// 2 rather than 1 because the floor is not the target. One thread is cheaper
+	// again on an idle desktop (88%) but drops 34 frames in 450 as soon as the
+	// screen actually moves, and a recorder that thins out precisely when
+	// something is happening is worse than one that costs more.
+	//
+	// RECORD_THREADS exists because the right number depends on the host, and
+	// the default being wrong here is exactly what this comment is about.
+	threads := max(config.Int("RECORD_THREADS", 2), 1)
+
 	var mux, venc, aenc string
 	switch o.Container {
 	case "webm":
 		mux = "webmmux"
-		venc = fmt.Sprintf("vp8enc deadline=1 cpu-used=4 target-bitrate=%d keyframe-max-dist=%d", o.Kbps*1000, o.FPS*2)
+		venc = fmt.Sprintf("vp8enc deadline=1 cpu-used=4 threads=%d target-bitrate=%d keyframe-max-dist=%d", threads, o.Kbps*1000, o.FPS*2)
 		aenc = "opusenc"
 	case "mkv":
 		mux = "matroskamux"
-		venc = fmt.Sprintf("x264enc tune=zerolatency speed-preset=veryfast bitrate=%d key-int-max=%d ! h264parse", o.Kbps, o.FPS*2)
+		venc = fmt.Sprintf("x264enc tune=zerolatency speed-preset=veryfast threads=%d bitrate=%d key-int-max=%d ! h264parse", threads, o.Kbps, o.FPS*2)
 		aenc = "avenc_aac bitrate=128000"
 	default: // mp4
 		mux = "mp4mux"
-		venc = fmt.Sprintf("x264enc tune=zerolatency speed-preset=veryfast bitrate=%d key-int-max=%d ! h264parse", o.Kbps, o.FPS*2)
+		venc = fmt.Sprintf("x264enc tune=zerolatency speed-preset=veryfast threads=%d bitrate=%d key-int-max=%d ! h264parse", threads, o.Kbps, o.FPS*2)
 		aenc = "avenc_aac bitrate=128000"
 	}
 
-	// gst-launch takes the pipeline description as separate arguments.
+	// Pin the chroma to 4:2:0, which is not what negotiation picks on its own.
+	//
+	// ximagesrc hands out BGRx and x264enc accepts Y444 as happily as I420, so
+	// videoconvert takes the conversion that is cheapest for videoconvert: the
+	// one that discards nothing. The recording then comes out as High 4:4:4
+	// Predictive — twice the chroma to encode, and a profile that almost no
+	// hardware decoder will touch, so the file plays back in software or not at
+	// all on the phones and TVs most likely to open it. Nobody asked for that;
+	// it is what happens when neither end of the link states a preference.
+	//
+	// Measured against a scrolling terminal it also cost 130% of a core where
+	// I420 costs 98%. Better compatibility and a third less CPU, from naming the
+	// format the file was always supposed to be in.
 	desc := fmt.Sprintf(
 		"-e %s name=mux ! filesink location=%s "+
 			"ximagesrc display-name=%s show-pointer=true use-damage=0 "+
-			"! video/x-raw,framerate=%d/1 ! videoconvert ! queue ! %s ! mux.",
+			"! video/x-raw,framerate=%d/1 ! videoconvert "+
+			"! video/x-raw,format=I420 ! queue ! %s ! mux.",
 		mux, path, r.display, o.FPS, venc)
 	if o.Audio {
 		desc += fmt.Sprintf(
@@ -134,6 +180,7 @@ func (r *Recorder) buildArgs(o RecordOpts, path string) ([]string, error) {
 func (r *Recorder) Stop() (string, int64, error) {
 	r.mu.Lock()
 	cmd := r.cmd
+	done := r.done
 	path := r.path
 	r.mu.Unlock()
 	if cmd == nil {
@@ -143,20 +190,19 @@ func (r *Recorder) Stop() (string, int64, error) {
 	// SIGINT to gst-launch: with -e it emits EOS and writes the container index.
 	_ = cmd.Process.Signal(syscall.SIGINT)
 
-	// Wait for it to finish, but not forever.
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	if cmd.ProcessState == nil || !cmd.ProcessState.Exited() {
+	// Wait for it to finish, but not forever. Writing the index of a long
+	// recording takes a moment, and cutting that short is what produces the
+	// unplayable file this whole dance exists to avoid.
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
 		_ = cmd.Process.Kill() // did not stop: kill it, and the file may be truncated
+		<-done                 // Wait still has to run, or the process stays a zombie
 	}
 
 	r.mu.Lock()
 	r.cmd = nil
+	r.done = nil
 	r.path = ""
 	r.mu.Unlock()
 

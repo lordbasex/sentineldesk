@@ -356,15 +356,30 @@ review(
     "Started a recording by spawning gst-launch-1.0 in its own process group, "
     "capturing and encoding the screen a second time alongside the live "
     "stream.",
-    3,
-    "This is the one place the project does what its own architecture says it "
-    "does not: GStreamer runs in-process everywhere else, and here it is a "
-    "gst-launch child. It also means the framebuffer is read and H.264-encoded "
-    "twice for one screen, which on a busy desktop is the most expensive thing "
-    "the daemon does. start_restream already shows the answer — it tees off the "
-    "live pipeline and encodes nothing extra. Recording should do the same, and "
-    "then it would also start instantly instead of waiting for a second "
-    "pipeline to come up.",
+    4,
+    "The second encode is a deliberate trade, not waste, and measuring it says "
+    "so. Reading the framebuffer twice costs 1% of a core — the capture is "
+    "nearly free and the encoder is the entire bill. Teeing off the live H.264 "
+    "the way start_restream does would make recording almost free, but the "
+    "recording would inherit the live stream's keyframe spacing (10s, against "
+    "the 2s a file wants for seeking) and its bitrate, which the congestion "
+    "estimator pins to the worst viewer's network. An archive whose quality "
+    "depends on who happened to be watching is the wrong default; it belongs "
+    "behind an explicit option for callers who would rather have the CPU. What "
+    "was genuinely wrong was everything nobody had stated a preference about. "
+    "ximagesrc hands out BGRx, x264enc takes Y444 as readily as I420, so "
+    "videoconvert picked the conversion cheapest for itself and every recording "
+    "came out High 4:4:4 Predictive — twice the chroma to encode, in a profile "
+    "hardly any hardware decoder accepts, so the file played back in software "
+    "or not at all on the devices most likely to open it. The thread count had "
+    "the same shape: x264enc's default is derived from the host's core count "
+    "and sized for finishing each frame quickly, which a file on disk has no "
+    "use for. Together, on a 20-core host recording a scrolling terminal, they "
+    "cost 281% of a core against 98% with the format pinned to I420 and threads "
+    "pinned to 2 — same frames out, and now a file that plays anywhere. What "
+    "remains is the gst-launch child: GStreamer runs in-process everywhere "
+    "else, and a child process means no bus, so a pipeline that fails "
+    "mid-recording is indistinguishable from one that is working.",
 )
 review(
     "stop_recording",
@@ -372,9 +387,15 @@ review(
     "properly, and reported the path and size.",
     4,
     "Stopping cleanly rather than killing is what makes the mp4 playable, and "
-    "that detail is easy to get wrong. It inherits the second-pipeline problem "
-    "from start_recording: the stop has to wait for a process to drain that "
-    "would not exist if recording teed off the live encode.",
+    "that detail is easy to get wrong. It very nearly was: the wait for the "
+    "child to drain polled cmd.ProcessState while the reaping goroutine wrote "
+    "it, so the two raced, and the way that race lost was Stop failing to "
+    "notice an exit that had already happened and killing gst partway through "
+    "writing the index — producing exactly the unplayable file the SIGINT "
+    "handshake exists to prevent. It now waits on a channel closed by the "
+    "reaper. What is left is that the wait exists at all: nothing here can tell "
+    "a pipeline still flushing from one that hung, because a gst-launch child "
+    "offers no bus to ask.",
 )
 review(
     "get_recording_status",

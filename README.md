@@ -465,6 +465,7 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `ENCODER` | `auto` | `auto`, `nvenc`, `vaapi`, `h264` (x264), `vp8` |
 | `VIDEO_BITRATE_KBPS` | `4000` | Bitrate ceiling; the adaptive loop only goes lower |
 | `AUDIO_BITRATE` | `96000` | Opus bitrate (bps) |
+| `RECORD_THREADS` | `2` | Encoder threads for recordings. A recording only has to keep pace with the framerate, so the encoder's core-count-derived default buys latency nobody is waiting on and costs roughly twice the CPU for the same frames |
 | `REMOTE_CURSOR` | `0` | `1` = draw the pointer on the server (more perceived latency) |
 | `MAX_VIEWERS` | `4` | How many people may share one desktop |
 | `AUTH_USER` / `AUTH_PASS` | — | Login credentials. Both empty = no auth, development only. **Setting only one refuses to start** — half a login is always a typo |

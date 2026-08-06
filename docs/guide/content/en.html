@@ -500,6 +500,7 @@ make down</code></pre>
     <tr><td><code>MIN_VIDEO_BITRATE_KBPS</code></td><td>1200</td><td>A floor under the adaptive loop. A client that cannot <em>decode</em> fast enough looks like a congested network, and without a floor the estimator keeps lowering the target until the picture is worthless to everyone</td></tr>
     <tr><td><code>USE_DAMAGE</code></td><td>1</td><td>X DAMAGE tracking. With it off, the capture re-reads the whole framebuffer every frame even when nothing changed. Set to <code>0</code> only for a driver where it misbehaves</td></tr>
     <tr><td><code>SOFTWARE_SCALE_HEIGHT</code></td><td>0</td><td>Encode at a smaller height and let the browser scale it back up. Only useful on a host too slow for 1080p in software; <code>0</code> is off</td></tr>
+    <tr><td><code>RECORD_THREADS</code></td><td>2</td><td>Encoder threads for <em>recordings</em>, which only have to keep pace with the framerate rather than finish each frame quickly. The encoder's own default is sized from the core count and costs roughly twice the CPU for the same frames on a large host. Raise it if a recording drops frames on a slow one</td></tr>
     <tr><td><code>AUDIO_DEVICE</code></td><td>sentineldesk.monitor</td><td>The PulseAudio source the capture reads</td></tr>
     <tr><td><code>DISPLAY</code></td><td>:0</td><td>The X display to capture</td></tr>
     <tr><td><code>TLS_DIR</code></td><td>/home/sentineldesk/.tls</td><td>Where the self-signed certificate is kept. Inside the volume, so it survives</td></tr>
