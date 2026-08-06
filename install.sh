@@ -149,6 +149,68 @@ install_binary() {
   say "installed: $BIN"
 }
 
+# --- the wallpapers ----------------------------------------------------------
+#
+# Deliberately NOT embedded in the binary: they are ~23 MB of PNG against a
+# 14 MB binary, so carrying them would nearly triple a download every install
+# pulls over the network, in order to ship decoration. Fetched here instead,
+# and best effort by design — the built-in fallback is rendered from an SVG at
+# install time and the desktop is perfectly fine with only it.
+#
+# A directory that already has files is left alone: somebody may have put their
+# own there, and re-running the installer must not overwrite them.
+#
+# Numbered rather than listed, so adding a seventh image needs no change here,
+# and stopping after three consecutive misses so one gap cannot truncate the set.
+fetch_wallpapers() {
+  local dir="$1"
+  mkdir -p "$dir"
+  if [ -n "$(ls -A "$dir" 2>/dev/null)" ]; then
+    say "wallpapers: $dir already has files, leaving them alone"
+    return 0
+  fi
+  local base="https://raw.githubusercontent.com/$REPO/main/wallpaper"
+  local got=0
+
+  # Ask the repository what is actually in there, so a wallpaper added tomorrow
+  # arrives without touching this script and WITHOUT having to be named to a
+  # pattern. One unauthenticated API call, well inside the 60-per-hour limit.
+  local urls
+  urls=$(curl -fsSL "https://api.github.com/repos/$REPO/contents/wallpaper" 2>/dev/null \
+         | grep -o '"download_url": *"[^"]*"' | cut -d'"' -f4 \
+         | grep -iE '\.(png|jpg|jpeg|webp)$' || true)
+
+  if [ -n "$urls" ]; then
+    for u in $urls; do
+      if curl -fsSL -o "$dir/$(basename "$u")" "$u" 2>/dev/null; then
+        got=$((got + 1))
+      else
+        rm -f "$dir/$(basename "$u")"
+      fi
+    done
+  else
+    # The API was unreachable or rate-limited. Fall back to probing the naming
+    # convention over raw.githubusercontent, which needs no API at all: three
+    # consecutive misses end it, so one gap in the numbering cannot truncate
+    # the set.
+    local miss=0 i=1
+    while [ "$i" -le 30 ] && [ "$miss" -lt 3 ]; do
+      if curl -fsSL -o "$dir/sentineldesk-wallpaper-$i.png" \
+              "$base/sentineldesk-wallpaper-$i.png" 2>/dev/null; then
+        got=$((got + 1)); miss=0
+      else
+        rm -f "$dir/sentineldesk-wallpaper-$i.png"; miss=$((miss + 1))
+      fi
+      i=$((i + 1))
+    done
+  fi
+  if [ "$got" -gt 0 ]; then
+    say "wallpapers: $got images in $dir (rotating every WALLPAPER_ROTATE_SECS, default 300 s)"
+  else
+    warn "could not fetch the wallpapers; the built-in one is still installed"
+  fi
+}
+
 # --- the configuration the binary carries -----------------------------------
 # The deploy tree comes out of the binary, which means something has to be able
 # to RUN the binary — and it links GStreamer dynamically. Native mode calls this
@@ -189,6 +251,7 @@ install_docker_mode() {
 
   extract_deploy
   mkdir -p "$OPT"
+  fetch_wallpapers "$OPT/wallpaper"
 
   # A compose file of our own rather than the repository's: that one BUILDS the
   # image from source, which needs the whole repo. An installed machine pulls.
@@ -240,6 +303,8 @@ services:
       - "59000-59049:59000-59049/udp"
     volumes:
       - sentineldesk-home:/home/sentineldesk
+      # Drop your own images in here and they join the rotation.
+      - $OPT/wallpaper:/wallpaper:ro
     # A VPN client needs a tunnel device and the right to configure routes.
     # Without both, openvpn installs cleanly and fails when somebody needs it.
     # Remove both on a machine that never dials one — NET_ADMIN lets the
@@ -466,10 +531,14 @@ install_native_mode() {
   # The fallback wallpaper, rendered at install time exactly as the image builds
   # it, plus the directory wallpaper-rotate.sh reads. Without both, the desktop
   # comes up on whatever pcmanfm defaults to.
-  mkdir -p /usr/share/backgrounds /wallpaper
+  mkdir -p /usr/share/backgrounds
   rsvg-convert -w 1920 -h 1080 -o /usr/share/backgrounds/sentineldesk.png \
                "$D"/desktop/wallpaper.svg 2>/dev/null \
     || warn "could not render the fallback wallpaper (librsvg2-bin missing?)"
+  # /wallpaper is where wallpaper-rotate.sh looks by default. Empty, it exits
+  # immediately and the desktop sits on the fallback above — which is what a
+  # native install did until now.
+  fetch_wallpapers /wallpaper
 
   # Openbox: select the theme, and put title bars in the same monospace as the
   # control layer. Matched by place because rc.xml carries several <font>
