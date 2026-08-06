@@ -274,6 +274,69 @@ func buildControlIndex(tools []toolDef) controlIndex {
 	return idx
 }
 
+// --- denial kinds ----------------------------------------------------------------
+
+// denialKind says why a tools/call did not succeed, in a form a program can
+// branch on.
+//
+// The sentence a caller gets back is written for a model to read, and it is
+// rewritten whenever a better sentence is found — this repository does that
+// routinely. A client that has to tell a policy refusal from a room refusal by
+// matching substrings is therefore one wording change away from breaking, and
+// the three cases need genuinely different responses: a policy refusal is
+// final and the model should be told the capability is not available; a room
+// refusal means ask a person and try again; a tool failure may be worth
+// retrying. Guessing wrong turns "wait your turn" into "give up".
+//
+// So the reason travels twice: the prose in the content, unchanged, and this
+// alongside it.
+type denialKind string
+
+const (
+	// denialPolicy — MCP_POLICY, MCP_DENY or MCP_ALLOW refused the call. Final:
+	// nothing the caller does will change it within this connection.
+	denialPolicy denialKind = "policy"
+
+	// denialRoom — the tool needs the desktop's controls and the agent does not
+	// hold them. Not final: call request_control, or wait for whoever is
+	// driving to finish.
+	denialRoom denialKind = "room"
+
+	// denialUnknown — no such tool in the catalogue.
+	denialUnknown denialKind = "unknown_tool"
+
+	// denialToolError — the tool ran and reported failure. This is the residual
+	// case and it is deliberately coarse: tools validate their own arguments
+	// and report in prose, so an invalid_arguments kind would mean touching all
+	// of them. Worth splitting out when something needs it, not before.
+	denialToolError denialKind = "tool_error"
+)
+
+// toolCallResult builds the tools/call result. An empty kind means success.
+//
+// _meta is where the specification puts extension data on a result, and the key
+// is namespaced for the same reason the requiresControl annotation is: this is
+// ours, and it should not collide with a field the protocol may later define.
+func toolCallResult(content []map[string]any, kind denialKind) map[string]any {
+	res := map[string]any{"content": content, "isError": kind != ""}
+	if kind != "" {
+		res["_meta"] = map[string]any{"sentineldesk/denial": string(kind)}
+	}
+	return res
+}
+
+// nameIndex is the set of tool names the catalogue defines, so that a call for
+// something that does not exist can be told apart from one that was refused.
+type nameIndex map[string]bool
+
+func buildNameIndex(tools []toolDef) nameIndex {
+	idx := make(nameIndex, len(tools))
+	for _, t := range tools {
+		idx[t.Name] = true
+	}
+	return idx
+}
+
 // --- discovery -----------------------------------------------------------------
 
 // coreTools is what tools/list advertises when MCP_DISCOVERY is on: enough to

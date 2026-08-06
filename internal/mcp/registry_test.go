@@ -530,6 +530,181 @@ func TestReadonlyConnectionSearchesOnlyWhatItMayCall(t *testing.T) {
 	}
 }
 
+// --- denial kinds ----------------------------------------------------------------
+//
+// The sentence a caller gets back is written for a model to read and gets
+// reworded whenever a better one is found. These pin the machine-readable half,
+// which is the part a runtime branches on: policy is final, room means ask a
+// person and retry, tool_error may be worth retrying. Getting them confused
+// turns "wait your turn" into "give up".
+
+// roomWithoutControls is a Rooms that never grants control, so the gate refuses.
+// Only the three methods mayInject touches do anything.
+type roomWithoutControls struct{ Rooms }
+
+func (roomWithoutControls) JoinAgent(string) string      { return AgentID }
+func (roomWithoutControls) IsController(string) bool     { return false }
+func (roomWithoutControls) Controller() (string, string) { return "someone", "Viewer 1" }
+
+// denialOf calls a tool and returns the kind reported alongside the content.
+// An empty string means the call succeeded.
+func (c *session) denialOf(name string, args map[string]any) string {
+	c.t.Helper()
+	params := map[string]any{"name": name}
+	if args != nil {
+		params["arguments"] = args
+	}
+	res := c.call("tools/call", params)
+
+	isErr, _ := res["isError"].(bool)
+	meta, hasMeta := res["_meta"].(map[string]any)
+	if !isErr {
+		if hasMeta {
+			c.t.Errorf("%s succeeded but carried _meta %v", name, meta)
+		}
+		return ""
+	}
+	if !hasMeta {
+		c.t.Fatalf("%s failed with no _meta to say why", name)
+	}
+	kind, _ := meta["sentineldesk/denial"].(string)
+	if kind == "" {
+		c.t.Fatalf("%s: _meta has no denial kind: %v", name, meta)
+	}
+	return kind
+}
+
+func TestDenialKindUnknownTool(t *testing.T) {
+	c := newSession(t, testServer(t))
+	if got := c.denialOf("no_such_tool", nil); got != string(denialUnknown) {
+		t.Errorf("kind %q, want %q", got, denialUnknown)
+	}
+}
+
+// TestDenialKindUnknownToolAtEveryLevel is why the catalogue is checked before
+// policy. The same nonexistent name used to come back as a policy refusal under
+// safe and an unknown tool under full — two answers to one question.
+func TestDenialKindUnknownToolAtEveryLevel(t *testing.T) {
+	for _, level := range []string{"full", "safe", "readonly"} {
+		t.Run(level, func(t *testing.T) {
+			c := newSession(t, testServer(t))
+			c.call("sentineldesk/policy", map[string]any{"level": level})
+			if got := c.denialOf("no_such_tool", nil); got != string(denialUnknown) {
+				t.Errorf("kind %q, want %q", got, denialUnknown)
+			}
+		})
+	}
+}
+
+// TestDenialKindPolicy also proves the separation holds the other way: a tool
+// that exists but is hidden by the level reports policy, not unknown_tool.
+func TestDenialKindPolicy(t *testing.T) {
+	c := newSession(t, testServer(t))
+	c.call("sentineldesk/policy", map[string]any{"level": "readonly"})
+	if got := c.denialOf("run_command", map[string]any{"command": "true"}); got != string(denialPolicy) {
+		t.Errorf("kind %q, want %q", got, denialPolicy)
+	}
+}
+
+func TestDenialKindPolicyFromDenyList(t *testing.T) {
+	c := newSession(t, testServer(t))
+	c.call("sentineldesk/policy", map[string]any{"deny": "ui_*"})
+	if got := c.denialOf("ui_tree", nil); got != string(denialPolicy) {
+		t.Errorf("kind %q, want %q", got, denialPolicy)
+	}
+}
+
+// TestDenialKindRoom is the one the agent loop most needs to tell apart: it
+// means ask a person and try again, not give up.
+func TestDenialKindRoom(t *testing.T) {
+	s := testServer(t)
+	s.SetRoom(roomWithoutControls{}, "AI agent")
+	c := newSession(t, s)
+
+	got := c.denialOf("mouse_move", map[string]any{"x": 10, "y": 10})
+	if got != string(denialRoom) {
+		t.Errorf("kind %q, want %q", got, denialRoom)
+	}
+
+	// A tool that does not need the controls is unaffected by the same room.
+	if got := c.denialOf("tool_search", map[string]any{"query": "screen"}); got != "" {
+		t.Errorf("tool_search was refused with kind %q", got)
+	}
+}
+
+// TestDenialKindOrder pins the precedence. A gated tool that policy already
+// refuses must report policy: the room question never arises, because the call
+// was not going to happen either way.
+func TestDenialKindOrder(t *testing.T) {
+	s := testServer(t)
+	s.SetRoom(roomWithoutControls{}, "AI agent")
+	c := newSession(t, s)
+	c.call("sentineldesk/policy", map[string]any{"level": "readonly"})
+
+	// mouse_move requires control AND is refused by readonly.
+	if got := c.denialOf("mouse_move", map[string]any{"x": 10, "y": 10}); got != string(denialPolicy) {
+		t.Errorf("kind %q, want %q — policy outranks the room gate", got, denialPolicy)
+	}
+}
+
+// TestDenialKindIsLogged keeps the audit trail machine-readable too: the reason
+// a call was refused should not have to be recovered from prose there either.
+func TestDenialKindIsLogged(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+	c.denialOf("no_such_tool", nil)
+
+	entries := s.actions.Tail(1, "")
+	if len(entries) != 1 {
+		t.Fatalf("logged %d entries, want 1", len(entries))
+	}
+	if entries[0].Kind != string(denialUnknown) {
+		t.Errorf("logged kind %q, want %q", entries[0].Kind, denialUnknown)
+	}
+	if entries[0].Denied == "" {
+		t.Error("logged a kind with no human reason beside it")
+	}
+	if entries[0].OK {
+		t.Error("a refused call was logged as OK")
+	}
+}
+
+// TestNoRoomDoesNotKillTheCatalogue covers a regression found while adding the
+// denial kinds: callRoom claimed every tool name when SetRoom had not been
+// called, so a Server without a room answered "this build has no room attached"
+// to the entire catalogue. The daemon always calls SetRoom, so it never showed
+// there — it showed the moment anything else embedded the server.
+func TestNoRoomDoesNotKillTheCatalogue(t *testing.T) {
+	s := testServer(t)
+	if s.room != nil {
+		t.Fatal("this test needs a Server with no room")
+	}
+	c := newSession(t, s)
+
+	// `wait` only sleeps, so it needs no display and must simply succeed. It
+	// also sits in the main switch, AFTER callRoom in the dispatch chain — the
+	// tools handled before callRoom never reached the bug and would pass this
+	// test either way.
+	res := c.call("tools/call", map[string]any{
+		"name": "wait", "arguments": map[string]any{"ms": 1},
+	})
+	if isErr, _ := res["isError"].(bool); isErr {
+		t.Errorf("wait failed with no room attached: %v", res["content"])
+	}
+
+	// The room tools themselves still report the missing room, as before.
+	if got := c.denialOf("room_state", nil); got != string(denialToolError) {
+		t.Errorf("room_state kind %q, want %q", got, denialToolError)
+	}
+}
+
+func TestSuccessCarriesNoDenial(t *testing.T) {
+	c := newSession(t, testServer(t))
+	if got := c.denialOf("tool_search", map[string]any{"query": "take a screenshot"}); got != "" {
+		t.Errorf("a successful call reported kind %q", got)
+	}
+}
+
 func TestEveryToolHasACategory(t *testing.T) {
 	for _, tool := range catalogue(t) {
 		if categoryOf(tool.Name) == "" {

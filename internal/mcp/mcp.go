@@ -104,6 +104,7 @@ type Server struct {
 	recDestination string
 	tools          []toolDef
 	control        controlIndex
+	known          nameIndex
 
 	// discovery trims tools/list to the core set, read once at startup because
 	// the environment does not change under a running process and re-reading it
@@ -142,6 +143,7 @@ func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *des
 	}
 	s.policy.risk = buildRiskIndex(s.tools)
 	s.control = buildControlIndex(s.tools)
+	s.known = buildNameIndex(s.tools)
 	return s
 }
 
@@ -298,14 +300,30 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 		VideoAt: videoOffset(s.recorder),
 	}
 
-	if ok, reason := policy.Allowed(params.Name, args); !ok {
+	// refuse writes the failure once, in both forms: the sentence for whoever
+	// reads it and the kind for whatever branches on it, and the same pair into
+	// the action log so an audit can be read by machine too.
+	refuse := func(kind denialKind, content []map[string]any, reason string) {
 		entry.OK = false
 		entry.Denied = reason
+		entry.Kind = string(kind)
 		s.actions.Add(entry)
-		write(rpcResponse{ID: req.ID, Result: map[string]any{
-			"content": textContent("denied by the server policy: %s", reason),
-			"isError": true,
-		}})
+		write(rpcResponse{ID: req.ID, Result: toolCallResult(content, kind)})
+	}
+
+	// Before policy, because a name that does not exist was not refused — it
+	// was never there. Asking policy first meant the same nonexistent tool came
+	// back as "not in the tool catalogue" under safe and "unknown tool" under
+	// full, which is two answers to one question. Tools that DO exist and are
+	// hidden by policy still report policy: this only separates missing from
+	// forbidden.
+	if !s.known[params.Name] {
+		refuse(denialUnknown, textContent("unknown tool: %s", params.Name), "no such tool")
+		return
+	}
+
+	if ok, reason := policy.Allowed(params.Name, args); !ok {
+		refuse(denialPolicy, textContent("denied by the server policy: %s", reason), reason)
 		return
 	}
 
@@ -313,13 +331,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	// Policy above is the hard ceiling; this is the cooperative layer below it.
 	if s.injectsInput(params.Name) {
 		if err := s.mayInject(); err != nil {
-			entry.OK = false
-			entry.Denied = "room arbitration"
-			s.actions.Add(entry)
-			write(rpcResponse{ID: req.ID, Result: map[string]any{
-				"content": textContent("%v", err),
-				"isError": true,
-			}})
+			refuse(denialRoom, textContent("%v", err), "room arbitration")
 			return
 		}
 	}
@@ -328,12 +340,14 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	content, isErr := s.dispatch(params.Name, params.Arguments, policy)
 	entry.Millis = time.Since(start).Milliseconds()
 	entry.OK = !isErr
+	kind := denialKind("")
+	if isErr {
+		kind = denialToolError
+		entry.Kind = string(kind)
+	}
 	s.actions.Add(entry)
 
-	write(rpcResponse{ID: req.ID, Result: map[string]any{
-		"content": content,
-		"isError": isErr,
-	}})
+	write(rpcResponse{ID: req.ID, Result: toolCallResult(content, kind)})
 }
 
 // injectsInput reports whether a tool has to hold the room's controls first.

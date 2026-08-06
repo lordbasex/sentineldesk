@@ -203,9 +203,15 @@ edits to two.
 **Acceptance.** A test asserting the derived set equals today's `injectsInput`
 list exactly, then a second asserting `tools/list` publishes it.
 
-### 4.2 Denial reasons are strings, not kinds
+### 4.2 Denial reasons are strings, not kinds — **fixed**
 
-Three unrelated things fail as prose today, all with `isError: true`:
+Step 3 of §6 is done. `tools/call` now carries
+`_meta["sentineldesk/denial"]` — `policy`, `room`, `unknown_tool` or
+`tool_error` — beside the unchanged prose, and the kind is written into the
+action log too. `unknown_tool` is decided before policy so that a nonexistent
+name reports the same thing at every level. Kept here as the record of why.
+
+Three unrelated things failed as prose, all with `isError: true`:
 
 | What happened | What the client receives |
 |---|---|
@@ -231,11 +237,21 @@ existing content, so nothing already parsing it breaks:
 }
 ```
 
-Kinds: `policy`, `room`, `unknown_tool`, `invalid_arguments`, `emergency`,
-`tool_error`. The human sentence stays exactly as it is — it is what reaches the
-model, and it is good.
+**Kinds implemented:** `policy`, `room`, `unknown_tool`, `tool_error`. The human
+sentence stays exactly as it was — it is what reaches the model, and it is good.
 
-**Acceptance.** A test per kind, asserting both the string and the code.
+Two kinds from the original sketch were deliberately left out.
+`invalid_arguments` would mean touching all 115 tools, since each validates its
+own arguments and reports in prose; it is folded into `tool_error` until
+something actually needs it split. `emergency` arrives with the gate in §5.3.
+
+**Found while doing this.** `callRoom` reported `handled` for *every* tool name
+when `SetRoom` had not been called, and it sits early in the dispatch chain — so
+a `Server` built without a room answered "this build has no room attached" to
+the whole catalogue. The daemon always calls `SetRoom`, so it never fired
+there; it fires immediately anywhere else the server is embedded, which stage 2
+will do. Fixed and covered, and it contradicted this project's own rule that an
+optional capability degrades rather than taking everything with it.
 
 ### 4.3 `tools/call` cannot be cancelled
 
@@ -401,7 +417,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 |---|---|---|---|
 | ~~1~~ | ~~Fix `Delivery.Deliver` — nil session, ticket per recipient~~ | **Done.** Six regressions in `internal/stream/delivery_test.go` | small |
 | ~~2~~ | ~~`injectsInput` becomes a field, derived + published~~ | **Done.** Parity test freezes the pre-refactor set | small |
-| 3 | Structured denial kinds in `tools/call` | Blocks the loop's state machine (§4.2) | small |
+| ~~3~~ | ~~Structured denial kinds in `tools/call`~~ | **Done.** `_meta["sentineldesk/denial"]`, plus the same kind in the action log | small |
 | 4 | Thread `context.Context` through `dispatch`; honour `notifications/cancelled` | Blocks honest cancel (§4.3) | medium |
 | 5 | Audit which tools ignore cancellation; publish the list | Without it, step 4 is a half-truth | medium |
 | 6 | Connection identity from `initialize`, carried into the action log | Emergency gate, and attribution once sub-agents run concurrently (§5.3) | small |

@@ -218,6 +218,9 @@ type actionEntry struct {
 	Millis  int64  `json:"ms"`
 	VideoAt string `json:"video_at,omitempty"` // mm:ss within the recording
 	Denied  string `json:"denied,omitempty"`
+	// Kind is Denied in a form a program can branch on: policy, room,
+	// unknown_tool or tool_error. See denialKind in registry.go.
+	Kind string `json:"kind,omitempty"`
 }
 
 // ActionLog keeps the most recent actions in memory and, on request, in a JSONL

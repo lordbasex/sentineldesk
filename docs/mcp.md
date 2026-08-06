@@ -448,6 +448,39 @@ forbidden tool is inviting the model to walk into a wall.
 
 Denied attempts land in `action_log` with the reason.
 
+### Why a call failed, in a form a program can read
+
+The sentence a caller gets back is written for a model to read, and it is
+reworded whenever a better one is found. So the reason travels twice — the prose
+in the content, and a kind beside it:
+
+```json
+{
+  "content": [{"type": "text", "text": "denied by the server policy: MCP_POLICY=readonly: \"run_command\" changes the system"}],
+  "isError": true,
+  "_meta": { "sentineldesk/denial": "policy" }
+}
+```
+
+| Kind | What happened | What to do about it |
+|---|---|---|
+| `policy` | `MCP_POLICY`, `MCP_DENY` or `MCP_ALLOW` refused it | Final for this connection — the capability is not available |
+| `room` | The tool needs the desktop's controls and the agent does not hold them | Call `request_control`, or wait for whoever is driving |
+| `unknown_tool` | No such tool in the catalogue | Check `tools/list` |
+| `tool_error` | The tool ran and reported failure | May be worth retrying |
+
+The three refusals need genuinely different responses, and matching substrings
+to tell them apart is one wording change away from breaking. A successful call
+carries no `_meta` at all.
+
+`unknown_tool` is decided before policy, so a name that does not exist reports
+the same thing at every level rather than "not in the tool catalogue" under
+`safe` and "unknown tool" under `full`. A tool that *does* exist and is hidden
+by the level still reports `policy`.
+
+The kind is written into `action_log` as well, so an audit can be read by
+machine without parsing prose there either.
+
 ### About root inside the desktop
 
 The `sentineldesk` user has **passwordless sudo** and a working `su`. That is

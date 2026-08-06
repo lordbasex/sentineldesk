@@ -106,6 +106,24 @@ func (s *Server) roomTools() []toolDef {
 }
 
 func (s *Server) callRoom(name string, args map[string]any) (any, bool, bool) {
+	// Claim the three room tools and nothing else.
+	//
+	// The nil check used to come first and report handled for EVERY name, so a
+	// Server built without SetRoom answered "this build has no room attached"
+	// to screenshot, run_command and all the rest — dispatch tries this
+	// dispatcher early and stops at the first one that claims the call. The
+	// whole catalogue was dead, and the message blamed the room.
+	//
+	// It never fired in the daemon, which always calls SetRoom, which is why it
+	// went unnoticed. It fires immediately anywhere else the server is
+	// embedded, and it contradicts the rule the rest of this project follows:
+	// an optional capability degrades, it does not take everything with it. No
+	// room means unarbitrated, not unusable.
+	switch name {
+	case "room_state", "request_control", "release_control":
+	default:
+		return nil, false, false
+	}
 	if s.room == nil {
 		return textContent("this build has no room attached; input is unarbitrated"), true, true
 	}
