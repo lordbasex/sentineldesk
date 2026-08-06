@@ -1,0 +1,136 @@
+# SentinelDesk
+# A collaborative operating system for people and AI agents.
+#
+# Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+# Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+#
+# Licensed under the Apache License, Version 2.0.
+#
+# This product's name and logo are trademarks of Federico Pereira and are not
+# covered by the license above. See the README for the trademark policy.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Publishes docs/ to GitHub Pages.
+#
+# This replaces the automatic "pages-build-deployment" workflow that GitHub
+# generates for a branch source. That one ran Jekyll over the *repository root*,
+# which had three consequences worth stating, because each of them is why this
+# file exists:
+#
+#   1. It published everything. The Go sources, the Makefile, install.sh and the
+#      23 MB of wallpaper/ PNGs were all served from the public site. The
+#      artefact was 27 MB, of which the actual documentation is 3 MB.
+#   2. It redeployed on every push to main. A day of work on internal/mcp/ —
+#      twelve commits that did not touch a single file under docs/ — queued
+#      eight full 27 MB deployments in ninety minutes, each one waiting behind
+#      the last.
+#   3. It rendered README.md into the site root through Jekyll, which is why the
+#      real site lives one level down at /docs/ rather than at /.
+#
+# THE URL LAYOUT IS LOAD-BEARING. Do not "clean it up" by publishing docs/ at
+# the site root. `DOCS_URL` in internal/webui/assets/client.js is compiled into
+# the binary and points at
+#
+#     https://lordbasex.github.io/sentineldesk/docs/guide/index.html
+#
+# so every already-installed desktop asks for that exact path when a user clicks
+# help. Shortening the URL would 404 the help link on every deployment in the
+# field, and no redeploy of theirs would fix it — the old URL is in a binary
+# somebody already downloaded. README.md, docs/index.html and
+# docs/arquitectura.html carry the same prefix in canonical and og:url tags.
+#
+# So the artefact deliberately reproduces the old shape: docs/ is staged under a
+# docs/ directory rather than at the root, and the root gets a redirect to it in
+# place of the README that Jekyll used to render there.
+#
+# No .nojekyll is needed. Uploading a directory with upload-pages-artifact and
+# deploying it with deploy-pages is a static upload — Jekyll never runs, so
+# there is nothing to opt out of.
+
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    # The path filter is the point of this workflow. Work on the daemon must not
+    # trigger a documentation deployment; only a change to what is published, or
+    # to how it is published, should.
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  # Deploying the current main without changing anything — the escape hatch for
+  # when a deployment failed on GitHub's side and simply needs running again.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  # deploy-pages authenticates to the Pages service with an OIDC token rather
+  # than a PAT, so the job needs to be able to mint one.
+  id-token: write
+
+# One deployment at a time, and never cancel one that has already started.
+# Queued runs collapse into the newest, which is what stops a burst of commits
+# from stacking deployments; but a run that is mid-deploy is already changing
+# what the public site serves, and killing it there can leave the site on a
+# half-published state.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+
+      - name: Stage the site
+        # Rebuild the layout the old Jekyll build produced, minus everything
+        # that was not documentation. `cp -R docs/. _site/docs/` copies the
+        # contents of docs/ rather than the directory itself, which keeps the
+        # result identical whether or not the destination already exists.
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site/docs
+          cp -R docs/. _site/docs/
+
+          # The site root used to be README.md rendered by Jekyll. Nothing links
+          # to it — README.md itself names docs/index.html as the project site —
+          # so a bare root would only ever be reached by someone trimming the
+          # URL back by hand. Send them where they meant to go. The meta refresh
+          # carries the redirect for readers with JavaScript disabled, and the
+          # canonical link keeps search engines pointed at the real page.
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+          <head>
+          <meta charset="utf-8">
+          <title>SentinelDesk</title>
+          <link rel="canonical" href="https://lordbasex.github.io/sentineldesk/docs/">
+          <meta http-equiv="refresh" content="0; url=./docs/">
+          </head>
+          <body>
+          <p>Redirecting to <a href="./docs/">the SentinelDesk site</a>.</p>
+          </body>
+          </html>
+          HTML
+
+          echo "Staged $(find _site -type f | wc -l) files, $(du -sh _site | cut -f1) total"
+
+      - name: Upload the artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
