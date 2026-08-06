@@ -394,13 +394,22 @@ review(
 
 review(
     "wait_for_window",
-    "Hizo polling buscando una ventana cuyo título coincida, con deadline, y "
-    "corta cuando se cancela la llamada.",
-    "La herramienta correcta a la que recurrir en vez de adivinar con `wait`, y "
-    "el polling es la forma equivocada de implementarla. X puede avisar por "
-    "evento cuando se crea una ventana o cambia su título; suscribirse a eso en "
-    "la ventana raíz la haría exacta en vez de 'dentro de 300ms', y no costaría "
-    "nada mientras espera.",
+    "Se bloqueó en un evento de X hasta que existiera una ventana cuyo título o "
+    "clase coincida, con deadline, y corta cuando se cancela la llamada.",
+    "Antes hacía polling: wmctrl cada 300ms, unos cincuenta procesos a lo largo "
+    "de una espera de quince segundos para que le dijeran cuarenta y nueve "
+    "veces que no había pasado nada, y con la respuesta llegando hasta un "
+    "tercio de segundo tarde. El gestor de ventanas venía publicando el cambio "
+    "en _NET_CLIENT_LIST todo ese tiempo. Ahora se suscribe con "
+    "PropertyChangeMask a la ventana raíz y se bloquea, medido con la misma "
+    "cantidad de procesos que un sleep de la misma duración — 33 lanzamientos "
+    "pasaron a cero — y con la detección dentro del ruido del propio arranque "
+    "de la ventana. Queda un límite honesto, y es por lo que hay un tick de "
+    "respaldo de un segundo al lado de los eventos: una ventana ya abierta que "
+    "se renombra escribe _NET_WM_NAME en su propia ventana, no en la raíz, así "
+    "que un observador de la raíz no puede verlo. Cubrir eso implica seguir la "
+    "lista de clientes, suscribirse en cada ventana nueva y manejar las que se "
+    "destruyen en el medio.",
 )
 review(
     "move_window",

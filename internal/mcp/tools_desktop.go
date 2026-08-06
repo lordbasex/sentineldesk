@@ -613,25 +613,69 @@ func (s *Server) toolActiveWindow() ([]map[string]any, bool) {
 	}), false
 }
 
+// toolWaitForWindow blocks until a window whose title or class contains match
+// exists, or the timeout passes.
+//
+// This used to run wmctrl every 300ms — about fifty processes across a
+// fifteen-second wait, to be told nothing had happened forty-nine times, with
+// the answer arriving up to a third of a second after the fact. The window
+// manager publishes the change on _NET_CLIENT_LIST the moment it happens, so
+// the wait is now a blocking read woken by X, answered in about a millisecond,
+// spawning nothing.
+//
+// The polling path is kept for a display with no EWMH window manager, where
+// there is no property to watch and no event to wait for. It reads through the
+// same matcher, so the two paths cannot disagree about what counts as a match.
 func (s *Server) toolWaitForWindow(ctx context.Context, match string, timeoutMs int) ([]map[string]any, bool) {
 	if timeoutMs <= 0 {
 		timeoutMs = 15000
 	}
-	deadline := time.Now().Add(time.Duration(timeoutMs) * time.Millisecond)
+	timeout := time.Duration(timeoutMs) * time.Millisecond
 	needle := strings.ToLower(match)
-	for time.Now().Before(deadline) {
-		out, err := s.output("wmctrl", "-l", "-x")
-		if err == nil {
-			for _, line := range strings.Split(out, "\n") {
-				if strings.Contains(strings.ToLower(line), needle) {
-					f := strings.Fields(line)
-					if len(f) >= 4 {
-						return jsonContent(map[string]any{
-							"id": f[0], "class": f[2], "title": strings.Join(f[4:], " "), "found": true,
-						}), false
-					}
+
+	// found is the whole test, shared by both paths. It reads windows through
+	// EWMH rather than parsing wmctrl's columns, which is also what stopped
+	// list_desktops mistaking a work-area size for a desktop name.
+	var hit map[string]any
+	found := func() bool {
+		e, err := s.windows()
+		if err != nil {
+			return false
+		}
+		wins, err := e.Windows()
+		if err != nil {
+			return false
+		}
+		for _, w := range wins {
+			if strings.Contains(strings.ToLower(w.Title), needle) ||
+				strings.Contains(strings.ToLower(w.Class), needle) {
+				hit = map[string]any{
+					"id": w.ID, "class": w.Class, "title": w.Title, "found": true,
 				}
+				return true
 			}
+		}
+		return false
+	}
+
+	if w, err := s.watch(); err == nil {
+		// One second rather than 300ms for the backstop: it exists only for
+		// title changes on an already-mapped window, which the root watcher
+		// cannot see, and every other case is answered by the event.
+		if w.WaitFor(ctx, timeout, time.Second, found, desktop.WatchWindows, desktop.WatchActive) {
+			return jsonContent(hit), false
+		}
+		if ctx.Err() != nil {
+			return textContent("cancelled while waiting for a window matching %q", match), true
+		}
+		return textContent("timeout: no window matching %q after %d ms", match, timeoutMs), true
+	}
+
+	// No watcher: fall back to asking repeatedly, the way this always worked.
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if found() {
+			return jsonContent(hit), false
 		}
 		if !sleepCtx(ctx, 300*time.Millisecond) {
 			break

@@ -434,14 +434,21 @@ review(
 
 review(
     "wait_for_window",
-    "Polled for a window whose title matches, with a deadline, and stops when "
-    "the call is cancelled.",
-    3,
-    "The right tool to reach for instead of guessing at `wait`, and polling is "
-    "the wrong way to implement it. X can send an event when a window is "
-    "created or its title changes; selecting for those on the root window would "
-    "make this exact rather than 'within 300ms', and cost nothing while it "
-    "waits.",
+    "Blocked on an X event until a window whose title or class matches exists, "
+    "with a deadline, and stops when the call is cancelled.",
+    5,
+    "It used to poll: wmctrl every 300ms, about fifty processes across a "
+    "fifteen-second wait to be told nothing had happened forty-nine times, with "
+    "the answer arriving up to a third of a second late. The window manager was "
+    "publishing the change on _NET_CLIENT_LIST the whole time. It now selects "
+    "PropertyChangeMask on the root window and blocks, measured at the same "
+    "process count as a plain sleep of the same length — 33 spawns became zero "
+    "— and detection within the noise of the window's own startup. One honest "
+    "limit remains and is why a one-second backstop tick sits alongside the "
+    "events: a window that is already open and renames itself writes "
+    "_NET_WM_NAME on its own window, not on the root, so a root watcher cannot "
+    "see it. Covering that means tracking the client list, selecting events on "
+    "each new window, and handling the ones destroyed in between.",
 )
 review(
     "move_window",

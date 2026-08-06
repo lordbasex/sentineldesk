@@ -437,6 +437,10 @@ type Server struct {
 	ewmh     *desktop.EWMH
 	ewmhErr  error
 
+	watchOnce sync.Once
+	watcher   *desktop.Watcher
+	watchErr  error
+
 	uiMu   sync.Mutex
 	uiLast map[string]uiNode // last snapshot of the tree, for ui_diff
 
@@ -479,6 +483,20 @@ func (s *Server) windows() (*desktop.EWMH, error) {
 		s.ewmh, s.ewmhErr = desktop.NewEWMH(s.display)
 	})
 	return s.ewmh, s.ewmhErr
+}
+
+// watch returns the root-window event watcher, opening it on first use.
+//
+// Opened lazily and separately from the EWMH reader because it is worth having
+// only if something waits: a session that never calls a wait_* tool never pays
+// for the connection or the goroutine. A failure here is not fatal — the
+// callers fall back to polling, the way every other optional capability in this
+// project degrades rather than refusing.
+func (s *Server) watch() (*desktop.Watcher, error) {
+	s.watchOnce.Do(func() {
+		s.watcher, s.watchErr = desktop.NewWatcher(s.display)
+	})
+	return s.watcher, s.watchErr
 }
 
 // SetDelivery wires up browser delivery. Without it, destination:download has
