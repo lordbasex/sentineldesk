@@ -564,12 +564,24 @@ review(
 )
 review(
     "ui_wait_for",
-    "Hizo polling del árbol hasta que apareciera un elemento que coincidiera con "
-    "rol, nombre o texto, con deadline.",
-    "AT-SPI emite eventos justo para esto — object:children-changed, "
-    "object:state-changed — y hacer polling significa a la vez una demora en "
-    "notar y un proceso de Python por vuelta. Un puente sosteniendo una conexión "
-    "podría bloquearse en el evento y contestar en el instante en que ocurre.",
+    "Se registró a los eventos de AT-SPI que pueden hacer aparecer un elemento y "
+    "buscó cuando alguno se disparó, agrupando las ráfagas.",
+    "Antes recorría el árbol de accesibilidad de cada aplicación abierta cuatro "
+    "veces por segundo y filtraba el resultado. Cada nodo de ese recorrido es "
+    "un viaje por D-Bus, y con una página real abierta una travesía son 289 "
+    "nodos y 0.22s — así que el bucle ni siquiera podía sostener su propia "
+    "cadencia: 250ms de sueño más 220ms de recorrido significaban que una "
+    "espera de quince segundos gastaba cerca de un tercio de núcleo "
+    "preguntando unas treinta veces si algo había cambiado. Escuchar cuesta "
+    "una búsqueda al principio y después nada; el daemon del registro anota "
+    "los mismos cero jiffies durante una espera de diez segundos que estando "
+    "quieto. Las ráfagas se agrupan en vez de descartarse, porque una "
+    "aplicación dibujándose emite cientos de children-changed en pocos "
+    "milisegundos y el último es el que más probablemente importa. Lo que la "
+    "mejoraría ahora es acotar la búsqueda al subárbol del propio evento: el "
+    "elemento que apareció casi siempre está debajo del nodo que lo anunció, "
+    "así que la travesía completa en cada despertar sigue siendo más de lo que "
+    "la pregunta necesita.",
 )
 review(
     "ui_diff",

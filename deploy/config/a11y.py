@@ -20,10 +20,10 @@ instead of guessing with screenshots and clicks at coordinates.
 
 Every element is identified by a `ref`: the path of indices from the desktop,
 for example "2/0/3/1". It stays stable as long as the window does not change
-estructura, y barato de resolver.
+its structure, and it is cheap to resolve.
 
 Sub-commands (JSON on stdout):
-    tree     [--app NOMBRE] [--depth N] [--interactive]
+    tree     [--app NAME] [--depth N] [--interactive]
     find     [--role R] [--name N] [--text T] [--app A] [--limit N]
     click    --ref R [--action click]
     settext  --ref R --text T
@@ -233,15 +233,104 @@ def cmd_focus(args):
     return {"ok": ok, "ref": args.ref}
 
 
+# The events that can bring a matching element into existence. children-changed
+# covers a widget being added, state-changed covers one that existed but was not
+# showing, and the window and document ones catch the wholesale replacements —
+# a dialog opening, a page finishing — where the individual node events arrive
+# too fast to be worth counting.
+WAIT_EVENTS = (
+    "object:children-changed",
+    "object:state-changed",
+    "window:activate",
+    "window:create",
+    "document:load-complete",
+)
+
+# How long to let a burst settle before searching. An application drawing itself
+# emits hundreds of children-changed in a few milliseconds, and searching on
+# each one would be slower than the polling this replaces. Coalescing them into
+# one search after the burst keeps the cost proportional to what happened rather
+# than to how loudly it was announced.
+WAIT_DEBOUNCE_MS = 120
+
+
 def cmd_waitfor(args):
-    deadline = time.time() + args.timeout_ms / 1000.0
-    while time.time() < deadline:
-        res = cmd_find(args)
-        if res["count"]:
-            return {"found": True, "elements": res["elements"][:3],
-                    "waited_ms": int(args.timeout_ms - (deadline - time.time()) * 1000)}
-        time.sleep(0.25)
-    return {"found": False, "error": "timed out waiting for the element"}
+    """Wait for an element by listening, not by asking.
+
+    This used to walk every application's accessibility tree four times a
+    second and filter the result. Each node in that walk is a D-Bus round trip,
+    so waiting fifteen seconds for a dialog meant sixty full traversals of every
+    open application to be told fifty-nine times that nothing had changed — and
+    on a desktop where nothing is happening, every one of those was wasted.
+
+    AT-SPI already announces the changes the walk was looking for. Registering
+    for them means a still desktop costs nothing at all, and an element that
+    appears is found as it appears rather than up to 250ms afterwards.
+    """
+    start = time.time()
+
+    # Look before listening. Between deciding to wait and the listener being
+    # live there is a gap in which the element can appear, and a wait that
+    # registered first would sleep through it to the timeout.
+    res = cmd_find(args)
+    if res["count"]:
+        return {"found": True, "elements": res["elements"][:3],
+                "waited_ms": 0, "via": "already present"}
+
+    from gi.repository import GLib
+
+    result = {}
+    pending = [False]
+
+    # search only reports; stopping the loop is the caller's business, because
+    # the last call happens after the loop has already ended and stopping a
+    # registry that is not running is not something to find out in production.
+    def search(via):
+        found = cmd_find(args)
+        if not found["count"]:
+            return False
+        result.update({"found": True, "elements": found["elements"][:3],
+                       "waited_ms": int((time.time() - start) * 1000), "via": via})
+        return True
+
+    def debounced():
+        pending[0] = False
+        if search("event"):
+            pyatspi.Registry.stop()
+        return False  # one shot
+
+    def on_event(_event):
+        # Schedule rather than drop. Ignoring events while one is pending would
+        # lose the last of a burst, which is the one most likely to be the
+        # change being waited for.
+        if not pending[0]:
+            pending[0] = True
+            GLib.timeout_add(WAIT_DEBOUNCE_MS, debounced)
+
+    def on_timeout():
+        pyatspi.Registry.stop()
+        return False
+
+    pyatspi.Registry.registerEventListener(on_event, *WAIT_EVENTS)
+    GLib.timeout_add(int(args.timeout_ms), on_timeout)
+    try:
+        pyatspi.Registry.start()
+    finally:
+        try:
+            pyatspi.Registry.deregisterEventListener(on_event, *WAIT_EVENTS)
+        except Exception:
+            pass
+
+    if result:
+        return result
+
+    # One last look. The loop can end with a debounce still outstanding, and an
+    # element that arrived in those final milliseconds is there whether or not
+    # anything got round to noticing.
+    if search("final check"):
+        return result
+    return {"found": False, "error": "timed out waiting for the element",
+            "waited_ms": int((time.time() - start) * 1000)}
 
 
 def main():

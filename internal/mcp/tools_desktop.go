@@ -108,7 +108,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 				"match": pStr("substring of the title or class"), "timeout_ms": pInt("timeout (default 15000)"),
 			}, "match"),
 		},
-		// ---- escritorios ----
+		// ---- desktops ----
 		{
 			Name:        "list_desktops",
 			Risk:        riskRead,
@@ -121,7 +121,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			Description: "Switch to another virtual desktop (workspace) by number.",
 			InputSchema: schema(map[string]any{"desktop": pInt("desktop number, 0-based")}, "desktop"),
 		},
-		// ---- procesos ----
+		// ---- processes ----
 		{
 			Name:        "list_processes",
 			Risk:        riskRead,
@@ -148,7 +148,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			Description: "List the graphical applications installed on the desktop (from .desktop entries): name and command.",
 			InputSchema: schema(map[string]any{}),
 		},
-		// ---- mouse fino ----
+		// ---- fine pointer control ----
 		{
 			Name:            "mouse_drag",
 			Risk:            riskWrite,
@@ -417,7 +417,7 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 	case "wait_for_window":
 		c, e := s.toolWaitForWindow(ctx, argStr(args, "match"), argInt(args, "timeout_ms"))
 		return c, e, true
-	// ---- escritorios ----
+	// ---- desktops ----
 	case "list_desktops":
 		c, e := s.toolListDesktops()
 		return c, e, true
@@ -429,7 +429,7 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 		}
 		c, e := s.simpleRun("switched desktop", "wmctrl", "-s", strconv.Itoa(argInt(args, "desktop")))
 		return c, e, true
-	// ---- procesos ----
+	// ---- processes ----
 	case "list_processes":
 		c, e := s.toolListProcesses(argStr(args, "filter"))
 		return c, e, true

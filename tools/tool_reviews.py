@@ -619,13 +619,23 @@ review(
 )
 review(
     "ui_wait_for",
-    "Polled the tree until an element matching role, name or text appeared, with "
-    "a deadline.",
-    3,
-    "AT-SPI emits events for exactly this — object:children-changed, "
-    "object:state-changed — and polling means both a delay before noticing and a "
-    "Python process per poll. A bridge holding one connection could block on the "
-    "event and answer the instant it fires.",
+    "Registered for the AT-SPI events that can bring an element into existence "
+    "and searched when one fired, coalescing bursts.",
+    5,
+    "It used to walk every open application's accessibility tree four times a "
+    "second and filter the result. Each node in that walk is a D-Bus round "
+    "trip, and with a real page open one traversal is 289 nodes and 0.22s — so "
+    "the loop could not even hold its own cadence: 250ms of sleep plus 220ms of "
+    "walking meant a fifteen-second wait spent about a third of a core asking "
+    "roughly thirty times whether anything had changed. Listening instead costs "
+    "one search at the start and then nothing at all; the registry daemon "
+    "records the same zero jiffies during a ten-second wait as it does sitting "
+    "idle. Bursts are coalesced rather than dropped, because an application "
+    "drawing itself emits hundreds of children-changed in a few milliseconds "
+    "and the last of them is the one most likely to matter. What would improve "
+    "it now is narrowing the search to the event's own subtree: the element "
+    "that appeared is almost always under the node that announced it, so the "
+    "full traversal on each wake is still more than the question needs.",
 )
 review(
     "ui_diff",
