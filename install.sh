@@ -29,6 +29,11 @@
 #   --binary PATH      use a local binary instead of downloading one
 #   --user NAME        native only: run the desktop as NAME instead of creating
 #                      a dedicated sentineldesk account
+#   --tls-domain NAME  native only: put Caddy in front and get a real Let's
+#                      Encrypt certificate for NAME. Needs ports 80 and 443
+#                      reachable, and a NAME that resolves here — a bare IP
+#                      will not do; 203-0-113-45.sslip.io style names will.
+#   --tls-email ADDR   expiry notices from Let's Encrypt (optional)
 #
 # The script downloads ONE artifact: the binary. Everything else — compose
 # files, supervisor config, the desktop scripts — the binary carries embedded
@@ -48,6 +53,10 @@ LOCAL_BINARY=""
 # is the default and the safer one — see install_native_mode for what changes
 # when this names an account that already exists.
 WANT_USER=""
+# Native only. A name Let's Encrypt can validate — NOT a bare IP, which ACME
+# cannot issue for. Empty leaves the backend on its own self-signed certificate.
+TLS_DOMAIN=""
+TLS_EMAIL=""
 # lite is the default on purpose: it is the desktop plus the tools somebody
 # needs in it, and it is what most installations want. full adds LibreOffice,
 # Firefox, GIMP, Wireshark, a compiler and — on amd64 — Steam and Wine, at
@@ -67,6 +76,8 @@ while [ $# -gt 0 ]; do
     --version) WANT_VERSION="$2"; shift ;;
     --binary)  LOCAL_BINARY="$2"; shift ;;
     --user)    WANT_USER="$2"; shift ;;
+    --tls-domain) TLS_DOMAIN="$2"; shift ;;
+    --tls-email)  TLS_EMAIL="$2"; shift ;;
     -h|--help) sed -n '14,37p' "$0"; exit 0 ;;
     *) die "unknown argument: $1 (see --help)" ;;
   esac
@@ -75,6 +86,16 @@ done
 
 # --- preconditions -----------------------------------------------------------
 [ "$(id -u)" = 0 ] || die "run as root: sudo $0 ${MODE:-}"
+
+# Caught here rather than three minutes later in Caddy's retry loop, because
+# "I have a public IP" is exactly why people reach for this flag. ACME validates
+# a NAME; there is no challenge that proves control of a bare address, so
+# Let's Encrypt will simply refuse and Caddy will keep asking.
+if printf '%s' "${TLS_DOMAIN:-}" | grep -qE '^([0-9]{1,3}\.){3}[0-9]{1,3}$'; then
+  die "--tls-domain needs a name, not an IP. Let's Encrypt cannot certify a bare
+  address. A wildcard DNS service gives you a name that points at yours for
+  nothing — for $TLS_DOMAIN that would be $(printf '%s' "$TLS_DOMAIN" | tr . -).sslip.io"
+fi
 
 case "$(uname -m)" in
   x86_64)  ARCH=amd64 ;;
@@ -181,6 +202,12 @@ host_addresses() {
 # untouched by design, so a machine installed before TLS became the default is
 # still on http:// and should be told so.
 desktop_url() {
+  # Caddy answers on 443 under the name it was given, and the backend is no
+  # longer reachable directly — so that name IS the address.
+  if [ -n "$TLS_DOMAIN" ]; then
+    echo "https://$TLS_DOMAIN"
+    return
+  fi
   local scheme=https ip
   ip=$(hostname -I 2>/dev/null | awk '{print $1}')
   if [ "$MODE" = native ] && [ -r /etc/sentineldesk/env ]; then
@@ -224,6 +251,70 @@ report_version() {
     say "reinstalled $now (unchanged)"
   else
     say "updated: $PREV_VERSION  →  $now"
+  fi
+}
+
+
+# --- Caddy in front, for a real certificate ----------------------------------
+#
+# The backend's own TLS is self-signed: fine for a VPS you reach by IP, and it
+# warns every visitor, which is not fine for anything with an audience. Caddy
+# gets a Let's Encrypt certificate nobody questions and renews it on its own —
+# and that renewal is the whole point. Certificates last 90 days and are renewed
+# at 60; the backend reads its certificate once at startup, so doing this with
+# certbot means a copy and a restart every two months, forever, and a hook that
+# fails silently leaves an expired site.
+#
+# ACME validates a NAME. A bare IP cannot be certified this way, which is worth
+# saying because "I have a public IP" is the usual reason people ask. A wildcard
+# DNS service turns an IP into a name at no cost — 203-0-113-45.sslip.io — and
+# Let's Encrypt is perfectly happy with that.
+#
+# The Caddyfile is the repository's own, extracted from the binary a moment ago,
+# rather than a second copy invented here. It is the same reverse_proxy the
+# Docker profile uses.
+install_caddy_native() {
+  say "putting Caddy in front for $TLS_DOMAIN…"
+  apt-get install -y -qq caddy || die "could not install caddy"
+
+  local src="$OPT/deploy/Caddyfile.auto"
+  [ -f "$src" ] || die "missing $src (was the deploy tree extracted?)"
+  # Somebody else's Caddyfile is not ours to throw away.
+  if [ -f /etc/caddy/Caddyfile ] && [ ! -f /etc/caddy/Caddyfile.before-sentineldesk ]; then
+    cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.before-sentineldesk
+    say "kept the previous Caddyfile as /etc/caddy/Caddyfile.before-sentineldesk"
+  fi
+  {
+    # Global options first, and only when there is something to put in them.
+    [ -n "$TLS_EMAIL" ] && printf '{\n\temail %s\n}\n\n' "$TLS_EMAIL"
+    cat "$src"
+  } > /etc/caddy/Caddyfile
+
+  # Caddyfile.auto expands {$DOMAIN}, and Debian's caddy.service reads no
+  # environment file, so it arrives as a drop-in.
+  mkdir -p /etc/systemd/system/caddy.service.d
+  cat > /etc/systemd/system/caddy.service.d/sentineldesk.conf <<EOF
+[Service]
+Environment=DOMAIN=$TLS_DOMAIN
+EOF
+  systemctl daemon-reload
+  systemctl enable caddy >/dev/null 2>&1 || true
+  systemctl restart caddy
+
+  say "Caddy is up. Ports 80 and 443 must reach this machine, or Let's Encrypt"
+  say "  cannot validate $TLS_DOMAIN and will keep retrying: journalctl -u caddy -f"
+}
+
+# Upsert into /etc/sentineldesk/env. That file is written once and then belongs
+# to whoever operates the machine, so it is never rewritten wholesale — but a
+# flag that changes how the thing listens has to be able to correct it.
+set_env() {
+  local k="$1" v="$2" f=/etc/sentineldesk/env
+  [ -f "$f" ] || return 0
+  if grep -q "^$k=" "$f"; then
+    sed -i "s|^$k=.*|$k=$v|" "$f"
+  else
+    printf '%s=%s\n' "$k" "$v" >> "$f"
   fi
 }
 
@@ -775,6 +866,16 @@ RestartSec=3
 [Install]
 WantedBy=multi-user.target
 EOF
+
+  # Caddy in front means the backend must stop terminating TLS itself AND stop
+  # answering on every interface — otherwise :8080 stays open in the clear and
+  # the proxy is decoration. HTTP_ADDR is what confines it to the loopback the
+  # proxy reaches it on.
+  if [ -n "$TLS_DOMAIN" ]; then
+    install_caddy_native
+    set_env TLS_SELFSIGNED 0
+    set_env HTTP_ADDR 127.0.0.1
+  fi
 
   systemctl daemon-reload
   systemctl enable sentineldesk.service

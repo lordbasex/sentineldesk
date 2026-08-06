@@ -254,7 +254,7 @@ func main() {
 		sess.Run() // blocks until the client disconnects
 	})
 
-	addr := ":" + strconv.Itoa(cfg.HTTPPort)
+	addr := cfg.HTTPAddr + ":" + strconv.Itoa(cfg.HTTPPort)
 	certFile, keyFile, err := stream.EnsureTLS(cfg)
 	if err != nil {
 		log.Fatalf("TLS configuration: %v", err)

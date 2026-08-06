@@ -28,6 +28,7 @@ import (
 // Config is the fully resolved configuration for one server process.
 type Config struct {
 	HTTPPort     int
+	HTTPAddr     string
 	Display      string
 	FPS          int
 	Encoder      string // auto | nvenc | vaapi | h264 | vp8
@@ -69,7 +70,13 @@ type Config struct {
 // Load reads the environment and fills in defaults.
 func Load() Config {
 	cfg := Config{
-		HTTPPort:  Int("HTTP_PORT", 8080),
+		HTTPPort: Int("HTTP_PORT", 8080),
+		// The interface to listen on. Empty means every one, which is what a
+		// container wants and what this always did. Set it to 127.0.0.1 when
+		// something else terminates TLS in front — otherwise the backend goes
+		// on answering in the clear on its own port, and the proxy is a
+		// suggestion rather than a gate.
+		HTTPAddr:  Str("HTTP_ADDR", ""),
 		Display:   Str("DISPLAY", ":0"),
 		FPS:       Int("FPS", 30),
 		Encoder:   strings.ToLower(Str("ENCODER", "auto")),
