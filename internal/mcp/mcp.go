@@ -794,7 +794,7 @@ func imageContent(b64, mime string) []map[string]any {
 func jsonContent(v any) []map[string]any {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
-		return textContent("error serializando resultado: %v", err)
+		return textContent("could not serialise the result: %v", err)
 	}
 	return textContent("%s", string(b))
 }

@@ -346,7 +346,7 @@ func (s *SSHSession) TunnelRemote(remoteAddr string, localAddr string) (*sshTunn
 	}
 	s.mu.Lock()
 	t := &sshTunnel{ID: s.newTunnelID("remote"), Kind: "remote",
-		Spec:    s.Host + ":" + remoteAddr + " → " + localAddr + " (inverso)",
+		Spec:    s.Host + ":" + remoteAddr + " → " + localAddr + " (reverse)",
 		closers: []io.Closer{ln}, stop: make(chan struct{})}
 	s.tunnels[t.ID] = t
 	s.mu.Unlock()

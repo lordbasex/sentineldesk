@@ -253,7 +253,7 @@ func (s *Server) dispatchSys(ctx context.Context, name string, args map[string]a
 		if err := sess.Write(text); err != nil {
 			return textContent("shell_input failed: %v", err), true, true
 		}
-		return textContent("enviados %d bytes", len(text)), false, true
+		return textContent("sent %d bytes", len(text)), false, true
 
 	case "shell_read":
 		sess, err := s.shells.Get(argStr(args, "id"))
@@ -304,7 +304,7 @@ func (s *Server) dispatchSys(ctx context.Context, name string, args map[string]a
 		if err != nil {
 			return textContent("ssh_upload failed: %v", err), true, true
 		}
-		return textContent("subidos %d bytes a %s", n, argStr(args, "remote")), false, true
+		return textContent("uploaded %d bytes to %s", n, argStr(args, "remote")), false, true
 
 	case "ssh_download":
 		sess, err := s.sshm.Get(argStr(args, "id"))
@@ -315,7 +315,7 @@ func (s *Server) dispatchSys(ctx context.Context, name string, args map[string]a
 		if err != nil {
 			return textContent("ssh_download failed: %v", err), true, true
 		}
-		return textContent("descargados %d bytes en %s", n, argStr(args, "local")), false, true
+		return textContent("downloaded %d bytes to %s", n, argStr(args, "local")), false, true
 
 	case "ssh_list_remote":
 		sess, err := s.sshm.Get(argStr(args, "id"))
@@ -468,13 +468,13 @@ func (s *Server) toolSSHCopyID(args map[string]any) ([]map[string]any, bool) {
 	cmd := fmt.Sprintf(
 		"mkdir -p ~/.ssh && chmod 700 ~/.ssh && "+
 			"grep -qxF %s ~/.ssh/authorized_keys 2>/dev/null || echo %s >> ~/.ssh/authorized_keys; "+
-			"chmod 600 ~/.ssh/authorized_keys && echo instalada",
+			"chmod 600 ~/.ssh/authorized_keys && echo installed",
 		shellQuote(key), shellQuote(key))
 	stdout, stderr, code, err := sess.Exec(cmd, 30)
 	if err != nil || code != 0 {
 		return textContent("ssh_copy_id failed (code %d): %s %v", code, stderr, err), true
 	}
-	return textContent("clave instalada en %s@%s: %s", sess.User, sess.Host, strings.TrimSpace(stdout)), false
+	return textContent("key installed on %s@%s: %s", sess.User, sess.Host, strings.TrimSpace(stdout)), false
 }
 
 func shellQuote(v string) string {

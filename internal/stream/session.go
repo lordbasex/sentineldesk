@@ -257,7 +257,7 @@ func (s *Session) Run() {
 		case "answer":
 			desc := webrtc.SessionDescription{Type: webrtc.SDPTypeAnswer, SDP: msg.SDP}
 			if err := s.pc.SetRemoteDescription(desc); err != nil {
-				s.logf("error aplicando answer: %v", err)
+				s.logf("could not apply the answer: %v", err)
 			}
 		case "renegotiate":
 			// The browser wants to start publishing its microphone.

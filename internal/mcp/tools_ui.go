@@ -306,7 +306,7 @@ func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[stri
 				"el.focus(); el.value=%s;"+
 				"el.dispatchEvent(new Event('input',{bubbles:true}));"+
 				"el.dispatchEvent(new Event('change',{bubbles:true}));"+
-				"return 'escrito en '+%s})()",
+				"return 'typed into '+%s})()",
 			jsStr(sel), jsStr(sel), jsStr(txt), jsStr(sel)))
 		return c, e, true
 	case "browser_text":
