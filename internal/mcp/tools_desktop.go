@@ -385,7 +385,7 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 		c, e := s.simpleRun("moved to desktop", "wmctrl", "-i", "-r", argStr(args, "id"), "-t", strconv.Itoa(argInt(args, "desktop")))
 		return c, e, true
 	case "wait_for_window":
-		c, e := s.toolWaitForWindow(argStr(args, "match"), argInt(args, "timeout_ms"))
+		c, e := s.toolWaitForWindow(ctx, argStr(args, "match"), argInt(args, "timeout_ms"))
 		return c, e, true
 	// ---- escritorios ----
 	case "list_desktops":
@@ -559,7 +559,7 @@ func (s *Server) toolActiveWindow() ([]map[string]any, bool) {
 	}), false
 }
 
-func (s *Server) toolWaitForWindow(match string, timeoutMs int) ([]map[string]any, bool) {
+func (s *Server) toolWaitForWindow(ctx context.Context, match string, timeoutMs int) ([]map[string]any, bool) {
 	if timeoutMs <= 0 {
 		timeoutMs = 15000
 	}
@@ -579,7 +579,9 @@ func (s *Server) toolWaitForWindow(match string, timeoutMs int) ([]map[string]an
 				}
 			}
 		}
-		time.Sleep(300 * time.Millisecond)
+		if !sleepCtx(ctx, 300*time.Millisecond) {
+			break
+		}
 	}
 	return textContent("timeout: no window matching %q after %d ms", match, timeoutMs), true
 }

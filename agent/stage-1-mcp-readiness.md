@@ -253,20 +253,39 @@ there; it fires immediately anywhere else the server is embedded, which stage 2
 will do. Fixed and covered, and it contradicted this project's own rule that an
 optional capability degrades rather than taking everything with it.
 
-### 4.3 `tools/call` cannot be cancelled — **step one done, step two open**
+### 4.3 `tools/call` cannot be cancelled — **fixed**
 
-Step 4 of §6 is done: `dispatch` and every dispatcher take a
-`context.Context`, `handleToolCall` creates one per call and registers it under
-the request id, `notifications/cancelled` reaches it, and closing the connection
-cancels everything that connection had running. A cancelled call comes back with
-the `cancelled` kind.
+Steps 4 and 5 of §6 are done.
 
-**Step 5 is still open and this is not finished without it.** Only the tools
-that reach the process through `elevate()` actually stop — 3 `exec.CommandContext`
-call sites against 23 plain `exec.Command`. The accessibility bridge, CDP, the
-shell and SSH managers and everything driving `xdotool` will finish what they
-started. Until that is audited, `cancelled` means *the request is over*, not
-*the machine is back where it was*.
+*Step 4:* `dispatch` and every dispatcher take a `context.Context`,
+`notifications/cancelled` reaches the call, and closing the connection cancels
+everything that connection had running.
+
+*Step 5:* two things, and the first turned out to matter more than the audit.
+
+**The acknowledgement no longer waits for the tool.** `handleToolCall` blocks on
+`dispatch`, so a tool that ignored its context held the response back until it
+finished — the client asked to stop and then waited out the full duration to be
+told it had, unable to tell *still stopping* from *ignored you*. Cancelling now
+answers from the connection's goroutine and the tool's eventual result is
+dropped, guarded by one atomic per request. **The wait always stops even when
+the work does not**, and that is the guarantee a runtime can build on.
+
+Doing that surfaced a race worth recording: the call was registered inside the
+handler goroutine, so a client sending `tools/call` and `notifications/cancelled`
+back to back could have the cancellation arrive first, find nothing, and be
+dropped silently. Registration moved into the connection's own goroutine, before
+the handler is spawned, which makes the order on the wire the order in the map.
+
+**The audit.** `sleepCtx` replaced the bare `time.Sleep` in every polling loop
+that can run for seconds. What stops now: the shell-based tools (the process is
+killed), `wait`, `terminal_run`, `terminal_read`, `browser_open`,
+`browser_wait_for`, `wait_for_window`, `wait_for_idle`, `open_app_and_wait`,
+`fill_form`. What carries on: the accessibility bridge behind `ui_*`, OCR, a CDP
+request already sent, the persistent shells and SSH sessions, and the `xdotool` /
+`wmctrl` invocations — those finish in milliseconds, so there is nothing to
+interrupt. Both lists are in `docs/mcp.md` and neither is a claim of a clean
+stop.
 
 The original problem, kept as the record:
 
@@ -434,7 +453,7 @@ Ordered by dependency, not by size. Each step lands on `main` with tests.
 | ~~2~~ | ~~`injectsInput` becomes a field, derived + published~~ | **Done.** Parity test freezes the pre-refactor set | small |
 | ~~3~~ | ~~Structured denial kinds in `tools/call`~~ | **Done.** `_meta["sentineldesk/denial"]`, plus the same kind in the action log | small |
 | ~~4~~ | ~~Thread `context.Context` through `dispatch`; honour `notifications/cancelled`~~ | **Done.** Per-call context, `cancelled` kind, connection close cancels | medium |
-| **5** | Audit which tools ignore cancellation; publish the list | **Step 4 is a half-truth without it** — 3 context-aware exec sites against 23 that are not | medium |
+| ~~5~~ | ~~Audit which tools ignore cancellation; publish the list~~ | **Done.** Cancellation is acknowledged immediately whatever the tool does; both lists published | medium |
 | 6 | Connection identity from `initialize`, carried into the action log | Emergency gate, and attribution once sub-agents run concurrently (§5.3) | small |
 | 7 | `notifications/progress` for the long tools | Timeline quality | medium |
 

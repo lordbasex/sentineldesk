@@ -253,7 +253,7 @@ func (s *Server) dispatch(ctx context.Context, name string, rawArgs json.RawMess
 		asRoot, _ := args["as_root"].(bool)
 		return s.toolRunCommand(ctx, argStr(args, "command"), argInt(args, "timeout_ms"), asRoot)
 	case "wait":
-		return s.toolWait(argInt(args, "ms"))
+		return s.toolWait(ctx, argInt(args, "ms"))
 	case "start_recording":
 		return s.toolStartRecording(args)
 	case "stop_recording":
@@ -557,15 +557,38 @@ func (s *Server) toolRunCommand(ctx context.Context, command string, timeoutMs i
 	}), false
 }
 
-func (s *Server) toolWait(ms int) ([]map[string]any, bool) {
+func (s *Server) toolWait(ctx context.Context, ms int) ([]map[string]any, bool) {
 	if ms < 0 {
 		ms = 0
 	}
 	if ms > 60000 {
 		ms = 60000
 	}
-	time.Sleep(time.Duration(ms) * time.Millisecond)
+	if !sleepCtx(ctx, time.Duration(ms)*time.Millisecond) {
+		return textContent("wait interrupted"), true
+	}
 	return textContent("waited %d ms", ms), false
+}
+
+// sleepCtx waits for d, or until the call is cancelled, and reports whether the
+// wait finished. False means the caller should stop and return.
+//
+// Every polling loop in this package used a bare time.Sleep, which is why a
+// cancelled ui_wait_for or browser_wait_for went on polling for its full
+// timeout: the loop had no way to hear. Use this instead of time.Sleep in
+// anything that repeats.
+func sleepCtx(ctx context.Context, d time.Duration) bool {
+	if d <= 0 {
+		return ctx.Err() == nil
+	}
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
 }
 
 func (s *Server) toolStartRecording(args map[string]any) ([]map[string]any, bool) {

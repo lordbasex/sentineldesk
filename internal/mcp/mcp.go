@@ -39,6 +39,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -79,42 +80,118 @@ type rpcError struct {
 // be a strange thing to make possible.
 type inflight struct {
 	mu    sync.Mutex
-	calls map[string]context.CancelFunc
+	calls map[string]*call
 }
 
-func newInflight() *inflight { return &inflight{calls: map[string]context.CancelFunc{}} }
-
-func (f *inflight) add(id string, cancel context.CancelFunc) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.calls[id] = cancel
+// call is one request in progress: how to stop it, and how to answer it.
+//
+// The answer matters as much as the cancel. handleToolCall blocks on dispatch,
+// so if the tool is not listening to its context the response cannot be written
+// until the tool finishes — which for a thirty-second sleep means the client
+// asked to stop and then waited thirty seconds to be told it had. It could not
+// tell "still stopping" from "ignored you", which is the worst of the two
+// things to be unsure about.
+//
+// So cancelling answers straight away, and whatever the tool eventually returns
+// is dropped. The wait always stops even when the work does not.
+type call struct {
+	cancel context.CancelFunc
+	answer func(map[string]any)
 }
 
-// done releases a finished call. It cancels as well, which is the usual
-// defer cancel() — the context is over either way and its resources should go.
-func (f *inflight) done(id string) { f.cancel(id) }
+func newInflight() *inflight { return &inflight{calls: map[string]*call{}} }
 
-// cancel stops one call and reports whether there was one to stop. A cancel for
-// a request that already finished is not an error: the race is normal and the
-// client's intent was satisfied either way.
-func (f *inflight) cancel(id string) bool {
+func (f *inflight) add(id string, cancel context.CancelFunc, answer func(map[string]any)) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	cancel, ok := f.calls[id]
+	f.calls[id] = &call{cancel: cancel, answer: answer}
+}
+
+// done releases a finished call without answering it — the handler is about to
+// do that itself. It still cancels, which is the usual defer cancel(): the
+// context is over either way and its resources should go.
+func (f *inflight) done(id string) {
+	f.mu.Lock()
+	c, ok := f.calls[id]
+	delete(f.calls, id)
+	f.mu.Unlock()
 	if ok {
-		delete(f.calls, id)
-		cancel()
+		c.cancel()
 	}
-	return ok
 }
 
-func (f *inflight) cancelAll() {
+// cancel stops one call, answers it, and reports whether there was one to stop.
+// A cancel for a request that already finished is not an error: the race is
+// normal and the client's intent was satisfied either way.
+func (f *inflight) cancel(id string, reason string) bool {
 	f.mu.Lock()
-	defer f.mu.Unlock()
-	for id, cancel := range f.calls {
-		cancel()
+	c, ok := f.calls[id]
+	delete(f.calls, id)
+	f.mu.Unlock()
+	if !ok {
+		return false
+	}
+	c.cancel()
+	c.answer(toolCallResult(textContent("%s", reason), denialCancelled))
+	return true
+}
+
+func (f *inflight) cancelAll(reason string) {
+	f.mu.Lock()
+	pending := make([]*call, 0, len(f.calls))
+	for id, c := range f.calls {
+		pending = append(pending, c)
 		delete(f.calls, id)
 	}
+	f.mu.Unlock()
+	for _, c := range pending {
+		c.cancel()
+		c.answer(toolCallResult(textContent("%s", reason), denialCancelled))
+	}
+}
+
+// pendingCall is one tools/call prepared for handling: its context, the single
+// reply it is allowed to produce, and the cleanup when it finishes normally.
+//
+// It is built in the connection's own goroutine, BEFORE the handler is spawned,
+// and that ordering is the whole reason it exists. Registering inside the
+// handler left a window: a client may send tools/call and
+// notifications/cancelled back to back, and the handler goroutine need not have
+// run yet when the cancellation arrives. The cancellation then found nothing to
+// cancel and was silently dropped, and the client waited out a call it had
+// already asked to stop. Reading the connection is sequential, so doing it here
+// makes the order on the wire the order in the map.
+type pendingCall struct {
+	ctx   context.Context
+	reply func(map[string]any)
+	done  func()
+}
+
+func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *pendingCall {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Exactly one response per request, whoever gets there first. A
+	// cancellation answers from the connection's goroutine while the handler
+	// is still inside dispatch, so the result that eventually arrives has to be
+	// dropped rather than sent as a second reply to the same id.
+	var answered atomic.Bool
+	reply := func(result map[string]any) {
+		if answered.Swap(true) {
+			return
+		}
+		write(rpcResponse{ID: req.ID, Result: result})
+	}
+
+	pc := &pendingCall{ctx: ctx, reply: reply, done: cancel}
+	// A call with no id is notification-shaped: nothing can name it to cancel
+	// it, and registering it would collide with the next one under the empty
+	// key. It still ends when the connection does, through its context.
+	if req.ID != nil {
+		key := requestKey(req.ID)
+		flight.add(key, cancel, reply)
+		pc.done = func() { flight.done(key) }
+	}
+	return pc
 }
 
 // requestKey turns a JSON-RPC id into a map key.
@@ -263,7 +340,7 @@ func (s *Server) serve(conn net.Conn) {
 	// the goroutines simply outlived the socket, so a host that died mid-call
 	// left the work running with nobody to give the answer to.
 	flight := newInflight()
-	defer flight.cancelAll()
+	defer flight.cancelAll("cancelled: the connection closed")
 
 	connPolicy := s.policy
 	var policyMu sync.RWMutex
@@ -315,7 +392,7 @@ func (s *Server) serve(conn net.Conn) {
 				Reason    string          `json:"reason"`
 			}
 			_ = json.Unmarshal(req.Params, &p)
-			flight.cancel(requestKey(p.RequestID))
+			flight.cancel(requestKey(p.RequestID), cancelReason(p.Reason))
 			continue
 		}
 
@@ -323,13 +400,21 @@ func (s *Server) serve(conn net.Conn) {
 		active := connPolicy
 		policyMu.RUnlock()
 
+		// Prepared here rather than in the handler so that a cancellation sent
+		// straight after the call always finds it registered — see
+		// newPendingCall.
+		var pending *pendingCall
+		if req.Method == "tools/call" {
+			pending = newPendingCall(req, write, flight)
+		}
+
 		// One goroutine per request: a slow or wedged tool must not freeze the
 		// rest of the connection. The client pairs responses by id anyway.
-		go s.handle(req, write, active, flight)
+		go s.handle(req, write, active, pending)
 	}
 }
 
-func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy, flight *inflight) {
+func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall) {
 	switch req.Method {
 	case "initialize":
 		write(rpcResponse{ID: req.ID, Result: map[string]any{
@@ -353,7 +438,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy,
 		// which is what makes searching for one worth doing.
 		write(rpcResponse{ID: req.ID, Result: map[string]any{"tools": s.listedTools(policy)}})
 	case "tools/call":
-		s.handleToolCall(req, write, policy, flight)
+		s.handleToolCall(req, write, policy, pending)
 	default:
 		if req.ID != nil {
 			write(rpcResponse{ID: req.ID, Error: &rpcError{Code: -32601, Message: "method not found: " + req.Method}})
@@ -361,7 +446,7 @@ func (s *Server) handle(req rpcRequest, write func(rpcResponse), policy *Policy,
 	}
 }
 
-func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy, flight *inflight) {
+func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy *Policy, pending *pendingCall) {
 	var params struct {
 		Name      string          `json:"name"`
 		Arguments json.RawMessage `json:"arguments"`
@@ -389,13 +474,8 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	// place that knows the request id. Registering is skipped for a call with
 	// no id — a notification-shaped tools/call, which has nothing to cancel by
 	// and would collide with the next one under the empty key.
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	if req.ID != nil {
-		key := requestKey(req.ID)
-		flight.add(key, cancel)
-		defer flight.done(key)
-	}
+	ctx, reply := pending.ctx, pending.reply
+	defer pending.done()
 
 	// refuse writes the failure once, in both forms: the sentence for whoever
 	// reads it and the kind for whatever branches on it, and the same pair into
@@ -405,7 +485,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 		entry.Denied = reason
 		entry.Kind = string(kind)
 		s.actions.Add(entry)
-		write(rpcResponse{ID: req.ID, Result: toolCallResult(content, kind)})
+		reply(toolCallResult(content, kind))
 	}
 
 	// Before policy, because a name that does not exist was not refused — it
@@ -442,6 +522,11 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	// difference: to run_command a killed process is just a process with a
 	// non-zero exit status, so it answered exit_code -1 and reported success —
 	// true about the process, and a lie about the request.
+	//
+	// The client has usually been told already, from the other goroutine. What
+	// this adds is the log entry, and the answer in the one case reply has not
+	// covered: a call with no id, which nothing can cancel by name but which
+	// still ends when the connection does.
 	if err := ctx.Err(); err != nil {
 		refuse(denialCancelled, textContent("cancelled: %v", err), "cancelled")
 		return
@@ -455,7 +540,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	}
 	s.actions.Add(entry)
 
-	write(rpcResponse{ID: req.ID, Result: toolCallResult(content, kind)})
+	reply(toolCallResult(content, kind))
 }
 
 // injectsInput reports whether a tool has to hold the room's controls first.
@@ -534,4 +619,14 @@ func RunBridge(sockPath, level, deny, allow string) error {
 	go func() { io.Copy(os.Stdout, conn); done <- struct{}{} }()
 	<-done
 	return nil
+}
+
+// cancelReason turns the client's optional reason into the sentence the call
+// comes back with. The reason is echoed because the client knows why it
+// stopped and the model reading the transcript does not.
+func cancelReason(reason string) string {
+	if reason = strings.TrimSpace(reason); reason != "" {
+		return "cancelled by the client: " + reason
+	}
+	return "cancelled by the client"
 }

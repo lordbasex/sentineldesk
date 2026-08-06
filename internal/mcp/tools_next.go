@@ -151,11 +151,11 @@ func (s *Server) dispatchNext(ctx context.Context, name string, args map[string]
 	case "set_resolution":
 		return s.toolSetResolution(ctx, args)
 	case "wait_for_idle":
-		return s.toolWaitForIdle(args)
+		return s.toolWaitForIdle(ctx, args)
 	case "open_app_and_wait":
-		return s.toolOpenAppAndWait(args)
+		return s.toolOpenAppAndWait(ctx, args)
 	case "fill_form":
-		return s.toolFillForm(args)
+		return s.toolFillForm(ctx, args)
 	case "ui_diff":
 		return s.toolUIDiff(args)
 	case "action_log":
@@ -233,7 +233,7 @@ func (s *Server) cpuBusy() float64 {
 	return v
 }
 
-func (s *Server) toolWaitForIdle(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolWaitForIdle(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	timeout := argInt(args, "timeout_ms")
 	if timeout <= 0 {
 		timeout = 15000
@@ -269,7 +269,9 @@ func (s *Server) toolWaitForIdle(args map[string]any) ([]map[string]any, bool, b
 				"cpu_percent": int(lastCPU), "reason": "the screen went still and the CPU settled",
 			}), false, true
 		}
-		time.Sleep(200 * time.Millisecond)
+		if !sleepCtx(ctx, 200*time.Millisecond) {
+			break
+		}
 	}
 	reason := "timed out with the screen still changing"
 	if time.Since(stableSince) >= time.Duration(quiet)*time.Millisecond {
@@ -283,7 +285,7 @@ func (s *Server) toolWaitForIdle(args map[string]any) ([]map[string]any, bool, b
 
 // --- macro-acciones ----------------------------------------------------------
 
-func (s *Server) toolOpenAppAndWait(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolOpenAppAndWait(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	command := strings.TrimSpace(argStr(args, "command"))
 	if command == "" {
 		return textContent("`command` is missing"), true, true
@@ -311,7 +313,9 @@ func (s *Server) toolOpenAppAndWait(args map[string]any) ([]map[string]any, bool
 
 	deadline := time.Now().Add(time.Duration(timeout) * time.Millisecond)
 	for time.Now().Before(deadline) {
-		time.Sleep(300 * time.Millisecond)
+		if !sleepCtx(ctx, 300*time.Millisecond) {
+			break
+		}
 		for _, w := range s.listWindows() {
 			if before[w.ID] {
 				continue // already there: not the window we opened
@@ -322,7 +326,7 @@ func (s *Server) toolOpenAppAndWait(args map[string]any) ([]map[string]any, bool
 			}
 			s.run("wmctrl", "-i", "-a", w.ID)
 			// Let it finish drawing before handing control back to the caller.
-			s.toolWaitForIdle(map[string]any{
+			s.toolWaitForIdle(ctx, map[string]any{
 				"timeout_ms": 6000, "quiet_ms": 700, "ignore_cpu": true,
 			})
 			return jsonContent(map[string]any{
@@ -338,7 +342,7 @@ func (s *Server) toolOpenAppAndWait(args map[string]any) ([]map[string]any, bool
 	}), true, true
 }
 
-func (s *Server) toolFillForm(args map[string]any) ([]map[string]any, bool, bool) {
+func (s *Server) toolFillForm(ctx context.Context, args map[string]any) ([]map[string]any, bool, bool) {
 	raw, ok := args["fields"].(map[string]any)
 	if !ok || len(raw) == 0 {
 		return textContent("`fields` is missing (an object of name -> value)"), true, true
@@ -381,7 +385,7 @@ func (s *Server) toolFillForm(args map[string]any) ([]map[string]any, bool, bool
 			res["submit_error"] = strings.TrimSpace(out + fmt.Sprint(err))
 		} else {
 			res["submitted"] = true
-			s.toolWaitForIdle(map[string]any{"timeout_ms": 8000, "quiet_ms": 800})
+			s.toolWaitForIdle(ctx, map[string]any{"timeout_ms": 8000, "quiet_ms": 800})
 		}
 	}
 	return jsonContent(res), failed > 0, true

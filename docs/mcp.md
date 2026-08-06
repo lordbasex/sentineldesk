@@ -491,24 +491,35 @@ Every `tools/call` runs under a context that ends when the client says so:
  "params": {"requestId": 7, "reason": "user pressed stop"}}
 ```
 
-The call comes back with `isError` and the `cancelled` kind. Closing the
+The call comes back with `isError` and the `cancelled` kind, carrying your
+`reason` so the model reading the transcript knows why it stopped. Closing the
 connection cancels everything it had running, so a host that dies mid-call no
 longer leaves work going with nobody to answer to.
 
-**Not every tool stops when asked, and that matters.** A cancellable call is one
-that reaches the process through a context, which today means the shell-based
-tools: `run_command`, `install_packages`, `remove_packages`, `search_packages`,
-`service_control`, `set_resolution`, `snapshot_create` and `snapshot_restore`.
-The rest — the accessibility bridge, the browser over CDP, the persistent shells
-and SSH sessions, and anything driving `xdotool` — will finish what they started
-and the cancellation only stops the answer being used.
+**The acknowledgement is immediate**, whatever the tool is doing. That is the
+part worth relying on: the reply does not wait for the tool to notice, so a
+client is never left unable to tell "still stopping" from "ignored me". Whatever
+the tool eventually returns is discarded — one request, one response.
+
+**Whether the *work* stops is a separate question, and the answer is not
+uniform.** Two honest lists:
+
+*Stops:* `run_command`, `install_packages`, `remove_packages`,
+`search_packages`, `service_control`, `set_resolution`, `snapshot_create`,
+`snapshot_restore` (the process is killed), `wait`, `terminal_run`,
+`terminal_read`, `browser_open`, `browser_wait_for`, `wait_for_window`,
+`wait_for_idle`, `open_app_and_wait`, `fill_form` (the polling loop stops).
+
+*Carries on to completion:* the accessibility bridge behind the `ui_*` tools,
+OCR in `read_screen_text` and `find_text`, a CDP request already sent, the
+persistent shells and SSH sessions, and the short `xdotool` / `wmctrl`
+invocations — those last finish in milliseconds, so there is nothing to
+interrupt.
 
 So `cancelled` means *the request is over*, not *the machine is back where it
-was*. A client should say "cancelling; the current action may finish" rather
-than reporting a clean stop, and should not assume a mutating call left no
-trace. Widening this is tracked as its own piece of work rather than glossed
-over: a partial cancellation reported as a total one is exactly the sort of
-false comfort the rest of this design tries to avoid.
+was*. A client should not assume a mutating call left no trace. Nothing here is
+a false claim of a clean stop: a partial cancellation reported as a total one is
+exactly the sort of comfort the rest of this design tries not to offer.
 
 ### About root inside the desktop
 

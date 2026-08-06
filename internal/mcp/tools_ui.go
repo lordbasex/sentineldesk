@@ -273,7 +273,7 @@ func (s *Server) buildBrowserTools() []toolDef {
 func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[string]any) ([]map[string]any, bool, bool) {
 	switch name {
 	case "browser_open":
-		c, e := s.toolBrowserOpen(argStr(args, "url"))
+		c, e := s.toolBrowserOpen(ctx, argStr(args, "url"))
 		return c, e, true
 	case "browser_tabs":
 		targets, err := cdpTargets()
@@ -335,14 +335,16 @@ func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[stri
 			if err == nil && strings.Contains(fmt.Sprint(res), "true") {
 				return textContent("%s appeared", sel), false, true
 			}
-			time.Sleep(300 * time.Millisecond)
+			if !sleepCtx(ctx, 300*time.Millisecond) {
+				break
+			}
 		}
 		return textContent("timed out waiting for %s", sel), true, true
 	}
 	return nil, false, false
 }
 
-func (s *Server) toolBrowserOpen(url string) ([]map[string]any, bool) {
+func (s *Server) toolBrowserOpen(ctx context.Context, url string) ([]map[string]any, bool) {
 	if targets, err := cdpTargets(); err == nil && len(targets) > 0 {
 		if url != "" {
 			return s.cdpEvalReport(fmt.Sprintf("(()=>{location.href=%s; return 'navigating'})()", jsStr(url)))
@@ -367,7 +369,9 @@ func (s *Server) toolBrowserOpen(url string) ([]map[string]any, bool) {
 		if t, err := cdpTargets(); err == nil && len(t) > 0 {
 			return textContent("browser open with CDP (%d tabs)", len(t)), false
 		}
-		time.Sleep(700 * time.Millisecond)
+		if !sleepCtx(ctx, 700*time.Millisecond) {
+			break
+		}
 	}
 	return textContent("the browser started but CDP did not answer in time"), true
 }

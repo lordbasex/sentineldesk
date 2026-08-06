@@ -222,7 +222,9 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 		// types into a window that is not ready yet.
 		deadline := time.Now().Add(20 * time.Second)
 		for time.Now().Before(deadline) {
-			time.Sleep(400 * time.Millisecond)
+			if !sleepCtx(ctx, 400*time.Millisecond) {
+				break
+			}
 			if ref, err := s.findTerminal(); err == nil {
 				if txt, err := s.readTerminal(ref); err == nil && promptTail.MatchString(txt) {
 					return map[string]any{
@@ -378,7 +380,9 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 		closed := false
 		tick := 0
 		for time.Now().Before(deadline) {
-			time.Sleep(250 * time.Millisecond)
+			if !sleepCtx(ctx, 250*time.Millisecond) {
+				break
+			}
 			tick++
 
 			// Once a second: cheap next to the poll it guards, and a second of

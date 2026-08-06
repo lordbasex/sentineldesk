@@ -29,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -399,7 +400,9 @@ func (c *session) write(req map[string]any, method string) {
 	}
 }
 
-func (c *session) read() map[string]any {
+// readFull returns the response id alongside the result, so a test can prove a
+// reply belongs to the request it thinks it does.
+func (c *session) readFull() (int, map[string]any) {
 	c.t.Helper()
 	_ = c.conn.SetDeadline(time.Now().Add(20 * time.Second))
 	raw, err := c.r.ReadBytes('\n')
@@ -407,6 +410,7 @@ func (c *session) read() map[string]any {
 		c.t.Fatalf("read: %v", err)
 	}
 	var resp struct {
+		ID     int            `json:"id"`
 		Result map[string]any `json:"result"`
 		Error  *struct {
 			Message string `json:"message"`
@@ -418,7 +422,13 @@ func (c *session) read() map[string]any {
 	if resp.Error != nil {
 		c.t.Fatalf("%s", resp.Error.Message)
 	}
-	return resp.Result
+	return resp.ID, resp.Result
+}
+
+func (c *session) read() map[string]any {
+	c.t.Helper()
+	_, res := c.readFull()
+	return res
 }
 
 func (c *session) call(method string, params any) map[string]any {
@@ -744,29 +754,60 @@ func TestInflightBookkeeping(t *testing.T) {
 	f := newInflight()
 	_, c1 := context.WithCancel(context.Background())
 	ctx2, c2 := context.WithCancel(context.Background())
-	f.add("1", c1)
-	f.add("2", c2)
 
-	if !f.cancel("1") {
+	var answers int
+	note := func(map[string]any) { answers++ }
+	f.add("1", c1, note)
+	f.add("2", c2, note)
+
+	if !f.cancel("1", "stop") {
 		t.Error("cancel reported nothing to cancel")
 	}
+	// Cancelling answers as well as stopping: the client is waiting and the
+	// tool may not be listening.
+	if answers != 1 {
+		t.Errorf("cancel produced %d answers, want 1", answers)
+	}
 	// A second cancel for the same id is the normal race with a call that has
-	// just finished, and must not be treated as an error.
-	if f.cancel("1") {
+	// just finished, and must not be treated as an error or answered twice.
+	if f.cancel("1", "stop") {
 		t.Error("cancel reported a second stop for the same id")
 	}
-	if f.cancel("nope") {
+	if f.cancel("nope", "stop") {
 		t.Error("cancel reported stopping a request that never existed")
 	}
+	if answers != 1 {
+		t.Errorf("stray cancels produced %d answers, want 1", answers)
+	}
 
-	f.cancelAll()
+	f.cancelAll("connection closed")
 	select {
 	case <-ctx2.Done():
 	default:
 		t.Error("cancelAll left a call running")
 	}
+	if answers != 2 {
+		t.Errorf("cancelAll produced %d answers in total, want 2", answers)
+	}
 	if len(f.calls) != 0 {
 		t.Errorf("cancelAll left %d entries behind", len(f.calls))
+	}
+}
+
+// TestDoneDoesNotAnswer: a call that finishes normally is answered by its own
+// handler. If done() answered as well, every successful call would produce two
+// responses for one id.
+func TestDoneDoesNotAnswer(t *testing.T) {
+	f := newInflight()
+	_, cancel := context.WithCancel(context.Background())
+	answered := false
+	f.add("1", cancel, func(map[string]any) { answered = true })
+	f.done("1")
+	if answered {
+		t.Error("done answered a call the handler was about to answer itself")
+	}
+	if len(f.calls) != 0 {
+		t.Error("done left the entry behind")
 	}
 }
 
@@ -841,6 +882,53 @@ func TestCancelStopsARunningCommand(t *testing.T) {
 	meta, _ := res["_meta"].(map[string]any)
 	if kind, _ := meta["sentineldesk/denial"].(string); kind != string(denialCancelled) {
 		t.Errorf("kind %q, want %q", kind, denialCancelled)
+	}
+}
+
+// TestCancelAnswersWithoutWaitingForTheTool is the point of the second half of
+// this work. handleToolCall blocks on dispatch, so a tool that is not listening
+// to its context used to hold the response back until it finished — the client
+// asked to stop and then waited out the full duration to be told it had, unable
+// to tell "still stopping" from "ignored you".
+//
+// A thirty-second wait, cancelled immediately, has to come back immediately.
+func TestCancelAnswersWithoutWaitingForTheTool(t *testing.T) {
+	c := newSession(t, testServer(t))
+	id := c.send("tools/call", map[string]any{
+		"name": "wait", "arguments": map[string]any{"ms": 30000},
+	})
+
+	begin := time.Now()
+	c.notify("notifications/cancelled", map[string]any{
+		"requestId": id, "reason": "user pressed stop",
+	})
+	gotID, res := c.readFull()
+	elapsed := time.Since(begin)
+
+	if gotID != id {
+		t.Errorf("answered request %d, want %d", gotID, id)
+	}
+	if elapsed > 5*time.Second {
+		t.Errorf("the cancellation took %v to be acknowledged", elapsed)
+	}
+	meta, _ := res["_meta"].(map[string]any)
+	if kind, _ := meta["sentineldesk/denial"].(string); kind != string(denialCancelled) {
+		t.Errorf("kind %q, want %q", kind, denialCancelled)
+	}
+	// The client's reason comes back, because the model reading the transcript
+	// was not the one that pressed stop.
+	content, _ := res["content"].([]any)
+	first, _ := content[0].(map[string]any)
+	if text, _ := first["text"].(string); !strings.Contains(text, "user pressed stop") {
+		t.Errorf("the reason did not survive: %q", text)
+	}
+
+	// And exactly one response for that id. The handler goroutine wakes up
+	// afterwards and tries to reply too; if that got through, this next call
+	// would read the stale answer instead of its own.
+	pingID := c.send("ping", nil)
+	if gotID, _ := c.readFull(); gotID != pingID {
+		t.Errorf("a second response arrived for the cancelled call (id %d)", gotID)
 	}
 }
 
