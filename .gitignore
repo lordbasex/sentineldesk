@@ -124,3 +124,10 @@ recordings/
 # Local build-version state (each machine counts its own builds)
 version.txt
 CLAUDE.md
+
+# Superseded planning drafts for the agent project, kept locally until they are
+# deleted. They were written against an older snapshot and contain claims that
+# are no longer true; agent/stage-1-mcp-readiness.md records which ones and why,
+# so nothing is lost when these go.
+agent/sentineldesk-code-audit.md
+agent/sentineldesk-agent-prompt-datachannel.md
