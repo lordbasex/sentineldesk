@@ -343,3 +343,213 @@ review(
     "combination can silently do nothing; refusing the call with the missing "
     "name would turn a mute failure into a message.",
 )
+
+# --- launching, running, recording -------------------------------------------
+
+review(
+    "launch_app",
+    "Started a program detached through setsid, so closing the MCP connection "
+    "does not take the application down with it, with as_root going through "
+    "sudo -E to keep DISPLAY.",
+    4,
+    "Detaching is right and the reason is written down. What it cannot say is "
+    "whether the program actually started: it returns once the shell has forked "
+    "and a command that dies immediately looks identical to one that ran. "
+    "open_app_and_wait exists because of that gap, which is a sign this should "
+    "at least report the pid and whether it was still alive a moment later.",
+)
+review(
+    "activate_window",
+    "Focused and raised a window by id through wmctrl.",
+    3,
+    "Another shell-out for a single EWMH message. _NET_ACTIVE_WINDOW sent "
+    "directly would be one X call with no process and no output to parse, and "
+    "would also let it report whether the window manager honoured the request "
+    "— which wmctrl's exit status does not distinguish from having been asked "
+    "about a window that no longer exists.",
+)
+review(
+    "run_command",
+    "Ran a command through sh -c with a deadline, capturing stdout, stderr and "
+    "the exit code, killing the process when the call is cancelled and "
+    "reporting its output as progress while it runs.",
+    5,
+    "Everything a shell tool should be: a real deadline, a real kill, and the "
+    "output streamed rather than held until the end. It is the most dangerous "
+    "tool in the catalogue and it is classified as such. The only thing left is "
+    "an argv form alongside the string one, so a caller can pass a filename "
+    "with a space in it without thinking about quoting.",
+)
+review(
+    "start_recording",
+    "Started a recording by spawning gst-launch-1.0 in its own process group, "
+    "capturing and encoding the screen a second time alongside the live "
+    "stream.",
+    3,
+    "This is the one place the project does what its own architecture says it "
+    "does not: GStreamer runs in-process everywhere else, and here it is a "
+    "gst-launch child. It also means the framebuffer is read and H.264-encoded "
+    "twice for one screen, which on a busy desktop is the most expensive thing "
+    "the daemon does. start_restream already shows the answer — it tees off the "
+    "live pipeline and encodes nothing extra. Recording should do the same, and "
+    "then it would also start instantly instead of waiting for a second "
+    "pipeline to come up.",
+)
+review(
+    "stop_recording",
+    "Signalled the pipeline's process group so the container is finalised "
+    "properly, and reported the path and size.",
+    4,
+    "Stopping cleanly rather than killing is what makes the mp4 playable, and "
+    "that detail is easy to get wrong. It inherits the second-pipeline problem "
+    "from start_recording: the stop has to wait for a process to drain that "
+    "would not exist if recording teed off the live encode.",
+)
+review(
+    "get_recording_status",
+    "Reported whether a recording is running with elapsed seconds, current size "
+    "and path.",
+    4,
+    "Size on disk is a good proxy for 'is it actually writing', which a boolean "
+    "would not give. It cannot say whether frames are being dropped, and a "
+    "recording that is running but starving is indistinguishable from a healthy "
+    "one until you play it back.",
+)
+review(
+    "list_recordings",
+    "Listed the finished files with size and modification time.",
+    4,
+    "Right shape. It reports what is on disk and not what is playable — a file "
+    "left behind by a recording that never stopped cleanly looks the same as a "
+    "good one. Probing the container's duration would separate them.",
+)
+
+# --- clipboard ----------------------------------------------------------------
+
+review(
+    "get_clipboard",
+    "Read the X CLIPBOARD selection through xclip, treating an empty clipboard "
+    "and an unowned selection as ordinary rather than as errors.",
+    3,
+    "The distinction it makes is right: nobody owning the selection is not a "
+    "failure. But it is a subprocess per read for something the X connection "
+    "can do, and text only — an image or a file path on the clipboard is "
+    "invisible to it, which is exactly what a person copying something for the "
+    "agent is most likely to have.",
+)
+review(
+    "set_clipboard",
+    "Wrote text to the X CLIPBOARD selection through xclip, which stays alive "
+    "in the background to own the selection.",
+    2,
+    "It discards the result — `_ = cmd.Run()` — so a failed write is reported "
+    "as success and the agent goes on to paste something that is not there. "
+    "That alone is the difference between a two and a four. Owning the "
+    "selection from inside the daemon would fix the honesty and the leaked "
+    "xclip process at the same time.",
+)
+
+# --- windows ------------------------------------------------------------------
+
+review(
+    "wait_for_window",
+    "Polled for a window whose title matches, with a deadline, and stops when "
+    "the call is cancelled.",
+    3,
+    "The right tool to reach for instead of guessing at `wait`, and polling is "
+    "the wrong way to implement it. X can send an event when a window is "
+    "created or its title changes; selecting for those on the root window would "
+    "make this exact rather than 'within 300ms', and cost nothing while it "
+    "waits.",
+)
+review(
+    "move_window",
+    "Moved a window through wmctrl -e.",
+    3,
+    "Shell-out and a geometry string. It also cannot express 'move without "
+    "resizing' except by passing -1 sentinels internally, which is a sign the "
+    "underlying call is the wrong shape. A direct ConfigureWindow takes the "
+    "fields that are being set and nothing else.",
+)
+review(
+    "resize_window",
+    "Resized through the same wmctrl -e path.",
+    3,
+    "Same as move_window, and shares its helper. Worth fixing together rather "
+    "than separately: one direct geometry call replaces both.",
+)
+review(
+    "minimize_window",
+    "Minimised through xdotool windowminimize.",
+    3,
+    "A second shell tool for what the others do through wmctrl, so the family "
+    "now depends on two external programs to do one kind of thing. "
+    "_NET_WM_STATE_HIDDEN through the same path as the rest would remove the "
+    "xdotool dependency entirely.",
+)
+review(
+    "maximize_window",
+    "Added the maximized_vert and maximized_horz EWMH states through wmctrl.",
+    4,
+    "Correct mechanism — it asks the window manager rather than resizing to the "
+    "screen, so a maximised window stays maximised when the resolution "
+    "changes. Only the shell-out separates it from a five.",
+)
+review(
+    "restore_window",
+    "Removed both maximised states.",
+    4,
+    "The proper inverse of maximise, and it does not try to remember a previous "
+    "geometry the window manager already knows. Same shell-out caveat.",
+)
+review(
+    "fullscreen_window",
+    "Toggled _NET_WM_STATE_FULLSCREEN.",
+    3,
+    "Toggling is the problem: an agent that cannot see the current state does "
+    "not know which way it went, so 'make this full screen' takes a read and a "
+    "guess. It should take the state it wants — add, remove or toggle — the way "
+    "window_set_state already does.",
+)
+review(
+    "set_window_desktop",
+    "Moved a window to a virtual desktop through wmctrl -t.",
+    4,
+    "Right mechanism, and it accepts the desktop index the other tools report, "
+    "so the numbers line up across the family. Shell-out again.",
+)
+review(
+    "switch_desktop",
+    "Switched the current virtual desktop through wmctrl -s.",
+    4,
+    "Same. The addition worth having is switching by name rather than index, "
+    "since _NET_DESKTOP_NAMES is already what list_desktops reads.",
+)
+review(
+    "window_properties",
+    "Read one window's raw X properties.",
+    5,
+    "This is the one in the family that goes to the source, and it is the most "
+    "useful of them for an agent trying to understand a window it did not "
+    "open. Nothing to change.",
+)
+review(
+    "window_hierarchy",
+    "Walked the X window tree, reporting parents, children and "
+    "override-redirect.",
+    5,
+    "The right answer for questions the EWMH list cannot express — tooltips, "
+    "menus and popups are override-redirect and never appear in list_windows. "
+    "Pairing it with the accessibility tree would be the next step, but that is "
+    "a new tool rather than a change to this one.",
+)
+review(
+    "window_set_state",
+    "Set an EWMH state — above, below, sticky, shaded, skip_taskbar and the "
+    "rest — with an explicit add, remove or toggle.",
+    4,
+    "The best-shaped tool in the window family: it names the state and the "
+    "action instead of hiding both behind a verb, which is what "
+    "fullscreen_window should have done. It could replace maximize, restore and "
+    "fullscreen outright, leaving one tool where there are four.",
+)
