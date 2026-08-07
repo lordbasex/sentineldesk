@@ -288,6 +288,37 @@ func TestMouseDownAndUp(t *testing.T) {
 	})
 }
 
+func TestMouseUp(t *testing.T) {
+	control(t)
+	id, tx, ty := dragWindow(t, "MOUSEUPWIN")
+
+	// The property that belongs to mouse_up alone: after it, the button is
+	// genuinely up. A release that did nothing would leave the button held, and
+	// the pointer moving across a title bar afterwards would drag the window
+	// with it — silently, and for the rest of the session.
+	shared.Call(t, "mouse_move", map[string]any{"x": tx, "y": ty})
+	shared.Call(t, "mouse_down", map[string]any{"button": 1})
+	shared.Call(t, "mouse_up", map[string]any{"button": 1})
+	time.Sleep(400 * time.Millisecond)
+
+	bx, by := windowAt(t, id)
+	// Move across the title bar and away. With the button up this moves
+	// nothing; with it still held it is a drag.
+	for i := 1; i <= 12; i++ {
+		shared.Call(t, "mouse_move", map[string]any{"x": tx + 15*i, "y": ty + 10*i})
+	}
+	time.Sleep(700 * time.Millisecond)
+
+	if x, y := windowAt(t, id); x != bx || y != by {
+		t.Fatalf("the window moved from (%d,%d) to (%d,%d) while no button was held — "+
+			"mouse_up did not release it", bx, by, x, y)
+	}
+
+	// And releasing a button nobody pressed has to be harmless rather than an
+	// error: a caller recovering from an unknown state will do exactly that.
+	shared.Call(t, "mouse_up", map[string]any{"button": 1})
+}
+
 func TestMouseDrag(t *testing.T) {
 	control(t)
 	id, tx, ty := dragWindow(t, "DRAGWIN")
