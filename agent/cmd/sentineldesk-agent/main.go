@@ -30,7 +30,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/lordbasex/sentineldesk/agent/internal/loop"
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
+	"github.com/lordbasex/sentineldesk/agent/internal/provider"
 )
 
 // version is stamped in at build time, like the desktop's.
@@ -40,6 +42,15 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
 
   sentineldesk-agent doctor          check the connection and what it can do
   sentineldesk-agent tools [query]   the catalogue, or a search of it
+  sentineldesk-agent run "goal"      work towards a goal
+
+The model:
+  --role       efficient | witnessed   (witnessed does the work where people can see it)
+  --model      which model to use
+  --max-turns  stop after this many (default 25)
+
+The API key is read from ~/.sentineldesk/anthropic.key (chmod 600), or from
+ANTHROPIC_API_KEY_FILE. Never pass it on the command line.
 
 Reaching the desktop:
   --sock PATH        the daemon's MCP socket (the default; this runs beside it)
@@ -56,6 +67,9 @@ func main() {
 	container := fs.String("container", "", "develop from another machine: docker exec into this container instead of opening the socket")
 	bin := fs.String("bin", "sentineldesk", "the sentineldesk binary, for -container")
 	timeout := fs.Duration("timeout", 90*time.Second, "how long any one step may take")
+	role := fs.String("role", "efficient", "efficient | witnessed")
+	model := fs.String("model", "", "which model (default: the provider's)")
+	maxTurns := fs.Int("max-turns", 25, "stop a run after this many turns")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -100,6 +114,16 @@ func main() {
 		os.Exit(doctor(runCtx, client, how))
 	case "tools":
 		os.Exit(listTools(runCtx, client, strings.Join(args[1:], " ")))
+	case "run":
+		goal := strings.TrimSpace(strings.Join(args[1:], " "))
+		if goal == "" {
+			fmt.Fprintln(os.Stderr, "run needs a goal, in quotes")
+			os.Exit(2)
+		}
+		// A run is bounded by the person at the keyboard, not by the -timeout
+		// meant for one step. Ctrl-C still stops it, and stops it properly:
+		// the cancellation reaches the server and the tool in flight ends.
+		os.Exit(runGoal(ctx, client, goal, *role, *model, *maxTurns))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -415,4 +439,107 @@ func errText(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+// --- run --------------------------------------------------------------------
+
+// runGoal works towards a goal and narrates what it does.
+//
+// The narration is not decoration. This is the first command where something
+// other than the operator decides what happens next, and a run whose steps are
+// invisible is one nobody can trust or debug — which is the same argument the
+// server's own Visibility field is built on, one layer up.
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string, maxTurns int) int {
+	llm, err := provider.NewAnthropic(model)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		if provider.IsUnavailable(err) {
+			// Not configured is not broken, and the difference decides what the
+			// operator does next.
+			return 3
+		}
+		return 1
+	}
+	fmt.Printf("Model: %s   key: %s\n", llm.Name(), llm.KeySource())
+
+	tools, err := c.ListTools(ctx)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tools/list: %v\n", err)
+		return 1
+	}
+
+	// A task id, so every call this run makes is one group in the server's
+	// audit trail rather than a scatter of rows. The goal goes with it: the
+	// server can see what was called and never why.
+	task := fmt.Sprintf("run-%d-%d", c.ConnectionID(), time.Now().Unix())
+	c.SetTask(task, goal)
+
+	runner := loop.New(c, loop.Options{
+		Role:     loop.Role(role),
+		Model:    llm,
+		Tools:    tools,
+		MaxTurns: maxTurns,
+		OnEvent:  narrate,
+	})
+
+	// Losing the controls has to reach the loop while it is running, not at the
+	// end. Subscribing before the first turn rather than after is the
+	// difference between being told and finding out.
+	c.OnEvent = runner.NoteEvent
+	if sub, err := c.Subscribe(ctx, mcpclient.TopicControl); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not subscribe to control events: %v\n", err)
+	} else if !sub.Delivers(mcpclient.TopicControl) {
+		fmt.Fprintln(os.Stderr, "warning: control events will not fire on this desktop; "+
+			"a person taking the controls will surface as a refused call instead")
+	}
+
+	fmt.Printf("Task:  %s\n\n", task)
+	started := time.Now()
+	res, err := runner.Run(ctx, goal)
+
+	fmt.Printf("\n─────\n")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "the run failed: %v\n", err)
+		fmt.Printf("%d turns, %d calls, %v\n", res.Turns, res.Calls, time.Since(started).Round(time.Second))
+		return 1
+	}
+	if res.Answer != "" {
+		fmt.Println(res.Answer)
+		fmt.Println()
+	}
+	status := "finished"
+	if res.Interrupted {
+		status = "interrupted"
+	}
+	fmt.Printf("%s · %d turns · %d calls · %v · %d in / %d out tokens\n",
+		status, res.Turns, res.Calls, time.Since(started).Round(time.Second),
+		res.InputToks, res.OutputToks)
+	fmt.Printf("audit: sentineldesk-agent tools action_log, or the task id above\n")
+	if res.Interrupted {
+		return 4
+	}
+	return 0
+}
+
+// narrate prints what the loop is doing, one line per thing.
+func narrate(p loop.Progress) {
+	switch p.Kind {
+	case "turn":
+		fmt.Printf("\033[2m── turn %d\033[0m\n", p.Turn)
+	case "text":
+		fmt.Printf("%s\n", p.Detail)
+	case "call":
+		fmt.Printf("  \033[36m→\033[0m %s %s\n", p.Tool, dim(p.Detail))
+	case "result":
+		fmt.Printf("  \033[2m  %s (%v)\033[0m\n", trunc(p.Detail, 100), p.Elapsed.Round(time.Millisecond))
+	case "interrupted":
+		fmt.Printf("\n\033[33m■ %s\033[0m\n", p.Detail)
+	}
+}
+
+func dim(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "\033[2m" + s + "\033[0m"
 }

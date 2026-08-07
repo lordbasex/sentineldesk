@@ -229,8 +229,29 @@ release: release-binaries checksums
 	  --notes "commit $(git_hash), built $(build_date)"
 	@echo "✓ released v$(next_version)"
 
-test:
+test: check-secrets
 	$(GO) test ./...
+
+## check-secrets: refuse to build if a credential ever reaches the tree
+#
+# The first line of defence is that keys live in ~/.sentineldesk, outside any
+# checkout, so there is nothing to commit. This is the second: it catches a key
+# pasted into a config file, a test fixture or a comment while somebody was
+# getting something working, and then forgotten.
+#
+# It scans what git tracks, not the working directory, because an ignored file
+# holding a key is a file doing its job.
+check-secrets:
+	@git ls-files -z | xargs -0 grep -lE '(sk-ant-[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9]{32,}|AIza[A-Za-z0-9_-]{20,})' 2>/dev/null \
+		| grep -v '_test.go$$' > /tmp/sd-secrets.$$$$ || true; \
+	if [ -s /tmp/sd-secrets.$$$$ ]; then \
+		echo "\033[31mA credential-shaped string is in a tracked file:\033[0m"; \
+		cat /tmp/sd-secrets.$$$$; \
+		echo "Keys belong in ~/.sentineldesk/<provider>.key, never in the repository."; \
+		rm -f /tmp/sd-secrets.$$$$; exit 1; \
+	fi; \
+	rm -f /tmp/sd-secrets.$$$$; \
+	echo "✓ no credentials in tracked files"
 
 # The agent ships for Linux on both architectures, because that is where the
 # desktop runs and the runtime lives beside it (ADR-004). It is built for the
