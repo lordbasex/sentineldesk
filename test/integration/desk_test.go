@@ -287,6 +287,34 @@ func Sh(t *testing.T, format string, a ...any) string {
 	return strings.TrimSpace(string(out))
 }
 
+// ShBash runs a command through bash rather than sh, for the few checks that
+// need a bash-only feature such as /dev/tcp.
+func ShBash(t *testing.T, format string, a ...any) string {
+	t.Helper()
+	out, _ := exec.Command("docker", "exec", container, "bash", "-c",
+		fmt.Sprintf(format, a...)).Output()
+	return strings.TrimSpace(string(out))
+}
+
+// shIn is Sh against any container, which the ssh tests need in order to read
+// the far side of the connection they opened.
+func shIn(t *testing.T, name, cmd string) string {
+	t.Helper()
+	out, _ := exec.Command("docker", "exec", name, "sh", "-c", cmd).Output()
+	return strings.TrimSpace(string(out))
+}
+
+// dockerIP is a container's address on whatever network it joined, or "" when
+// there is no such container.
+func dockerIP(name string) string {
+	out, err := exec.Command("docker", "inspect", name, "--format",
+		"{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 // ShUser is Sh as the desktop's own user, for the things root cannot touch —
 // PulseAudio refuses root outright, and a check that ran as root would report
 // the volume as unreadable rather than as wrong.

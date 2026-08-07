@@ -101,6 +101,19 @@ func (m *ShellManager) Open(shell, cwd, user string, cols, rows uint16) (*ShellS
 	m.sessions[id] = s
 	m.mu.Unlock()
 
+	// Reap it whenever it ends, however it ends.
+	//
+	// Without this every session ever opened leaves a zombie: Close kills the
+	// process and nothing waits on it, so the entry stays in the process table
+	// with the daemon as its parent until the daemon itself exits. Measured on
+	// a desktop that had been used for a while, seven bash processes were
+	// listed and every one of them was in state Zs. A shell the user ends by
+	// typing exit leaks the same way, and that path never reaches Close at all,
+	// which is why the reaper starts here rather than there.
+	go func() {
+		_ = cmd.Wait()
+	}()
+
 	// Drain the PTY continuously. If nobody reads it the kernel buffer fills
 	// and the shell blocks mid-write, which looks exactly like a hang.
 	go func() {
