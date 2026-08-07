@@ -48,6 +48,7 @@ import (
 var searchCorpus = map[string]string{
 	"action_log":           "show me the history of what has been done so far",
 	"activate_window":      "bring the editor to the front",
+	"ask_human":            "ask the person watching which one they meant",
 	"browser_click":        "click the submit button on the web page",
 	"browser_eval":         "run some javascript inside the page",
 	"browser_goto":         "send the browser to a different address",

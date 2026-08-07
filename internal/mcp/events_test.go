@@ -26,6 +26,7 @@ package mcp
 
 import (
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -43,6 +44,12 @@ type movableRoom struct {
 	name       string
 	subs       map[int]func()
 	seq        int
+
+	// What ask_human put to the room, and what to answer with.
+	asked        string
+	askedOptions []string
+	reply        string
+	replyErr     error
 }
 
 func newMovableRoom(controller, name string) *movableRoom {
@@ -365,4 +372,97 @@ func TestEventsDieWithTheConnection(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 	t.Fatalf("the connection closed and %d presence watcher(s) are still registered", live)
+}
+
+// --- asking a person ------------------------------------------------------------
+
+func (r *movableRoom) AskHuman(text string, options []string, timeout time.Duration) (string, error) {
+	r.mu.Lock()
+	r.asked = text
+	r.askedOptions = options
+	reply, fail := r.reply, r.replyErr
+	r.mu.Unlock()
+	if fail != nil {
+		return "", fail
+	}
+	return reply, nil
+}
+
+// TestAskHumanReturnsTheAnswer. The straightforward case, over the wire, so the
+// tool's shape is what a runtime will actually parse.
+func TestAskHumanReturnsTheAnswer(t *testing.T) {
+	room := newMovableRoom(AgentID, "AI agent")
+	room.reply = "the second one"
+	s := testServer(t)
+	s.SetRoom(room, "AI agent")
+	c := newSession(t, s)
+
+	res := c.call("tools/call", map[string]any{
+		"name": "ask_human",
+		"arguments": map[string]any{
+			"question": "which invoice did you mean?",
+			"options":  []any{"the first one", "the second one"},
+		},
+	})
+	if isErr, _ := res["isError"].(bool); isErr {
+		t.Fatalf("ask_human failed: %v", res["content"])
+	}
+	got := decodeJSONContent(t, res)
+	if answered, _ := got["answered"].(bool); !answered {
+		t.Errorf("answered is false: %v", got)
+	}
+	if got["answer"] != "the second one" {
+		t.Errorf("answer is %v", got["answer"])
+	}
+	room.mu.Lock()
+	defer room.mu.Unlock()
+	if room.asked != "which invoice did you mean?" {
+		t.Errorf("the room was asked %q", room.asked)
+	}
+	if len(room.askedOptions) != 2 {
+		t.Errorf("options reached the room as %v", room.askedOptions)
+	}
+}
+
+// TestSilenceIsNotAnAnswer is the one that matters.
+//
+// A tool that returned a default on timeout would make "nobody was looking"
+// indistinguishable from "somebody chose this", and the entire reason to ask is
+// that the answer was not the agent's to assume. It has to come back as a
+// failure, and the failure has to say so.
+func TestSilenceIsNotAnAnswer(t *testing.T) {
+	room := newMovableRoom(AgentID, "AI agent")
+	room.replyErr = errors.New("nobody answered in 2s")
+	s := testServer(t)
+	s.SetRoom(room, "AI agent")
+	c := newSession(t, s)
+
+	res := c.call("tools/call", map[string]any{
+		"name":      "ask_human",
+		"arguments": map[string]any{"question": "shall I delete it?"},
+	})
+	if isErr, _ := res["isError"].(bool); !isErr {
+		t.Fatalf("a question nobody answered came back as a success: %v", res)
+	}
+	got := decodeJSONContent(t, res)
+	if answered, _ := got["answered"].(bool); answered {
+		t.Error("answered is true for a question nobody answered")
+	}
+	if _, present := got["answer"]; present {
+		t.Errorf("an unanswered question came back with an answer: %v", got)
+	}
+}
+
+// TestAskHumanNeedsAQuestion. An empty prompt on somebody's screen is worse than
+// no prompt: they cannot answer it and they cannot tell what went wrong.
+func TestAskHumanNeedsAQuestion(t *testing.T) {
+	s := testServer(t)
+	s.SetRoom(newMovableRoom(AgentID, "AI agent"), "AI agent")
+	c := newSession(t, s)
+
+	res := c.call("tools/call", map[string]any{
+		"name": "ask_human", "arguments": map[string]any{"question": "   "}})
+	if isErr, _ := res["isError"].(bool); !isErr {
+		t.Errorf("a blank question was accepted: %v", res)
+	}
 }

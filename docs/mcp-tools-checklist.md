@@ -1,6 +1,6 @@
 # MCP server — tool checklist for driving the desktop end to end
 
-> **Status: 119 tools implemented and verified.** Everything marked [x] works in
+> **Status: 120 tools implemented and verified.** Everything marked [x] works in
 > the binary (`sentineldesk`). See [mcp.md](mcp.md) for how to connect it.
 
 Goal: let an AI model use the WebRTC desktop **the way a person does** — see the

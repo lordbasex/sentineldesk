@@ -41,6 +41,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lordbasex/sentineldesk/internal/media"
@@ -66,6 +67,9 @@ type Rooms interface {
 	// finding out when its next injection is refused. See events.go.
 	WatchPresence(fn func()) func()
 
+	// Putting a question to the people watching, and waiting for an answer.
+	AskHuman(text string, options []string, timeout time.Duration) (string, error)
+
 	// The live capture can be forwarded to an external destination without
 	// encoding it a second time, so the agent uses the same path the toolbar
 	// does rather than raising a capture of its own.
@@ -87,6 +91,24 @@ func (s *Server) roomTools() []toolDef {
 				"who holds control, and whether you may inject input. Call this " +
 				"before acting when you might be sharing the session with a person.",
 			InputSchema: schema(map[string]any{}),
+		},
+		{
+			Name:       "ask_human",
+			Visibility: visVisible,
+			Risk:       riskWrite,
+			Description: "Ask the people watching a question and wait for the answer. " +
+				"A prompt appears on their screen; pass `options` to give them buttons, " +
+				"or leave it out for free text. Use this when the answer is theirs to " +
+				"give rather than yours to guess — which file did they mean, is this the " +
+				"right account, do they want to watch you do this or have it run in the " +
+				"background. No answer is not an answer: a timeout is reported as one, " +
+				"never as a default. Fails when nobody is here, so ask room_state first " +
+				"if you might be alone.",
+			InputSchema: schema(map[string]any{
+				"question":   pStr("what to ask, in one sentence"),
+				"options":    map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "optional: the answers to offer as buttons"},
+				"timeout_ms": pInt("how long to wait (default 120000)"),
+			}, "question"),
 		},
 		{
 			Name:       "request_control",
@@ -127,7 +149,7 @@ func (s *Server) callRoom(ctx context.Context, name string, args map[string]any)
 	// an optional capability degrades, it does not take everything with it. No
 	// room means unarbitrated, not unusable.
 	switch name {
-	case "room_state", "request_control", "release_control":
+	case "room_state", "request_control", "release_control", "ask_human":
 	default:
 		return nil, false, false
 	}
@@ -164,6 +186,8 @@ func (s *Server) callRoom(ctx context.Context, name string, args map[string]any)
 				"are free) and release_control when the task is done.",
 		}, false, true
 
+	case "ask_human":
+		return s.toolAskHuman(ctx, args)
 	case "request_control":
 		s.room.JoinAgent(s.agentName)
 		// With nobody watching there is nobody to ask, and blocking on an empty
@@ -251,4 +275,70 @@ func (s *Server) mayInject() error {
 	return fmt.Errorf(
 		"a person is using this desktop and %s holds control — "+
 			"call request_control first, or room_state to see who is here", who)
+}
+
+// toolAskHuman puts a question to the room and waits.
+//
+// The general form of what request_control does in one special case. That one
+// is kept separate on purpose: its text is not the agent's to write, because a
+// prompt that hands over the desktop should not be able to say whatever an
+// agent would like it to say.
+//
+// A timeout is reported as a timeout. Returning a default would make "nobody
+// was looking" indistinguishable from "somebody chose this", and the whole
+// reason to ask is that the answer is not the agent's to assume.
+func (s *Server) toolAskHuman(ctx context.Context, args map[string]any) (any, bool, bool) {
+	question := strings.TrimSpace(argStr(args, "question"))
+	if question == "" {
+		return textContent("`question` is missing: what do you want to ask?"), true, true
+	}
+	if s.room == nil {
+		return textContent("this build has no room, so there is nobody to ask"), true, true
+	}
+
+	var options []string
+	if raw, ok := args["options"]; ok && raw != nil {
+		list, ok := raw.([]any)
+		if !ok {
+			return textContent("`options` must be an array of strings"), true, true
+		}
+		for _, item := range list {
+			if str, _ := item.(string); strings.TrimSpace(str) != "" {
+				options = append(options, strings.TrimSpace(str))
+			}
+		}
+	}
+
+	timeout := time.Duration(argInt(args, "timeout_ms")) * time.Millisecond
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+
+	// Answered on another goroutine so a cancelled call does not sit here until
+	// the timeout. The room's own timer still clears the prompt from everyone's
+	// screen, which is what must not be skipped.
+	type result struct {
+		answer string
+		err    error
+	}
+	done := make(chan result, 1)
+	go func() {
+		answer, err := s.room.AskHuman(question, options, timeout)
+		done <- result{answer, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return textContent("cancelled while waiting for an answer"), true, true
+	case r := <-done:
+		if r.err != nil {
+			return map[string]any{
+				"answered": false,
+				"reason":   r.err.Error(),
+				"hint": "nobody answering is not the same as agreeing. Decide what to " +
+					"do without them, or stop and say you could not reach anyone.",
+			}, true, true
+		}
+		return map[string]any{"answered": true, "answer": r.answer}, false, true
+	}
 }

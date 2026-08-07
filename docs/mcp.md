@@ -58,7 +58,7 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (119)
+## Available tools (120)
 
 Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
 to its definition. It is what the three `MCP_POLICY` levels are built on, and it
@@ -96,6 +96,7 @@ at the right moment reads this rather than carrying its own copy of the list.
 
 | Tool | What it does |
 |---|---|
+| `ask_human` | Ask the people watching a question and wait for the answer — with buttons if you pass `options`, free text otherwise. A timeout is reported as a timeout, never as a default: silence is not agreement |
 | `subscribe_events` | Ask to be notified when something changes: `control` (who is driving), `room` (who joined or left), `windows` (a window appeared — how a dialog interrupts), `focus`, `desktop`. Events arrive as `notifications/sentineldesk/event` |
 | `unsubscribe_events` | Stop receiving them on this connection |
 
@@ -302,7 +303,7 @@ Full checklist and design notes: [mcp-tools-checklist.md](mcp-tools-checklist.md
 
 ## Finding tools without loading all of them
 
-A hundred and nineteen schemas is a real amount of a model's context, spent
+A hundred and twenty schemas is a real amount of a model's context, spent
 before it has read the request. `tool_search` is the way around it: describe the
 task and get back the handful of tools that do it.
 
@@ -312,7 +313,7 @@ task and get back the handful of tools that do it.
 
 ```json
 {
-  "matched": 6, "of": 119,
+  "matched": 6, "of": 120,
   "tools": [
     {"name": "ssh_connect",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
     {"name": "ssh_copy_id",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},

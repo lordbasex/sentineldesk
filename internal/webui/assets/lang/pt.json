@@ -122,6 +122,8 @@
   "ask.body": "<b>{who}</b> está pedindo o controle da área de trabalho para mover o mouse e digitar. Você pode retomá-lo quando quiser.",
   "ask.allow": "Permitir",
   "ask.deny": "Recusar",
+  "question.who": "O agente pergunta",
+  "question.send": "Enviar",
   "room.releaseHint": "voltar a assistir",
   "stats.clock": "RELÓGIO",
   "stats.drift": "ATRASO",

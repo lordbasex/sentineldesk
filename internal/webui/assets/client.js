@@ -297,6 +297,10 @@ function createPeer(cfg) {
             showControlRequest(m);
           } else if (m.t === 'control_request_done') {
             hideControlRequest();
+          } else if (m.t === 'question') {
+            showQuestion(m);
+          } else if (m.t === 'question_done') {
+            hideQuestion();
           } else if (m.t === 'capture_state') {
             setServerRecording(!!m.recording);
           } else if (m.t === 'restreams') {
@@ -894,6 +898,75 @@ function answerControl(grant) {
 
 document.getElementById('ask-allow').addEventListener('click', () => answerControl(true));
 document.getElementById('ask-deny').addEventListener('click', () => answerControl(false));
+
+/* ---- The agent asking a question ------------------------------------------
+ *
+ * Same card as the control prompt and a separate dialog on purpose. That one
+ * asks a fixed question the client draws itself; this one carries text the
+ * agent wrote. Merging them would let an agent put its own words into the
+ * prompt that grants it the desktop.
+ *
+ * Options become buttons, no options becomes a text field. Either way the
+ * answer goes back with the question's id, so an answer to a prompt that has
+ * already timed out is dropped by the server rather than applied to the next
+ * one.
+ */
+
+const qBox = document.getElementById('ask-question');
+let qID = 0;
+
+function showQuestion(m) {
+  qID = m.id;
+  qBox.querySelector('.aq-msg').textContent = m.text || '';
+
+  const actions = qBox.querySelector('.aq-actions');
+  const free = qBox.querySelector('.aq-free');
+  actions.innerHTML = '';
+
+  const options = Array.isArray(m.options) ? m.options.filter(Boolean) : [];
+  if (options.length) {
+    free.hidden = true;
+    options.forEach((label, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      // textContent, never innerHTML: this string came from the agent, and the
+      // agent's text is data.
+      b.textContent = label;
+      if (i === options.length - 1) b.className = 'primary';
+      b.addEventListener('click', () => answerQuestion(label));
+      actions.appendChild(b);
+    });
+  } else {
+    free.hidden = false;
+    const input = free.querySelector('.aq-input');
+    input.value = '';
+    setTimeout(() => input.focus(), 50);
+  }
+
+  const bar = qBox.querySelector('.ac-timer i');
+  bar.style.animation = 'none';
+  void bar.offsetWidth;
+  bar.style.animation = '';
+  bar.style.animationDuration = (m.seconds || 120) + 's';
+  qBox.classList.add('show');
+}
+
+function hideQuestion() {
+  qBox.classList.remove('show');
+  qID = 0;
+}
+
+function answerQuestion(answer) {
+  if (!qID) return;
+  sendInput({ t: 'question_answer', req: qID, answer });
+  hideQuestion();
+}
+
+qBox.querySelector('.aq-free').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const value = qBox.querySelector('.aq-input').value.trim();
+  if (value) answerQuestion(value);
+});
 
 /* ---- Popovers -------------------------------------------------------------
  *

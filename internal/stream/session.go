@@ -86,8 +86,9 @@ type inputEvent struct {
 	Format string    `json:"format"` // capture: mp4 | webm | mkv
 	GB     []float64 `json:"gb"`     // gamepad button state
 	GA     []float64 `json:"ga"`     // gamepad axis state
-	ReqID  int       `json:"req"`    // control_answer: which request is answered
+	ReqID  int       `json:"req"`    // control_answer / question_answer: which one
 	Grant  bool      `json:"grant"`  // control_answer: allowed or refused
+	Answer string    `json:"answer"` // question_answer: what the person chose
 
 	RS *restreamCmd `json:"rs"` // restream: where to send the desktop
 }
@@ -613,6 +614,14 @@ func (s *Session) handleInput(ev inputEvent) {
 		// they are all equally entitled, and requiring the current controller
 		// would leave the agent stuck whenever that person stepped away.
 		s.room.AnswerControlRequest(ev.ReqID, ev.Grant)
+		return
+
+	case "question_answer":
+		// A person answered the agent's question. Like a control answer, anyone
+		// present may reply: they all got in with the same credential, and
+		// requiring one particular person leaves the agent waiting out its
+		// timeout the moment that person steps away from the keyboard.
+		s.room.AnswerQuestion(ev.ReqID, ev.Answer)
 		return
 
 	case "take_control":

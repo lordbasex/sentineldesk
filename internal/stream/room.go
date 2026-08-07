@@ -85,6 +85,12 @@ type Room struct {
 	pending   *controlRequest
 	requestNo int
 
+	// A question from the agent, waiting for somebody to answer it. One at a
+	// time, like the control request: a queue of dialogs is not something to
+	// hand a person who came here to watch a desktop.
+	asking     *question
+	questionNo int
+
 	// Observers of who is here and who is driving. See WatchPresence: the MCP
 	// plane subscribes so that an agent can be told the controls moved instead
 	// of discovering it when its next injection is refused.
@@ -316,6 +322,21 @@ type controlRequest struct {
 	id     int
 	who    string
 	answer chan bool
+}
+
+// question is the agent asking a person something and waiting for the answer.
+//
+// The same shape as controlRequest, one level more general: that one asks a
+// fixed question with two answers, this one carries its own text and its own
+// options. They are kept separate rather than merged because a control request
+// is not a question the agent composed — it is a protocol step the client draws
+// as a permission prompt, and giving it free text would let an agent write
+// whatever it liked into the dialog that grants it the desktop.
+type question struct {
+	id      int
+	text    string
+	options []string
+	answer  chan string
 }
 
 // AskForControl asks the people in the room to hand control to the agent.
@@ -718,6 +739,103 @@ func (r *Room) ReleaseControl(id string) {
 	r.controller = ControlFree
 	r.mu.Unlock()
 	r.broadcastPresence()
+}
+
+// AskHuman puts a question to the room and waits for somebody to answer it.
+//
+// This is the mechanism behind the runtime's `ask` role: a person granted the
+// agent control while they were working, so whether a step happens visibly or
+// in the background is a question about THEIR attention, and the agent is not
+// in a position to guess. It is also the general form of something the room
+// already did in one special case — AskForControl — and the only reason that
+// one is not built on this is that its text is not the agent's to write.
+//
+// A timeout is not an answer. Nobody responding means nobody is looking, and
+// the caller is told that rather than being handed a default that reads like a
+// decision somebody made.
+func (r *Room) AskHuman(text string, options []string, timeout time.Duration) (string, error) {
+	r.mu.Lock()
+	if _, ok := r.members[agentID]; !ok {
+		r.mu.Unlock()
+		return "", fmt.Errorf("the agent is not in the room")
+	}
+	human := false
+	for _, m := range r.members {
+		if !m.agent && m.session != nil && m.session.connectionAlive() {
+			human = true
+			break
+		}
+	}
+	if !human {
+		r.mu.Unlock()
+		return "", fmt.Errorf("nobody is here to ask")
+	}
+	if r.asking != nil {
+		r.mu.Unlock()
+		return "", fmt.Errorf("a question is already waiting for an answer")
+	}
+	r.questionNo++
+	q := &question{id: r.questionNo, text: text, options: options,
+		answer: make(chan string, 1)}
+	r.asking = q
+	targets := r.snapshotMembers()
+	r.mu.Unlock()
+
+	msg, err := json.Marshal(map[string]any{
+		"t": "question", "id": q.id, "text": q.text,
+		"options": q.options, "seconds": int(timeout.Seconds()),
+	})
+	if err == nil {
+		for _, m := range targets {
+			if m.session != nil {
+				m.session.sendOnChannel(string(msg))
+			}
+		}
+	}
+
+	var answer string
+	var failure error
+	select {
+	case answer = <-q.answer:
+	case <-time.After(timeout):
+		failure = fmt.Errorf("nobody answered in %s", timeout)
+	}
+
+	r.mu.Lock()
+	if r.asking == q {
+		r.asking = nil
+	}
+	r.mu.Unlock()
+
+	// Take the prompt off everyone's screen whichever way it ended, so a stale
+	// dialog does not outlive the question.
+	if done, err := json.Marshal(map[string]any{
+		"t": "question_done", "id": q.id, "answer": answer,
+	}); err == nil {
+		for _, m := range targets {
+			if m.session != nil {
+				m.session.sendOnChannel(string(done))
+			}
+		}
+	}
+	return answer, failure
+}
+
+// AnswerQuestion delivers a person's answer. Anyone in the room may answer, for
+// the same reason anyone may answer a control request: they all got in with the
+// same credential, and requiring one particular person leaves the agent stuck
+// the moment that person steps away.
+func (r *Room) AnswerQuestion(id int, answer string) {
+	r.mu.Lock()
+	q := r.asking
+	r.mu.Unlock()
+	if q == nil || q.id != id {
+		return // a stale dialog, or an answer to a question already over
+	}
+	select {
+	case q.answer <- answer:
+	default: // already answered; first one wins
+	}
 }
 
 // pointerRate throttles the broadcast of other people's pointers. The client

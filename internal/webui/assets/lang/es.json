@@ -122,6 +122,8 @@
   "ask.body": "<b>{who}</b> pide el control del escritorio para mover el mouse y escribir. Podés recuperarlo cuando quieras.",
   "ask.allow": "Permitir",
   "ask.deny": "Rechazar",
+  "question.who": "El agente pregunta",
+  "question.send": "Enviar",
   "room.releaseHint": "volver a mirar",
   "stats.clock": "RELOJ",
   "stats.drift": "RETRASO",

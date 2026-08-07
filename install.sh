@@ -128,15 +128,65 @@ case "$(uname -m)" in
   *) die "unsupported architecture: $(uname -m) (amd64 and arm64 only)" ;;
 esac
 
+# --- asking a question when stdin is the script -------------------------------
+#
+# `curl … | sudo bash -s auto` is the command the guide hands out, and under it
+# the script IS standard input. A plain `read` therefore does not reach the
+# keyboard: it consumes the next LINE OF THIS FILE and answers the question with
+# it — measurably, not in theory. Piping a five-line script to bash shows line 4
+# vanish and its text arrive as the answer.
+#
+# In this file that produced two failures nobody could have diagnosed from the
+# output. The OS check answered itself with the string "  esac" and exited 1
+# with no explanation on any machine that was not Debian 13 — every Raspberry Pi
+# OS release before trixie. The mode question ate the `case` that assigns MODE,
+# leaving it empty, so the installer downloaded the binary and then installed
+# nothing at all, successfully.
+#
+# /dev/tty is the terminal itself, which a pipe does not take away, so that is
+# where questions go and where answers come from. When there is genuinely no
+# terminal — cron, a Dockerfile, CI — the answer comes back empty and each
+# caller below decides what that means, out loud.
+#
+# Opened rather than tested. `[ -r /dev/tty ]` answers "does that node exist",
+# which is yes inside a container with no terminal attached — and then the
+# redirect fails with ENXIO, which under `set -e` ends the install on the spot
+# instead of falling back. Opening it is the only test that means anything.
+ask() {
+  local prompt="$1" var="$2" reply=""
+  if { exec 3<>/dev/tty; } 2>/dev/null; then
+    printf '%s' "$prompt" >&3
+    read -r reply <&3 || reply=""
+    exec 3>&-
+  fi
+  printf -v "$var" '%s' "$reply"
+}
+
 # Debian 13 is what the binary is built against (the same base as the Docker
 # image), and what the package names below belong to. Raspberry Pi OS is Debian
-# under a different name.
+# under a different name — and Raspberry Pi OS trixie reports itself as plain
+# debian:13, so a current Pi never reaches the question at all.
 if [ -r /etc/os-release ]; then
   . /etc/os-release
   case "${ID:-}:${VERSION_ID:-}" in
     debian:13|raspbian:13) ;;
     *) warn "this targets Debian 13 (trixie); found ${PRETTY_NAME:-unknown}."
-       read -rp "  Continue anyway? [y/N] " a; [ "${a,,}" = y ] || exit 1 ;;
+       warn "  Package names and versions come from Debian 13; on an older or"
+       warn "  different base some of them will not exist and the install stops."
+       if [ "${SENTINELDESK_ASSUME_YES:-0}" = 1 ]; then
+         warn "  SENTINELDESK_ASSUME_YES=1 is set — continuing anyway."
+       else
+         ask "  Continue anyway? [y/N] " answer
+         if [ -z "$answer" ]; then
+           die "no terminal to ask on, so this is not something to guess at.
+  Re-run with SENTINELDESK_ASSUME_YES=1 to accept the risk, or download the
+  script and run it directly:
+
+      curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh -o install.sh
+      sudo bash install.sh ${MODE:-auto}"
+         fi
+         [ "${answer,,}" = y ] || die "stopped at your request. Nothing has been changed."
+       fi ;;
   esac
 fi
 
@@ -145,9 +195,17 @@ if [ -z "$MODE" ]; then
   echo "How should SentinelDesk run on this machine?"
   echo "  1) Docker    — isolated, easy to remove, the recommended default"
   echo "  2) Native    — straight on the host: systemd + supervisor, no container"
-  read -rp "Choice [1/2]: " c
-  case "$c" in 2) MODE=native ;; *) MODE=docker ;; esac
-elif [ "$MODE" = auto ]; then
+  ask "Choice [1/2]: " choice
+  case "$choice" in
+    2) MODE=native ;;
+    1) MODE=docker ;;
+    # No terminal and no argument. Falling through to `auto` is the same answer
+    # the guide's own command gives, and saying so beats picking one in silence.
+    *) MODE=auto
+       say "no answer (not a terminal?) — deciding the way 'auto' would" ;;
+  esac
+fi
+if [ "$MODE" = auto ]; then
   if command -v docker >/dev/null 2>&1; then MODE=docker; else MODE=native; fi
   say "auto: chose $MODE"
 fi
@@ -334,6 +392,59 @@ report_version() {
 GUIDE_URL="https://lordbasex.github.io/sentineldesk/docs/guide/"
 
 rule() { printf '\033[90m  %s\033[0m\n' "──────────────────────────────────────────────────────────────────"; }
+
+# --- does the panel have its icons? ------------------------------------------
+#
+# The one part of a native install that can fail without anything failing. The
+# packages install, the service starts, the panel comes up — with empty squares
+# where the launcher icons should be, and not a line about it anywhere. Somebody
+# then has to guess between a missing theme, a renamed icon and a broken config,
+# from a photograph.
+#
+# So it is checked against the panel the desktop will actually read, once, at
+# the end of the install that put both there. Native only: in Docker the panel
+# and the icons ship in the same image and were verified when it was built,
+# while here they come from whatever apt resolved on this machine today.
+#
+# One `find` builds the index rather than one per name — /usr/share/icons holds
+# about a hundred thousand files once Papirus is in, and twenty-six passes over
+# that on an SD card is a minute nobody asked for.
+check_panel_icons() {
+  local panel=/etc/skel.sentineldesk/.config/lxpanel/LXDE/panels/panel
+  [ -r "$panel" ] || return 0
+
+  local index; index=$(mktemp)
+  find /usr/share/icons /usr/share/pixmaps -type f \
+       \( -name '*.svg' -o -name '*.png' -o -name '*.xpm' \) -printf '%f\n' 2>/dev/null \
+    | sed -E 's/\.(svg|png|xpm)$//' | sort -u > "$index"
+
+  local missing="" total=0 n d
+  for n in $(sed -n 's/^[[:space:]]*image=\(..*\)$/\1/p' "$panel" | sort -u); do
+    total=$((total + 1))
+    case "$n" in
+      # A path names one file and either it is there or it is not; a name goes
+      # through the icon theme, which is why the panel uses names.
+      /*) [ -e "$n" ] || missing="$missing $n" ;;
+      *)  grep -qxF "$n" "$index" || missing="$missing $n" ;;
+    esac
+  done
+  # The launchbar names .desktop files instead of icons, and a missing one is a
+  # blank button in exactly the same way.
+  for d in $(sed -n 's/^[[:space:]]*id=\(..*\.desktop\)$/\1/p' "$panel" | sort -u); do
+    total=$((total + 1))
+    [ -f "/usr/share/applications/$d" ] || missing="$missing $d"
+  done
+  rm -f "$index"
+
+  if [ -n "$missing" ]; then
+    warn "the panel names things this machine does not have, so those entries"
+    warn "  will come up without an icon:$missing"
+    warn "  the usual cause is a missing icon theme — check with:"
+    warn "    dpkg -l papirus-icon-theme adwaita-icon-theme"
+  else
+    say "panel: all $total icons and launchers resolve"
+  fi
+}
 
 summary() {
   local version="$1" f user pass urls
@@ -869,6 +980,11 @@ install_native_mode() {
   install -D -m 0644 "$D"/desktop/gtk-settings.ini \
                      /etc/skel.sentineldesk/.config/gtk-3.0/settings.ini
   install -D -m 0644 "$D"/desktop/gtkrc-2.0 /etc/skel.sentineldesk/.gtkrc-2.0
+
+  # Both halves are now on disk — the panel that names the icons and the themes
+  # that are meant to carry them — which is the only moment the two can be
+  # compared.
+  check_panel_icons
 
   # The fallback wallpaper, rendered at install time exactly as the image builds
   # it, plus the directory wallpaper-rotate.sh reads. Without both, the desktop

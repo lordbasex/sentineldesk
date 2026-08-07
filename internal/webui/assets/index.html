@@ -419,36 +419,62 @@
      Centred and modal-ish on purpose. Everything else in this layer avoids
      covering the desktop; this one is a decision that expires, and a prompt
      nobody notices is the same as no prompt at all. */
+  /* The question dialog shares the control prompt's card, because it is the
+     same interruption seen from the same chair. Only its own bits are declared
+     below; everything else comes from the selectors that follow, which name
+     both. */
+  #ask-question { position: absolute; inset: 0; z-index: 46; display: none;
+             align-items: center; justify-content: center;
+             background: rgba(0,0,0,.35); }
+  #ask-question.show { display: flex; }
+  #ask-question .aq-msg { margin: 11px 0 15px; font-size: 12.5px; line-height: 1.5;
+             /* The agent wrote this. Long words and pasted paths must wrap
+                rather than push the card wider than the screen. */
+             overflow-wrap: anywhere; }
+  #ask-question .aq-actions { display: flex; gap: 8px; justify-content: flex-end;
+             flex-wrap: wrap; }
+  #ask-question .aq-actions:empty { display: none; }
+  #ask-question .aq-free { display: flex; gap: 8px; }
+  #ask-question .aq-free[hidden] { display: none; }
+  #ask-question .aq-input { flex: 1; min-width: 0; padding: 7px 10px;
+             border: 1px solid var(--sd-line); border-radius: 6px;
+             background: var(--sd-hover); color: var(--sd-ink);
+             font: inherit; font-size: 12px; }
+  #ask-question .aq-input:focus { outline: none; border-color: #b08cf7; }
+  #ask-question button.primary { background: #b08cf7; color: #1b1130;
+             border-color: #b08cf7; }
+  #ask-question button.primary:hover { filter: brightness(1.1); background: #b08cf7; }
+
   #ask-control { position: absolute; inset: 0; z-index: 45; display: none;
              align-items: center; justify-content: center;
              background: rgba(0,0,0,.35); }
   #ask-control.show { display: flex; }
-  #ask-control .ac-card { width: min(420px, 90vw); padding: 18px 20px 14px;
+  #ask-control .ac-card, #ask-question .ac-card { width: min(420px, 90vw); padding: 18px 20px 14px;
              background: var(--sd-panel); border: 1px solid #b08cf7;
              border-radius: 11px; box-shadow: 0 24px 64px rgba(0,0,0,.5);
              backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
              color: var(--sd-ink); animation: sd-rise .25s ease;
              font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
-  #ask-control .ac-head { display: flex; align-items: center; gap: 9px;
+  #ask-control .ac-head, #ask-question .ac-head { display: flex; align-items: center; gap: 9px;
              font-size: 11px; font-weight: 700; letter-spacing: .1em;
              text-transform: uppercase; color: #b08cf7; }
-  #ask-control .ac-head svg { width: 17px; height: 17px; flex: none; fill: none;
+  #ask-control .ac-head svg, #ask-question .ac-head svg { width: 17px; height: 17px; flex: none; fill: none;
              stroke: currentColor; stroke-width: 1.7; stroke-linecap: round;
              stroke-linejoin: round; }
   #ask-control .ac-msg { margin: 11px 0 15px; font-size: 12.5px; line-height: 1.5; }
   #ask-control .ac-actions { display: flex; gap: 8px; justify-content: flex-end; }
-  #ask-control button { padding: 7px 14px; border: 1px solid var(--sd-line);
+  #ask-control button, #ask-question button { padding: 7px 14px; border: 1px solid var(--sd-line);
              border-radius: 6px; background: none; color: var(--sd-ink);
              font: inherit; font-size: 11.5px; font-weight: 700;
              letter-spacing: .04em; text-transform: uppercase; cursor: pointer; }
-  #ask-control button:hover { background: var(--sd-hover); }
+  #ask-control button:hover, #ask-question button:hover { background: var(--sd-hover); }
   #ask-control #ask-allow { background: #b08cf7; color: #1b1130; border-color: #b08cf7; }
   #ask-control #ask-allow:hover { filter: brightness(1.1); background: #b08cf7; }
   /* The bar draining is the deadline made visible: silence refuses, and that
      is only fair if you can see the silence running out. */
-  #ask-control .ac-timer { margin-top: 12px; height: 2px;
+  #ask-control .ac-timer, #ask-question .ac-timer { margin-top: 12px; height: 2px;
              background: var(--sd-line-soft); border-radius: 2px; overflow: hidden; }
-  #ask-control .ac-timer i { display: block; height: 100%; width: 100%;
+  #ask-control .ac-timer i, #ask-question .ac-timer i { display: block; height: 100%; width: 100%;
              background: #b08cf7; transform-origin: left;
              animation: ac-drain linear forwards; }
   @keyframes ac-drain { from { transform: scaleX(1) } to { transform: scaleX(0) } }
@@ -1034,6 +1060,27 @@
         <button id="ask-deny" data-i18n="ask.deny">Refuse</button>
         <button id="ask-allow" data-i18n="ask.allow">Allow</button>
       </div>
+      <div class="ac-timer"><i></i></div>
+    </div>
+  </div>
+
+  <!-- The agent asking a question. Same card as the control prompt, because it
+       is the same interruption seen from the same chair — but with the agent's
+       own text and its own answers, so it is deliberately NOT the control
+       dialog reused: a prompt that hands over the desktop must not be able to
+       say whatever an agent would like it to say. -->
+  <div id="ask-question" role="alertdialog" aria-live="assertive">
+    <div class="ac-card">
+      <div class="ac-head">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3 2.45V14"/><circle cx="12" cy="17" r="1"/></svg>
+        <span class="aq-who" data-i18n="question.who">AI agent asks</span>
+      </div>
+      <div class="aq-msg"></div>
+      <div class="aq-actions"></div>
+      <form class="aq-free" hidden>
+        <input type="text" class="aq-input" autocomplete="off">
+        <button type="submit" data-i18n="question.send">Send</button>
+      </form>
       <div class="ac-timer"><i></i></div>
     </div>
   </div>

@@ -122,6 +122,8 @@
   "ask.body": "<b>{who}</b> is asking for control of the desktop, so it can move the mouse and type. You can take it back at any time.",
   "ask.allow": "Allow",
   "ask.deny": "Refuse",
+  "question.who": "AI agent asks",
+  "question.send": "Send",
   "room.releaseHint": "go back to watching",
   "stats.clock": "CLOCK",
   "stats.drift": "BEHIND LIVE",
