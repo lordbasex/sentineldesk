@@ -1,6 +1,6 @@
 # Tool sweep — every tool called against a real desktop
 
-Run on 07 August 2026, 07:35 against `sentineldesk v1.2.8 (06300a9) · build 20260807-072104`.
+Run on 07 August 2026, 07:47 against `sentineldesk v1.2.9 (e8ce1d2) · build 20260807-073820`.
 
 This is the human-readable half of stage 1's verification. [`tools/stage1-check.py`](../tools/stage1-check.py) proves the mechanisms — annotations, denial kinds, the room gate, cancellation, progress. This proves the tools, by calling every one of them through the same stdio bridge an AI host uses and writing down what was sent.
 
@@ -153,32 +153,32 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 
 | # | | Tool | What it does | Arguments sent | Result |
 |---|---|---|---|---|---|
-| 1 | ✅ | `get_desktop_info` | Resolution, session and what the desktop is running | `—` | { "display": ":0", "encoder": "auto", "joystick": true, "memory_used": "2411/7833 MB", "recording": false, "resolution": |
+| 1 | ✅ | `get_desktop_info` | Resolution, session and what the desktop is running | `—` | { "display": ":0", "encoder": "auto", "joystick": true, "memory_used": "2476/7833 MB", "recording": false, "resolution": |
 | 2 | ✅ | `get_screen_info` | Screen geometry and how many virtual desktops there are | `—` | { "desktops": 4, "display": ":0", "height": 1080, "width": 1920 } |
-| 3 | ✅ | `screenshot` | Capture the whole screen as a PNG | `—` | [image saved: /tmp/mcp-screenshot-1786098868522.png] |
-| 4 | ✅ | `screenshot_region` | Capture one rectangle instead of the whole screen | `{"x": 0, "y": 0, "width": 320, "height": 200}` | [image saved: /tmp/mcp-screenshot_region-1786098868557.png] |
+| 3 | ✅ | `screenshot` | Capture the whole screen as a PNG | `—` | [image saved: /tmp/mcp-screenshot-1786099636983.png] |
+| 4 | ✅ | `screenshot_region` | Capture one rectangle instead of the whole screen | `{"x": 0, "y": 0, "width": 320, "height": 200}` | [image saved: /tmp/mcp-screenshot_region-1786099637022.png] |
 | 5 | ✅ | `get_pixel_color` | The colour of one pixel, to assert state without an image | `{"x": 10, "y": 10}` | { "b": 214, "g": 207, "hex": "#c3cfd6", "r": 195 } |
-| 6 | ✅ | `read_screen_text` | OCR the screen into text | `{"lang": "eng"}` | { "elements": 127, "text": "panel\nChromium\n07:34\nsentineldesk@56a758a8a6f5: /\nsweep.html - Chromium\nsweep.html\nNew |
+| 6 | ✅ | `read_screen_text` | OCR the screen into text | `{"lang": "eng"}` | { "elements": 127, "text": "panel\nChromium\n07:47\nsentineldesk@60c97d694cc8: /\nsweep.html - Chromium\nsweep.html\nNew |
 | 7 | ✅ | `find_text` | OCR, but return where a string is so it can be clicked | `{"text": "Files"}` | no match for "files" on screen |
 | 8 | ✅ | `get_mouse_position` | Where the pointer is now | `—` | { "x": 360, "y": 340 } |
 | 9 | ✅ | `get_active_window` | Which window has focus | `—` | { "id": "0x01e00003", "desktop": 0, "x": 0, "y": 36, "w": 1920, "h": 1044, "class": "Chromium", "title": "sweep.html - C |
 | 10 | ✅ | `list_windows` | Every open window with its id and geometry | `—` | [ { "id": "0x00c00006", "desktop": -1, "x": 0, "y": 0, "w": 1920, "h": 36, "class": "lxpanel", "title": "panel" }, { "id |
 | 11 | ✅ | `list_desktops` | The virtual desktops and which one is current | `—` | [ { "number": 0, "name": "desktop 1", "current": true }, { "number": 1, "name": "desktop 2", "current": false }, { "numb |
-| 12 | ✅ | `list_processes` | Running processes | `{"filter": "python"}` | [ { "command": "/usr/bin/python3 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf", "cpu": "0.0", "mem": "0.4",  |
+| 12 | ✅ | `list_processes` | Running processes | `{"filter": "python"}` | [ { "command": "/usr/bin/python3 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf", "cpu": "0.0", "mem": "0.3",  |
 | 13 | ✅ | `is_running` | Whether a named process is alive | `{"name": "Xvfb"}` | { "pids": [ 38 ], "running": true } |
 | 14 | ✅ ✔︎ | `list_commands` | The command-line programs available, by category | `{"category": "vcs"}` | { "commands": [ { "category": "vcs", "command": "git", "package": "git", "path": "/usr/bin/git" }, { "category": "vcs",  |
 | 15 | ✅ | `list_installed_apps` | Applications with a desktop entry | `—` | [ { "exec": "/usr/bin/chromium %U", "name": "Chromium Web Browser" }, { "exec": "uxterm", "name": "UXTerm" }, { "exec":  |
 | 16 | ✅ | `get_audio_state` | Sink, volume and whether it is muted | `—` | { "mute": false, "sink": "sentineldesk", "volume": "Volume: front-left: 39321 / 60% / -13.31 dB, front-right: 39321 / 60 |
 | 17 | ✅ | `check_errors` | Any error dialog or alert currently on screen | `—` | { "dialogs": [ { "ref": "3/0/0/0/5/3/0", "role": "alert", "text": "￼￼￼￼￼", "title": "Infobar" }, { "ref": "3/0/1", "role |
 | 18 | ✅ | `wait` | Sleep, to let the interface settle | `{"ms": 50}` | waited 50 ms |
-| 19 | ✅ | `wait_for_idle` | Wait until the screen stops changing and the CPU settles | `{"timeout_ms": 4000, "quiet_ms": 400, "ignore_cpu": true}` | { "cpu_percent": 3, "idle": true, "reason": "the screen went still and the CPU settled", "waited_ms": 63 } |
+| 19 | ✅ | `wait_for_idle` | Wait until the screen stops changing and the CPU settles | `{"timeout_ms": 4000, "quiet_ms": 400, "ignore_cpu": true}` | { "cpu_percent": 2, "idle": true, "reason": "the screen went still and the CPU settled", "waited_ms": 468 } |
 
 ## The catalogue, and the room
 
 | # | | Tool | What it does | Arguments sent | Result |
 |---|---|---|---|---|---|
 | 20 | ✅ | `tool_search` | Find tools from a plain-words description of a task | `{"query": "give someone remote access over ssh", "limit": 5}` | { "matched": 5, "of": 116, "tools": [ { "name": "ssh_list_remote", "category": "ssh", "risk": "read", "description": "Li |
-| 21 | ✅ | `action_log` | The audit trail: every call with its connection and result | `{"limit": 3}` | { "count": 3, "entries": [ { "time": "2026-08-07T07:34:32.984-03:00", "tool": "wait", "args": "{\"ms\":50}", "ok": true, |
+| 21 | ✅ | `action_log` | The audit trail: every call with its connection and result | `{"limit": 3}` | { "count": 3, "entries": [ { "time": "2026-08-07T07:47:21.197-03:00", "tool": "wait", "args": "{\"ms\":50}", "ok": true, |
 | 22 | ✅ | `room_state` | Who is in the room, who is driving, may this connection act | `—` | { "controller": "", "controller_id": "", "humans_present": true, "may_inject": false, "note": "Control is always claimed |
 
 ## Taking the controls
@@ -215,7 +215,7 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 | 35 | ✅ | `wait_for_window` | Wait until a window matching a title appears | `{"match": "SWEEPWIN", "timeout_ms": 15000}` | { "class": "XTerm", "found": true, "id": "0x0180000c", "title": "SWEEPWIN" } |
 | 36 | ✅ | `list_windows` | List windows, to find the one just opened | `—` | [ { "id": "0x00c00006", "desktop": -1, "x": 0, "y": 0, "w": 1920, "h": 36, "class": "lxpanel", "title": "panel" }, { "id |
 | 37 | ✅ ✔︎ | `activate_window` | Focus and raise a window by id | `{"id": "0x0180000c"}` | activated window 0x0180000c |
-| 38 | ✅ | `window_properties` | The raw X properties of one window | `{"id": "0x0180000c"}` | { "WM_CLASS": [ "xterm", "XTerm" ], "WM_CLIENT_MACHINE": "56a758a8a6f5", "WM_COMMAND": [ "{ \"/usr/bin/xterm", "-T", "SW |
+| 38 | ✅ | `window_properties` | The raw X properties of one window | `{"id": "0x0180000c"}` | { "WM_CLASS": [ "xterm", "XTerm" ], "WM_CLIENT_MACHINE": "60c97d694cc8", "WM_COMMAND": [ "{ \"/usr/bin/xterm", "-T", "SW |
 | 39 | ✅ | `window_hierarchy` | The raw X window tree, parents and children | `—` | xwininfo: Window id: 0x21f (the root window) (has no name) Root window id: 0x21f (the root window) (has no name) Parent  |
 | 40 | ✅ ✔︎ | `move_window` | Move a window to a position | `{"id": "0x0180000c", "x": 120, "y": 120}` | moved |
 | 41 | ✅ ✔︎ | `resize_window` | Resize a window | `{"id": "0x0180000c", "width": 640, "height": 400}` | resized |
@@ -243,7 +243,7 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 |---|---|---|---|---|---|
 | 54 | ✅ ✔︎ | `write_file` | Write a file, optionally as root | `{"path": "/tmp/sweep.txt", "content": "sentineldesk sweep\n"}` | wrote 19 bytes to /tmp/sweep.txt |
 | 55 | ✅ ✔︎ | `read_file` | Read a file back | `{"path": "/tmp/sweep.txt"}` | sentineldesk sweep |
-| 56 | ✅ | `list_directory` | List a directory | `{"path": "/tmp"}` | [ { "modified": "2026-08-07T07:26:59-03:00", "name": ".X0-lock", "size": 11, "type": "file" }, { "modified": "2026-08-07 |
+| 56 | ✅ | `list_directory` | List a directory | `{"path": "/tmp"}` | [ { "modified": "2026-08-07T07:44:08-03:00", "name": ".X0-lock", "size": 11, "type": "file" }, { "modified": "2026-08-07 |
 
 ## Browser, over DevTools
 
@@ -251,7 +251,7 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 |---|---|---|---|---|---|
 | 57 | ✅ | `browser_open` | Start Chromium with DevTools and wait for it to answer | `{"url": "file:///tmp/sweep.html"}` | loaded file:///tmp/sweep.html |
 | 58 | ✅ | `browser_wait_for` | Wait for a CSS selector to exist | `{"selector": "#t", "timeout_ms": 15000}` | #t appeared |
-| 59 | ✅ | `browser_tabs` | List the open tabs | `—` | [ { "id": "1C74D569749B18178F81DE1F9C6E5970", "title": "sweep.html", "url": "file:///tmp/sweep.html" } ] |
+| 59 | ✅ | `browser_tabs` | List the open tabs | `—` | [ { "id": "4EA23CB19B51C96D50BE5C71F595E6CC", "title": "sweep.html", "url": "file:///tmp/sweep.html" } ] |
 | 60 | ✅ | `browser_goto` | Navigate the current tab | `{"url": "file:///tmp/sweep.html"}` | loaded file:///tmp/sweep.html |
 | 61 | ✅ | `browser_text` | Read the page's visible text | `{"max_chars": 200}` | Sweep Go |
 | 62 | ✅ | `browser_type` | Type into a field by selector | `{"selector": "#i", "text": "sweep"}` | typed into #i |
@@ -283,10 +283,10 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 
 | # | | Tool | What it does | Arguments sent | Result |
 |---|---|---|---|---|---|
-| 76 | ✅ ✔︎ | `start_recording` | Record the screen to a file alongside the live stream | `{"container": "mp4", "fps": 15, "audio": false}` | recording to /home/sentineldesk/Recordings/rec-20260807-073449.mp4 |
-| 77 | ✅ | `get_recording_status` | Whether a recording is running, and how big it is | `—` | { "container": "mp4", "path": "/home/sentineldesk/Recordings/rec-20260807-073449.mp4", "recording": true, "seconds": 0,  |
+| 76 | ✅ ✔︎ | `start_recording` | Record the screen to a file alongside the live stream | `{"container": "mp4", "fps": 15, "audio": false}` | recording to /home/sentineldesk/Recordings/rec-20260807-074737.mp4 |
+| 77 | ✅ | `get_recording_status` | Whether a recording is running, and how big it is | `—` | { "container": "mp4", "path": "/home/sentineldesk/Recordings/rec-20260807-074737.mp4", "recording": true, "seconds": 0,  |
 | 78 | ✅ | `wait` | Let the recording collect a second of video | `{"ms": 1200}` | waited 1200 ms |
-| 79 | ✅ ✔︎ | `stop_recording` | Stop and finalise the file | `—` | { "path": "/home/sentineldesk/Recordings/rec-20260807-073449.mp4", "size_bytes": 66997 } |
+| 79 | ✅ ✔︎ | `stop_recording` | Stop and finalise the file | `—` | { "path": "/home/sentineldesk/Recordings/rec-20260807-074737.mp4", "size_bytes": 66027 } |
 | 80 | ✅ | `list_recordings` | The recordings on disk | `—` | [ { "modified": "2026-08-06T22:09:15-03:00", "path": "/home/sentineldesk/Recordings/rec-20260806-220914.mp4", "size_byte |
 | 81 | ✅ | `start_restream` | Send the live encode to an external destination | `{"url": "udp://127.0.0.1:9999", "platform": "udp"}` | streaming to udp (udp://•••, audio=true) — reusing the live encode, no second capture |
 | 82 | ✅ | `list_restreams` | Where the desktop is currently being published | `—` | udp → udp://127.0.0.1:9999 (audio=true, 0s) |
@@ -309,7 +309,7 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 | 89 | ✅ ✔︎ | `shell_exec` | Run a command in that session and wait for it | `{"id": "sh2", "command": "echo sweep-shell-ok > /tmp/sweep-shell.txt", "timeout_ms": 10…` | { "completed": true, "output": "" } |
 | 90 | ✅ | `shell_input` | Send raw keystrokes, without waiting | `{"id": "sh2", "text": "echo second > /tmp/sweep-input.txt", "enter": true}` | sent 35 bytes |
 | 91 | ✅ | `wait` | Give the shell a moment to produce output | `{"ms": 400}` | waited 400 ms |
-| 92 | ✅ | `shell_read` | Read and clear what the session has produced | `{"id": "sh2"}` | echo second > /tmp/sweep-input.txt sentineldesk@56a758a8a6f5:/$ |
+| 92 | ✅ | `shell_read` | Read and clear what the session has produced | `{"id": "sh2"}` | echo second > /tmp/sweep-input.txt sentineldesk@60c97d694cc8:/$ |
 | 93 | ✅ | `shell_list` | The open shell sessions | `—` | [ { "alive": true, "id": "sh2", "pending": 0, "seconds": 1, "user": "" } ] |
 | 94 | ✅ ✔︎ | `shell_close` | End the session | `{"id": "sh2"}` | session closed |
 
@@ -328,25 +328,25 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 | # | | Tool | What it does | Arguments sent | Result |
 |---|---|---|---|---|---|
 | 100 | ✅ | `ssh_keygen` | Generate a key pair for the desktop's user | `{"path": "/home/sentineldesk/.ssh/sweep", "type": "ed25519", "comment": "sweep"}` | { "note": "the key already existed and was not overwritten", "path": "/home/sentineldesk/.ssh/sweep", "public_key": "ssh |
-| 101 | ✅ | `ssh_list` | The open SSH sessions | `—` | [ { "host": "172.18.0.4:22", "id": "ssh1", "seconds": 419, "tunnels": 0, "user": "sweeper" } ] |
-| 102 | ✅ | `ssh_connect` | Open an SSH session to a second host at 172.18.0.4 | `{"host": "172.18.0.4", "user": "peer", "password": "peerpass"}` | { "host": "172.18.0.4:22", "id": "ssh3", "user": "peer" } |
-| 103 | ✅ ✔︎ | `ssh_exec` | Run a command on the remote host | `{"id": "ssh3", "command": "echo sweep-ssh-ok > /tmp/sweep-ssh.txt; hostname", "timeout_…` | { "exit_code": 0, "stderr": "", "stdout": "c682dfa397b2\n" } |
-| 104 | ✅ ✔︎ | `ssh_upload` | Send a file over SFTP | `{"id": "ssh3", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}` | uploaded 19 bytes to /tmp/sweep-up.txt |
-| 105 | ✅ ✔︎ | `ssh_download` | Fetch a file over SFTP | `{"id": "ssh3", "remote": "/tmp/sweep-up.txt", "local": "/tmp/sweep-down.txt"}` | downloaded 19 bytes to /tmp/sweep-down.txt |
-| 106 | ✅ | `ssh_list_remote` | List a directory on the remote host | `{"id": "ssh3", "path": "/tmp"}` | [ { "modified": "2026-08-07T07:34:59-03:00", "name": "sweep-ssh.txt", "size": 13, "type": "file" }, { "modified": "2026- |
-| 107 | ✅ ✔︎ | `ssh_tunnel_local` | Forward a local port to the remote side | `{"id": "ssh3", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:22"}` | { "spec": "127.0.0.1:18080 → 127.0.0.1:22 (via 172.18.0.4:22)", "tunnel_id": "ssh3-l1" } |
-| 108 | ✅ | `ssh_tunnels` | The tunnels open on this session | `{"id": "ssh3"}` | [ { "connections": 0, "id": "ssh3-l1", "kind": "local", "spec": "127.0.0.1:18080 → 127.0.0.1:22 (via 172.18.0.4:22)" } ] |
-| 109 | ✅ | `ssh_tunnel_remote` | Forward a remote port back to here | `{"id": "ssh3", "remote_addr": "127.0.0.1:18081", "local_addr": "127.0.0.1:8080"}` | { "spec": "172.18.0.4:22:127.0.0.1:18081 → 127.0.0.1:8080 (reverse)", "tunnel_id": "ssh3-r2" } |
-| 110 | ✅ | `ssh_tunnel_close` | Close one tunnel by id | `{"id": "ssh3", "tunnel_id": "ssh3-l1"}` | tunnel closed |
-| 111 | ✅ | `ssh_copy_id` | Install the public key on the remote host | `{"id": "ssh3", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}` | key installed on peer@172.18.0.4:22: installed |
-| 112 | ✅ | `ssh_disconnect` | End the SSH session | `{"id": "ssh3"}` | SSH session closed |
+| 101 | ✅ | `ssh_list` | The open SSH sessions | `—` | null |
+| 102 | ✅ | `ssh_connect` | Open an SSH session to a second host at 172.18.0.4 | `{"host": "172.18.0.4", "user": "peer", "password": "peerpass"}` | { "host": "172.18.0.4:22", "id": "ssh2", "user": "peer" } |
+| 103 | ✅ ✔︎ | `ssh_exec` | Run a command on the remote host | `{"id": "ssh2", "command": "echo sweep-ssh-ok > /tmp/sweep-ssh.txt; hostname", "timeout_…` | { "exit_code": 0, "stderr": "", "stdout": "a8950fe75830\n" } |
+| 104 | ✅ ✔︎ | `ssh_upload` | Send a file over SFTP | `{"id": "ssh2", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}` | uploaded 19 bytes to /tmp/sweep-up.txt |
+| 105 | ✅ ✔︎ | `ssh_download` | Fetch a file over SFTP | `{"id": "ssh2", "remote": "/tmp/sweep-up.txt", "local": "/tmp/sweep-down.txt"}` | downloaded 19 bytes to /tmp/sweep-down.txt |
+| 106 | ✅ | `ssh_list_remote` | List a directory on the remote host | `{"id": "ssh2", "path": "/tmp"}` | [ { "modified": "2026-08-07T07:47:46-03:00", "name": "sweep-ssh.txt", "size": 13, "type": "file" }, { "modified": "2026- |
+| 107 | ✅ ✔︎ | `ssh_tunnel_local` | Forward a local port to the remote side | `{"id": "ssh2", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:22"}` | { "spec": "127.0.0.1:18080 → 127.0.0.1:22 (via 172.18.0.4:22)", "tunnel_id": "ssh2-l1" } |
+| 108 | ✅ | `ssh_tunnels` | The tunnels open on this session | `{"id": "ssh2"}` | [ { "connections": 0, "id": "ssh2-l1", "kind": "local", "spec": "127.0.0.1:18080 → 127.0.0.1:22 (via 172.18.0.4:22)" } ] |
+| 109 | ✅ | `ssh_tunnel_remote` | Forward a remote port back to here | `{"id": "ssh2", "remote_addr": "127.0.0.1:18081", "local_addr": "127.0.0.1:8080"}` | { "spec": "172.18.0.4:22:127.0.0.1:18081 → 127.0.0.1:8080 (reverse)", "tunnel_id": "ssh2-r2" } |
+| 110 | ✅ | `ssh_tunnel_close` | Close one tunnel by id | `{"id": "ssh2", "tunnel_id": "ssh2-l1"}` | tunnel closed |
+| 111 | ✅ | `ssh_copy_id` | Install the public key on the remote host | `{"id": "ssh2", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}` | key installed on peer@172.18.0.4:22: installed |
+| 112 | ✅ | `ssh_disconnect` | End the SSH session | `{"id": "ssh2"}` | SSH session closed |
 
 ## Snapshots
 
 | # | | Tool | What it does | Arguments sent | Result |
 |---|---|---|---|---|---|
 | 113 | ✅ ✔︎ | `snapshot_create` | A restore point: the home plus the installed package list | `{"name": "sweep", "note": "created by tool-sweep"}` | { "created": "sweep", "note": "created by tool-sweep", "path": "/home/sentineldesk/.sentineldesk-snapshots/sweep.tar.gz" |
-| 114 | ✅ | `snapshot_list` | The snapshots on disk | `—` | { "dir": "/home/sentineldesk/.sentineldesk-snapshots", "snapshots": [ { "created": "2026-08-07T07:35:05-03:00", "name":  |
+| 114 | ✅ | `snapshot_list` | The snapshots on disk | `—` | { "dir": "/home/sentineldesk/.sentineldesk-snapshots", "snapshots": [ { "created": "2026-08-07T07:47:52-03:00", "name":  |
 | 115 | ⏭️ | `snapshot_restore` | Roll the home back to a snapshot | `—` | it would overwrite the live home directory; the only tool the sweep cannot make safe against something it created |
 | 116 | ✅ ✔︎ | `snapshot_delete` | Delete a snapshot | `{"name": "sweep"}` | { "deleted": "sweep" } |
 
@@ -363,7 +363,7 @@ The results below are shortened to keep the table readable. [`tool-sweep.txt`](t
 | 118 | ✅ ✔︎ | `set_resolution` | Change the resolution without restarting anything | `{"width": 1600, "height": 900}` | { "applied": true, "resolution": "1600x900" } |
 | 119 | ✅ | `get_screen_info` | Confirm the new geometry | `—` | { "desktops": 4, "display": ":0", "height": 900, "width": 1600 } |
 | 120 | ✅ ✔︎ | `set_resolution` | Put the resolution back | `{"width": 1920, "height": 1080}` | { "applied": true, "resolution": "1920x1080" } |
-| 121 | ✅ | `open_app_and_wait` | Launch, wait for the window, focus it, in one call | `{"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL", "timeout_ms": 20000}` | { "opened": true, "waited_ms": 963, "window": { "id": "0x0180000c", "desktop": 0, "x": 2, "y": 92, "w": 484, "h": 316, " |
+| 121 | ✅ | `open_app_and_wait` | Launch, wait for the window, focus it, in one call | `{"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL", "timeout_ms": 20000}` | { "opened": true, "waited_ms": 1478, "window": { "id": "0x0180000c", "desktop": 0, "x": 2, "y": 92, "w": 484, "h": 316,  |
 | 122 | ✅ ✔︎ | `kill_process` | Kill a process the sweep started, by name | `{"name": "sleep 300", "force": false}` | killed processes matching "sleep 300" |
 | 123 | ✅ | `remove_packages` | Remove the package the sweep installed | `{"packages": ["openssh-server"], "purge": false}` | { "as_root": true, "exit_code": 0, "log": "Reading package lists...\nBuilding dependency tree...\nReading state informat |
 

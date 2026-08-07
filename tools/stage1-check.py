@@ -40,8 +40,12 @@ _mcpcli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mcpcli)
 MCPClient = _mcpcli.MCPClient
 
-EXPECTED_TOOLS = 115
-EXPECTED_READ = 47
+# Pinned rather than derived from the catalogue on purpose: reading the number
+# from the thing being checked would make the check agree with any drift. These
+# are updated by hand when a tool is added, which is the point — adding
+# list_commands moved both and the mismatch is how anyone found out.
+EXPECTED_TOOLS = 116
+EXPECTED_READ = 48
 EXPECTED_DANGER = 30
 EXPECTED_CONTROL = 19
 
