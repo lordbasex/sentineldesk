@@ -1,23 +1,39 @@
 # Panel superior — receta Berry (estilo Raspberry Pi OS)
 #
-# Every `image=` here is an icon NAME, not a path, and that is deliberate.
+# Every icon here is an absolute PATH, and every launcher gives its own image
+# and command rather than naming a .desktop file. Both are deliberate, both are
+# the opposite of what a freedesktop purist would write, and the reason is a
+# Raspberry Pi.
 #
-# It used to be absolute — /usr/share/icons/Papirus/24x24/apps/<name>.svg —
-# which looks more precise and is in fact more brittle in every direction. A
-# path names one file in one theme at one size; when that file is not exactly
-# there the item simply draws nothing, with no warning anywhere, which is the
-# hardest kind of breakage to attribute. It had already happened: Papirus keeps
-# network-vpn.svg under `devices`, not `apps`, so the VPN entry had been
-# iconless since it was added, in the container and on the host alike.
+# The tidy version of this file used icon NAMES and let the theme resolve them:
+# it searches every category and size and falls back Papirus → hicolor → Adwaita,
+# so an icon that moves between releases still draws. That is correct on Debian,
+# where it was written and photographed working.
 #
-# A name goes through the icon theme instead, which is what the theme is for:
-# it searches every category and size, and falls back down the inheritance
-# chain (Papirus → hicolor → Adwaita) when Papirus does not have it. So an icon
-# that moved between releases still resolves, a machine whose Papirus failed to
-# install keeps the freedesktop names that every theme carries, and only a name
-# no installed theme has at all comes up empty.
+# Raspberry Pi OS ships its own libfm-gtk3 and GTK (1.4.0-2+rpt8, 3.24.49-3+rpt8),
+# and on that combination lxpanel resolves a themed icon through a code path that
+# ends in
 #
-# Same principle as everything else here: degrade, do not blank out.
+#   gtk_icon_theme_choose_icon_for_scale: assertion 'scale >= 1' failed
+#   gtk_icon_theme_load_icon_for_scale:   assertion 'scale >= 1' failed
+#
+# — a scale of zero, GTK refusing, the lookup returning NULL and lxpanel drawing
+# `image-missing` instead. Which in Papirus is a circle with a line through it.
+# So the panel comes up as a row of ⊘, on the platform this project puts on its
+# front page. Photographed on a real Pi 5: launcher buttons ⊘, and the same
+# panel with the menu switched to names ⊘ all the way down its menu too.
+#
+# An absolute path never enters that code path. It is loaded as a file, which is
+# why the menu kept working on that Pi while the launchers beside it did not.
+#
+# The cost is that a path is exact: when Papirus moves a file, that one entry
+# goes silently blank. That already happened — network-vpn.svg lives under
+# `devices`, not `apps`, and the VPN entry had no icon from the day it was added
+# until the installer learned to check. So the installer checks: see
+# check_panel_icons() in install.sh, which compares every path in this file
+# against what is on the machine and says which ones are not there. A silent
+# hole is the thing to avoid; a path plus a check has no silent hole, and it
+# works on the hardware people actually install this on.
 Global {
   edge=top
   align=left
@@ -46,7 +62,7 @@ Plugin {
 Plugin {
   type=menu
   Config {
-    image=applications-all
+    image=/usr/share/icons/Papirus/24x24/apps/applications-all.svg
     # Grouped by what somebody wants to do, not by which package ships it.
     #
     # The four at the top are what gets opened every session and they stay one
@@ -60,123 +76,123 @@ Plugin {
     # worse than a short one.
     item {
       name=Terminal
-      image=utilities-terminal
+      image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
       action=lxterminal
     }
     item {
       name=Web Browser
-      image=chromium
+      image=/usr/share/icons/Papirus/24x24/apps/chromium.svg
       action=chromium
     }
     item {
       name=Files
-      image=system-file-manager
+      image=/usr/share/icons/Papirus/24x24/apps/system-file-manager.svg
       action=pcmanfm
     }
     item {
       name=Text Editor
-      image=accessories-text-editor
+      image=/usr/share/icons/Papirus/24x24/apps/accessories-text-editor.svg
       action=mousepad
     }
     separator {
     }
     menu {
       name=Accessories
-      image=applications-accessories
+      image=/usr/share/icons/Papirus/24x24/apps/applications-accessories.svg
       item {
         name=Image Viewer
-        image=multimedia-photo-viewer
+        image=/usr/share/icons/Papirus/24x24/apps/multimedia-photo-viewer.svg
         action=gpicview
       }
       item {
         name=Document Viewer
-        image=evince
+        image=/usr/share/icons/Papirus/24x24/apps/evince.svg
         action=evince
       }
       item {
         name=Archive Manager
-        image=xarchiver
+        image=/usr/share/icons/Papirus/24x24/apps/xarchiver.svg
         action=xarchiver
       }
       item {
         name=Calculator
-        image=galculator
+        image=/usr/share/icons/Papirus/24x24/apps/galculator.svg
         action=galculator
       }
       item {
         name=Media Player
-        image=vlc
+        image=/usr/share/icons/Papirus/24x24/apps/vlc.svg
         action=vlc
       }
     }
     menu {
       name=Network
-      image=preferences-system-network
+      image=/usr/share/icons/Papirus/24x24/apps/preferences-system-network.svg
       item {
         name=Remote Desktop (RDP)
-        image=remmina
+        image=/usr/share/icons/Papirus/24x24/apps/remmina.svg
         action=rdp-connect
       }
       item {
         name=Remote Desktop (VNC)
-        image=krdc
+        image=/usr/share/icons/Papirus/24x24/apps/krdc.svg
         action=vnc-connect
       }
       item {
         name=VPN (OpenVPN)
-        image=network-vpn
+        image=/usr/share/icons/Papirus/24x24/devices/network-vpn.svg
         action=openvpn-connect
       }
       separator {
       }
       item {
         name=SIP Capture (sngrep)
-        image=utilities-terminal
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
         action=lxterminal -e sh -c "sudo -n sngrep || sngrep"
       }
       item {
         name=Port Scan (nmap)
-        image=nmap
+        image=/usr/share/icons/Papirus/24x24/apps/nmap.svg
         action=lxterminal -e sentineldesk-hint nmap
       }
       item {
         name=Throughput Test (iperf3)
-        image=utilities-system-monitor
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-system-monitor.svg
         action=lxterminal -e sentineldesk-hint iperf3
       }
       item {
         name=Live Route (mtr)
-        image=utilities-terminal
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
         action=lxterminal -e sentineldesk-hint mtr
       }
     }
     menu {
       name=System Tools
-      image=applications-system
+      image=/usr/share/icons/Papirus/24x24/apps/applications-system.svg
       item {
         name=Task Manager
-        image=utilities-system-monitor
+        image=/usr/share/icons/Papirus/24x24/apps/utilities-system-monitor.svg
         action=lxtask
       }
       item {
         name=Process Viewer (htop)
-        image=htop
+        image=/usr/share/icons/Papirus/24x24/apps/htop.svg
         action=lxterminal -e htop
       }
       item {
         name=Disk Usage (ncdu)
-        image=disk-usage-analyzer
+        image=/usr/share/icons/Papirus/24x24/apps/disk-usage-analyzer.svg
         action=lxterminal -e ncdu /
       }
       item {
         name=Midnight Commander
-        image=mc
+        image=/usr/share/icons/Papirus/24x24/apps/mc.svg
         action=lxterminal -e mc
       }
     }
     menu {
       name=All Applications
-      image=applications-other
+      image=/usr/share/icons/Papirus/24x24/apps/applications-other.svg
       system {
       }
     }
@@ -184,7 +200,7 @@ Plugin {
     }
     item {
       name=Run…
-      image=system-run
+      image=/usr/share/icons/Papirus/24x24/actions/system-run.svg
       command=run
     }
   }
@@ -199,13 +215,19 @@ Plugin {
   type=launchbar
   Config {
     Button {
-      id=chromium.desktop
+      image=/usr/share/icons/Papirus/24x24/apps/chromium.svg
+      action=chromium
+      tooltip=Web Browser
     }
     Button {
-      id=pcmanfm.desktop
+      image=/usr/share/icons/Papirus/24x24/apps/system-file-manager.svg
+      action=pcmanfm
+      tooltip=Files
     }
     Button {
-      id=lxterminal.desktop
+      image=/usr/share/icons/Papirus/24x24/apps/utilities-terminal.svg
+      action=lxterminal
+      tooltip=Terminal
     }
   }
 }

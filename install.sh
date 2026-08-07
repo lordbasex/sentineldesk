@@ -426,14 +426,16 @@ check_panel_icons() {
   for n in $(sed -n 's/^[[:space:]]*image=\(..*\)$/\1/p' "$panel" | sort -u); do
     total=$((total + 1))
     case "$n" in
-      # A path names one file and either it is there or it is not; a name goes
-      # through the icon theme, which is why the panel uses names.
+      # The panel uses absolute paths, for the reason written at the top of it,
+      # and a path is either there or it is not — which is exactly the fragility
+      # this check exists to cover. Names are still handled: a panel somebody
+      # edited by hand should get the same answer.
       /*) [ -e "$n" ] || missing="$missing $n" ;;
       *)  grep -qxF "$n" "$index" || missing="$missing $n" ;;
     esac
   done
-  # The launchbar names .desktop files instead of icons, and a missing one is a
-  # blank button in exactly the same way.
+  # A launcher may still name a .desktop file rather than an image, and a
+  # missing one is a blank button in exactly the same way.
   for d in $(sed -n 's/^[[:space:]]*id=\(..*\.desktop\)$/\1/p' "$panel" | sort -u); do
     total=$((total + 1))
     [ -f "/usr/share/applications/$d" ] || missing="$missing $d"
