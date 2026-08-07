@@ -74,18 +74,48 @@ func TestGetMousePosition(t *testing.T) {
 
 func TestGetPixelColor(t *testing.T) {
 	control(t)
-	// Paint a known colour rather than sampling whatever is there. xsetroot
-	// fills the root window, which is what shows through wherever no window is.
-	X(t, "xsetroot -solid '#ff0000'")
-	t.Cleanup(func() { X(t, "xsetroot -solid '#000000'") })
-	time.Sleep(400 * time.Millisecond)
+	// Something of a known colour, and a window rather than the root.
+	//
+	// Two earlier versions read the wrong thing and both were the test's fault.
+	// The first sampled a corner and got #333344, a browser page left open
+	// across the display. The second painted the root with xsetroot and got the
+	// wallpaper: pcmanfm runs in desktop mode and owns the root window, so
+	// anything drawn underneath it is never seen. A window of a stated colour
+	// avoids both, because it is on top and it is ours.
+	shared.Call(t, "launch_app", map[string]any{
+		// A named colour: the launcher splits on whitespace and a leading
+		// # is a comment to the shell underneath, so "-bg #00ff00" never
+		// reached xterm at all.
+		"command": "xterm -T PIXELWIN -bg green -e sleep 120"})
+	out := shared.Call(t, "wait_for_window", map[string]any{
+		"match": "PIXELWIN", "timeout_ms": 15000})
+	id := jsonField(t, out, "id")
+	t.Cleanup(func() { X(t, "wmctrl -i -c %s 2>/dev/null || true", id) })
+	X(t, "wmctrl -i -r %s -b add,above", id)
+	time.Sleep(800 * time.Millisecond)
 
-	// Bottom-right corner: the panel owns the top and the desktop icons the
-	// left, and both would answer with their own colour.
-	out := shared.Call(t, "get_pixel_color", map[string]any{"x": 1900, "y": 1000})
-	if !strings.Contains(strings.ToLower(out), "ff0000") && !strings.Contains(out, "255") {
-		t.Fatalf("the pixel reads %s where the root window was painted red", out)
+	f := strings.Fields(X(t, "wmctrl -lG | grep PIXELWIN"))
+	if len(f) < 6 {
+		t.Fatalf("could not find the window's geometry: %v", f)
 	}
+	cx := atoiScreen(f[2]) + atoiScreen(f[4])/2
+	cy := atoiScreen(f[3]) + atoiScreen(f[5])/2
+
+	got := shared.Call(t, "get_pixel_color", map[string]any{"x": cx, "y": cy})
+	if !strings.Contains(strings.ToLower(got), "00ff00") {
+		t.Fatalf("the middle of a green window reads %s", strings.Join(strings.Fields(got), " "))
+	}
+}
+
+func atoiScreen(s string) int {
+	n := 0
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			break
+		}
+		n = n*10 + int(r-'0')
+	}
+	return n
 }
 
 func TestScreenshot(t *testing.T) {
