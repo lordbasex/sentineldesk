@@ -222,22 +222,109 @@ of calls. It also records the **goal** alongside them — the server knows what
 was called, only the runtime knows why, and a trail with the why is worth more
 than one without.
 
-### 3.9 Skills
+### 3.9 Plugins: skills, agents and commands
 
-Plain `SKILL.md` with the standard Anthropic Agent Skills frontmatter, so a
-skill written for Claude Code, Codex or Cowork — or published on a marketplace —
-loads unchanged. `name` and `description` are the contract; anything of ours
-goes under `metadata.sentineldesk` where another host ignores it, exactly as
-`sentineldesk/visibility` sits beside `readOnlyHint` one layer down.
+**Decision: the Claude Code plugin format, verbatim.** No dialect of our own.
+A plugin written for Claude Code, Codex or Cowork — or installed from a
+marketplace — loads unchanged, and anything we add rides in the namespaced slot
+the format already provides.
 
-The obvious first extension is `requires`: a skill about administering Linux is
-only useful if the binaries it names are present, and `list_commands` can answer
-that before the model spends a turn finding out. It must stay optional — a skill
-without it loads and works.
+The layout, grounded against two independent implementations rather than
+recalled:
 
-Progressive disclosure as the format intends: frontmatter is what the model sees
-while choosing, the body loads once chosen. The same argument as
-`MCP_DISCOVERY`, applied to skills.
+```
+.claude-plugin/plugin.json        manifest: name, version, description, author,
+                                  and optional explicit agents[]/skills[]/commands[]
+.claude-plugin/marketplace.json   for a repository that publishes several
+agents/*.md
+skills/<name>/SKILL.md            + scripts/  references/  assets/
+commands/*.md
+hooks/hooks.json
+```
+
+Frontmatter, with the required keys in bold:
+
+| | keys |
+|---|---|
+| skill | **`name`**, **`description`**, `homepage`, `license`, `allowed-tools`, `user-invocable`, `metadata` |
+| agent | **`name`**, **`description`**, `model`, `tools` |
+| command | **`name`**, **`description`**, `allowed-tools` |
+
+One wart to absorb rather than fix: a skill spells its tool allowlist
+`allowed-tools` and an agent spells the same thing `tools`. Both are the format;
+the loader accepts each where it belongs and normalises internally. Inventing a
+third spelling to be consistent would break the interop the whole decision is
+for.
+
+**Three forms, one mechanism.** A skill, a command and an agent are each a
+markdown file whose frontmatter is what the model sees while choosing and whose
+body loads once chosen. What differs is only the trigger and the scope: a skill
+fires when the model judges it relevant, a command when a person types its name
+(`user-invocable: true` is the same thing said in a skill's frontmatter, which
+is the proof they are not two systems), and an agent when a sub-task is
+delegated, with a narrower tool set. Build one loader.
+
+Progressive disclosure as the format intends — the same argument as
+`MCP_DISCOVERY`, one layer up.
+
+#### The real interop problem: tool names
+
+Community plugins declare allowlists in **Claude Code's** vocabulary:
+
+```yaml
+tools: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+```
+
+Not one of those exists in our catalogue. This is the actual work, and no
+marketplace metadata standard addresses it.
+
+- `Read` / `Write` / `Edit` → `read_file` / `write_file`. Direct.
+- `Grep` / `Glob` → nothing of ours. They resolve through `run_command`, or the
+  plugin is told the capability is absent. Declaring absence beats silently
+  mapping a search tool onto arbitrary command execution.
+- `Bash` → `run_command`, **except under the `witnessed` role, where it is
+  `terminal_run`.** So the mapping is not a table, it is a function of the role
+  — which is exactly what §3.5 and the `Visibility` field exist for. A community
+  plugin gets observability for free without knowing the concept exists.
+
+**An unknown name never widens anything.** The allowlist goes through
+`Policy.Restrict`, which can only narrow, and the server enforces it on that
+connection regardless of what any markdown claimed. That is the difference worth
+keeping: elsewhere `tools:` is a list a host honours by convention; here it
+becomes a policy the socket applies.
+
+#### Concurrent agents are serialised by Visibility
+
+A plugin advertising eight specialised agents is describing eight system
+prompts. Here they are also participants sharing one claim on one X display, and
+stage 1 §1 is explicit that the server does not serialise them — the runtime
+does.
+
+The field makes it mechanical rather than a judgement: agents whose work is
+`hidden` may run concurrently, and anything reaching `injects` takes a turn.
+Two sub-agents typing at once interleave keystrokes into one display, and
+finding that out empirically is not a good use of a demo.
+
+#### What we accept and do not enforce
+
+Some published plugins carry skill-as-*function* fields — `parameters` with
+enums and validation regexes, `retry_config`, `observability` — alongside the
+standard ones. The Anthropic format is skill-as-*prompt*: frontmatter to decide
+whether to trigger, body to load after. Unknown keys are ignored, so those
+plugins load; nothing validates a `validation: "^(ubuntu|debian)$"` and nothing
+retries on a `retry_config`. Written down so it is a known limit rather than a
+silent one.
+
+The same applies to marketplace-specific metadata such as `sasmp_version` or
+`bond_type`: ignoring a declarative field *is* compatibility with it, since
+nothing reads it in its own repository either.
+
+#### Our one extension
+
+`metadata.sentineldesk.requires`, listing binaries a skill needs. A skill about
+administering Linux is useless if what it names is absent, and `list_commands`
+answers that before the model spends a turn discovering it. Optional, always: a
+skill without it loads and works.
 
 ### 3.10 Stopping
 
@@ -324,7 +411,9 @@ unproven loop hides failures instead of surfacing them.
 2. **2.1a** — the MCP client and `doctor`. Proves the socket, the events and the
    denial kinds before any model is involved.
 3. **2.1b** — providers and the loop, with `run` against a trivial goal.
-4. **2.1c** — tool selection, the policy overlay, the roles.
+4. **2.1c** — tool selection, the policy overlay, the roles, and the plugin
+   loader with its tool-name mapping (§3.9). The mapping depends on the roles,
+   so it lands with them rather than before.
 5. **2.1d** — persistence, `audit`, and the stopping semantics.
 6. **2.2** — the console.
 
