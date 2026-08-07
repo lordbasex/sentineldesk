@@ -58,6 +58,7 @@ HEADER = {
         "Result es la respuesta textual de la herramienta. Los bloques `no "
         "ejecutada` dicen el motivo en su lugar.",
     "Arguments sent": "Argumentos enviados",
+    "   [effect verified outside MCP]": "   [efecto verificado fuera de MCP]",
     "Summary:": "Qué hizo:",
     "Method score": "Puntaje del método",
     "To take it further:": "Cómo llevarla más lejos:",

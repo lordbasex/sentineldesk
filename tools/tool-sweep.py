@@ -27,6 +27,8 @@ import importlib.util
 import json
 import os
 import re
+import shlex
+import subprocess
 import sys
 import time
 
@@ -60,8 +62,9 @@ BADGE = {
 
 
 class Sweep:
-    def __init__(self, client, verbose=False):
+    def __init__(self, client, verbose=False, container=None):
         self.c = client
+        self.container = container or _mcpcli.DEFAULT_CONTAINER
         self.verbose = verbose
         self.rows = []
         self.state = {}       # ids picked up along the way: window, shell, ssh, ref
@@ -70,12 +73,143 @@ class Sweep:
 
     # --- running one tool ----------------------------------------------------
 
+    # --- verifying from outside the MCP path ---------------------------------
+
+    def sh(self, cmd, timeout=20):
+        """Run a command inside the container, without going through MCP.
+
+        This is the whole point of the expect mechanism. Checking a tool's claim
+        by calling another tool proves nothing when both sit on the same code:
+        read_file confirming what write_file wrote says only that the two agree.
+        Every silent success found so far was caught by looking through a
+        different channel — ffprobe on the recording rather than the tool's
+        "recording to /path", the page's own event counter rather than "typed
+        into #f", elementFromPoint rather than "clicked #b". So the verifier
+        gets its own way in.
+        """
+        try:
+            out = subprocess.run(
+                ["docker", "exec", self.container, "sh", "-c", cmd],
+                capture_output=True, text=True, timeout=timeout)
+            return out.stdout.strip()
+        except Exception as exc:                       # noqa: BLE001
+            return f"__ERROR__ {exc}"
+
+    def file_is(self, path, want):
+        """The file exists and contains want."""
+        got = self.sh(f"cat {shlex.quote(path)} 2>/dev/null")
+        if got.startswith("__ERROR__"):
+            return f"could not read {path}: {got}"
+        if want not in got:
+            return f"{path} does not contain {want!r} (got {got[:80]!r})"
+        return None
+
+    def file_exists(self, path):
+        if self.sh(f"test -e {shlex.quote(path)} && echo yes") != "yes":
+            return f"{path} does not exist"
+        return None
+
+    def window_titled(self, needle):
+        out = self.sh(f"DISPLAY=:0 wmctrl -l 2>/dev/null")
+        if needle.lower() not in out.lower():
+            return f"no window titled {needle!r} on the display"
+        return None
+
+    def window_geometry_near(self, wid, x=None, y=None, w=None, h=None, slack=8):
+        """The window really is where the tool said it put it.
+
+        Through xwininfo rather than window_properties, so the answer cannot be
+        confirmed by the code that produced it — and rather than wmctrl -lG,
+        which reports something else again.
+
+        The distinction cost a false failure before it was understood. A request
+        to put a window at y=120 came back from wmctrl -lG as y=176, which reads
+        like the move being ignored; the same request made with wmctrl itself
+        produces the same 176, so it was never about the tool. wmctrl reports the
+        CLIENT area, and the client sits inside a frame whose title bar and
+        border are what the window manager actually positioned. xwininfo gives
+        both: absolute is the client, relative is its offset inside the frame, so
+        absolute minus relative is the frame origin — the number that was asked
+        for. 148 - 28 = 120, exactly.
+        """
+        info = self.sh(f"DISPLAY=:0 xwininfo -id {shlex.quote(wid)} 2>/dev/null")
+        if "Absolute upper-left" not in info:
+            return f"window {wid} could not be inspected"
+
+        def field(label):
+            m = re.search(rf"{label}:\s+(-?\d+)", info)
+            return int(m.group(1)) if m else None
+
+        ax, ay = field("Absolute upper-left X"), field("Absolute upper-left Y")
+        rx, ry = field("Relative upper-left X"), field("Relative upper-left Y")
+        gw, gh = field("Width"), field("Height")
+        if None in (ax, ay, rx, ry):
+            return f"could not read the geometry of {wid}"
+        fx, fy = ax - rx, ay - ry   # where the frame is, which is what was set
+
+        for want, got, label in ((x, fx, "x"), (y, fy, "y"), (w, gw, "width"), (h, gh, "height")):
+            if want is not None and got is not None and abs(want - got) > slack:
+                return f"{label} is {got}, asked for {want}"
+        return None
+
+    def window_gone(self, wid):
+        out = self.sh("DISPLAY=:0 wmctrl -l 2>/dev/null")
+        if wid.lower() in out.lower():
+            return f"window {wid} is still on the display"
+        return None
+
+    def playable_video(self, out):
+        """The recording exists, decodes, and is in a profile things can play.
+
+        This is the check that would have caught the recorder shipping High
+        4:4:4 Predictive for as long as it existed: every tool call succeeded,
+        the file grew, and nothing looked at what was in it. ffprobe is the
+        different channel.
+        """
+        m = re.search(r'(/[^\s"]+\.(?:mp4|webm|mkv))', out or "")
+        if not m:
+            return "no file path in the reply to check"
+        path = m.group(1)
+        if problem := self.file_exists(path):
+            return problem
+        info = self.sh(
+            "ffprobe -v error -select_streams v:0 "
+            "-show_entries stream=codec_name,pix_fmt,nb_frames "
+            f"-of default=nw=1 {shlex.quote(path)} 2>/dev/null")
+        if not info or "codec_name" not in info:
+            return f"{path} has no readable video stream"
+        if "pix_fmt=yuv420p" not in info:
+            got = next((l for l in info.splitlines() if l.startswith("pix_fmt")), "pix_fmt=?")
+            return f"{path} is not 4:2:0 ({got}); most hardware decoders will refuse it"
+        return None
+
+    def window_gone_titled(self, needle):
+        out = self.sh("DISPLAY=:0 wmctrl -l 2>/dev/null")
+        if needle.lower() in out.lower():
+            return f"a window titled {needle!r} is still on the display"
+        return None
+
+    def process_alive(self, pattern, want=True):
+        n = self.sh(f"pgrep -fc {shlex.quote(pattern)} 2>/dev/null || echo 0")
+        alive = n.isdigit() and int(n) > 0
+        if alive != want:
+            return f"{pattern} is {'running' if alive else 'not running'}, expected the opposite"
+        return None
+
+    # --- running one tool ----------------------------------------------------
+
     def run(self, name, description, args=None, tolerate=None, timeout=60,
-            capture=None, note=""):
+            capture=None, note="", expect=None):
         """Calls one tool and records the result.
 
         tolerate: a substring that turns a failure into a warning, for the cases
         where the environment and not the tool is what is missing.
+
+        expect: a callable checking, from outside MCP, that the tool did what it
+        said. It returns None when satisfied or a sentence describing the
+        mismatch. A tool with no expect is recorded as ran-but-unverified rather
+        than as passing, because "did not raise" and "did what it claimed" are
+        different statements and this file used to make only the first.
         """
         args = args or {}
         self.covered.add(name)
@@ -93,14 +227,28 @@ class Sweep:
                 capture(out)
             except Exception as exc:                   # noqa: BLE001
                 note = (note + " " if note else "") + f"(capture failed: {exc})"
-        self._record(name, description, args, status, out, note)
+
+        verified = None
+        if expect is not None and status == OK:
+            try:
+                problem = expect(out)
+            except Exception as exc:                   # noqa: BLE001
+                problem = f"the check itself failed: {exc}"
+            if problem:
+                status = FAILED
+                verified = False
+                note = (note + " " if note else "") + f"VERIFICATION: {problem}"
+            else:
+                verified = True
+
+        self._record(name, description, args, status, out, note, verified)
         return out
 
     def skip(self, name, description, why, args=None):
         self.covered.add(name)
         self._record(name, description, args or {}, SKIPPED, "", why)
 
-    def _record(self, name, description, args, status, out, note):
+    def _record(self, name, description, args, status, out, note, verified=None):
         full = str(out or "")
         summary = " ".join(full.split())[:180]
         self.seq += 1
@@ -108,6 +256,10 @@ class Sweep:
             "n": self.seq,
             "tool": name, "description": description, "args": args,
             "status": status, "output": summary, "full": full, "note": note,
+            # True  - the effect was confirmed from outside MCP
+            # False - it was checked and the check failed
+            # None  - nothing checked it, which is not the same as passing
+            "verified": verified,
         })
         if self.verbose or status in (FAILED,):
             print(f"  {BADGE[status]} {name:24s} {summary[:70]}")
@@ -147,6 +299,10 @@ def phase_observe(s):
     s.run("list_desktops", "The virtual desktops and which one is current")
     s.run("list_processes", "Running processes", {"filter": "python"})
     s.run("is_running", "Whether a named process is alive", {"name": "Xvfb"})
+    s.run("list_commands", "The command-line programs available, by category",
+          {"category": "vcs"},
+          expect=lambda out: None if '"git"' in out or '"command": "git"' in out
+          else "the vcs category does not contain git")
     s.run("list_installed_apps", "Applications with a desktop entry")
     s.run("get_audio_state", "Sink, volume and whether it is muted")
     s.run("check_errors", "Any error dialog or alert currently on screen")
@@ -199,14 +355,18 @@ def phase_input(s, has_control):
 
 def phase_clipboard(s):
     s.section("Clipboard")
-    s.run("set_clipboard", "Put text on the X clipboard", {"text": "sentineldesk-sweep"})
+    s.run("set_clipboard", "Put text on the X clipboard", {"text": "sentineldesk-sweep"},
+          expect=lambda out: None
+          if "sentineldesk-sweep" in s.sh("DISPLAY=:0 xclip -o -selection clipboard 2>/dev/null")
+          else "the X clipboard does not hold what was set")
     s.run("get_clipboard", "Read the X clipboard back")
 
 
 def phase_windows(s):
     s.section("Windows and desktops")
     s.run("launch_app", "Start a program on the desktop, detached",
-          {"command": "xterm -T SWEEPWIN -e sleep 600"})
+          {"command": "xterm -T SWEEPWIN -e sleep 600"},
+          expect=lambda out: s.window_titled("SWEEPWIN"))
     s.run("wait_for_window", "Wait until a window matching a title appears",
           {"match": "SWEEPWIN", "timeout_ms": 15000}, timeout=25)
 
@@ -234,8 +394,10 @@ def phase_windows(s):
     s.run("activate_window", "Focus and raise a window by id", {"id": wid})
     s.run("window_properties", "The raw X properties of one window", {"id": wid})
     s.run("window_hierarchy", "The raw X window tree, parents and children")
-    s.run("move_window", "Move a window to a position", {"id": wid, "x": 120, "y": 120})
-    s.run("resize_window", "Resize a window", {"id": wid, "width": 640, "height": 400})
+    s.run("move_window", "Move a window to a position", {"id": wid, "x": 120, "y": 120},
+          expect=lambda out: s.window_geometry_near(wid, x=120, y=120))
+    s.run("resize_window", "Resize a window", {"id": wid, "width": 640, "height": 400},
+          expect=lambda out: s.window_geometry_near(wid, w=640, h=400))
     s.run("minimize_window", "Minimise a window", {"id": wid})
     s.run("restore_window", "Restore a minimised window", {"id": wid})
     s.run("maximize_window", "Maximise a window", {"id": wid})
@@ -245,7 +407,8 @@ def phase_windows(s):
     s.run("set_window_desktop", "Send a window to a virtual desktop",
           {"id": wid, "desktop": 0})
     s.run("switch_desktop", "Switch to another virtual desktop", {"desktop": 0})
-    s.run("close_window", "Close the window the sweep opened", {"id": wid})
+    s.run("close_window", "Close the window the sweep opened", {"id": wid},
+          expect=lambda out: s.window_gone(wid))
 
 
 def phase_accessibility(s):
@@ -343,8 +506,13 @@ def phase_browser(s):
 def phase_files(s):
     s.section("Files")
     s.run("write_file", "Write a file, optionally as root",
-          {"path": "/tmp/sweep.txt", "content": "sentineldesk sweep\n"})
-    s.run("read_file", "Read a file back", {"path": "/tmp/sweep.txt"})
+          {"path": "/tmp/sweep.txt", "content": "sentineldesk sweep\n"},
+          expect=lambda out: s.file_is("/tmp/sweep.txt", "sentineldesk sweep"))
+    # Not "read_file agrees with write_file" — that only proves the two share
+    # whatever they share. The container's own cat is the reference.
+    s.run("read_file", "Read a file back", {"path": "/tmp/sweep.txt"},
+          expect=lambda out: None if "sentineldesk sweep" in out else
+          "read_file returned something other than the file's contents")
     s.run("list_directory", "List a directory", {"path": "/tmp"})
 
 
@@ -360,7 +528,8 @@ def phase_capture(s):
           {"container": "mp4", "fps": 15, "audio": False}, timeout=30)
     s.run("get_recording_status", "Whether a recording is running, and how big it is")
     s.run("wait", "Let the recording collect a second of video", {"ms": 1200})
-    s.run("stop_recording", "Stop and finalise the file", timeout=60)
+    s.run("stop_recording", "Stop and finalise the file", timeout=60,
+          expect=lambda out: s.playable_video(out))
     s.run("list_recordings", "The recordings on disk")
     s.run("start_restream", "Send the live encode to an external destination",
           {"url": "udp://127.0.0.1:9999", "platform": "udp"},
@@ -535,7 +704,12 @@ def phase_system(s, installed):
           {"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL",
            "timeout_ms": 20000}, timeout=40)
     s.run("kill_process", "Kill a process the sweep started, by name",
-          {"name": "sleep 300", "force": False}, tolerate="no process")
+          {"name": "sleep 300", "force": False}, tolerate="no process",
+          # The window, not the process. Checking with pgrep -f "sleep 300"
+          # from a shell whose own command line contains "sleep 300" counts the
+          # checker: the pattern matches the process asking the question, so the
+          # answer is never zero and the pass is unreachable.
+          expect=lambda out: s.window_gone_titled("SWEEPKILL"))
     if installed:
         s.run("remove_packages", "Remove the package the sweep installed",
               {"packages": ["openssh-server"], "purge": False, }, timeout=300)
@@ -586,6 +760,12 @@ def write_report(rows, path, meta):
         counts[status] += 1
     total = len(worst)
     calls = sum(1 for r in rows if "tool" in r)
+    # A tool counts as verified when at least one of its calls had its effect
+    # confirmed from outside MCP. Counted separately from the status because
+    # "ran" and "did what it said" are different claims and the file used to
+    # publish only the first under a tick that read like both.
+    verified_tools = len({r["tool"] for r in rows
+                          if r.get("tool") and r.get("verified") is True})
 
     lines = [
         "# Tool sweep — every tool called against a real desktop",
@@ -608,6 +788,9 @@ def write_report(rows, path, meta):
         "| | Meaning |",
         "|---|---|",
         f"| {BADGE[OK]} | The tool ran and answered |",
+        f"| {BADGE[OK]} ✔︎ | Its effect was confirmed from outside MCP — the file read "
+        "back with the container's own cat, the window measured with wmctrl, the "
+        "recording decoded with ffprobe |",
         f"| {BADGE[TOLERATED]} | It answered with a failure the environment explains — "
         "no gamepad device, no OCR language pack, nothing listening |",
         f"| {BADGE[SKIPPED]} | Not run, with the reason given |",
@@ -616,6 +799,12 @@ def write_report(rows, path, meta):
         f"**{counts[OK]} ran · {counts[TOLERATED]} degraded · "
         f"{counts[SKIPPED]} skipped · {counts[FAILED]} failed — {total} tools "
         f"in {calls} calls.**",
+        "",
+        f"**{verified_tools} of {total} had their effect verified from outside MCP.** "
+        "The rest ran and answered, which is a weaker statement: every silent "
+        "success found in this project so far returned cleanly and did something "
+        "other than what it reported. A tick without a ✔︎ means nothing checked "
+        "the claim.",
         "",
         "A tool called more than once counts once, at its worst result.",
         "",
@@ -631,7 +820,10 @@ def write_report(rows, path, meta):
     # run in order. The call numbers are the ones in tool-sweep.txt.
     calls_by_tool = {}
     for r in rows:
-        if "tool" in r:
+        # A tool the sweep never calls is listed with no call number, so the
+        # index has to tolerate the absence rather than assume every row came
+        # from a run. It had never come up because every tool was covered.
+        if "tool" in r and "n" in r:
             calls_by_tool.setdefault(r["tool"], []).append(r["n"])
     lines += [
         "## Every tool, alphabetically",
@@ -656,7 +848,7 @@ def write_report(rows, path, meta):
         detail = r["note"] or r["output"] or ""
         detail = detail.replace("|", "\\|")[:120] or "—"
         lines.append(
-            f"| {r['n']} | {BADGE[r['status']]} | `{r['tool']}` | {r['description']} | "
+            f"| {r['n']} | {BADGE[r['status']]}{' ✔︎' if r.get('verified') else ''} | `{r['tool']}` | {r['description']} | "
             f"`{args}` | {detail} |")
 
     with open(path, "w") as fh:
@@ -748,7 +940,8 @@ def write_transcript(rows, path, meta, es=False):
             body = f"{body}\n\n    {say('note', es)}: {say(r['note'], es)}"
         out += [
             RULE,
-            f"tool: #{r['n']}   [{say(STATUS_WORD[r['status']], es)}]",
+            f"tool: #{r['n']}   [{say(STATUS_WORD[r['status']], es)}]"
+            + (say("   [effect verified outside MCP]", es) if r.get("verified") else ""),
             f"{r['tool']}: {say(r['description'], es)}",
             f"{say('Arguments sent', es)}: {args}",
             "Result: " + body,
@@ -776,7 +969,7 @@ def main():
         print(f"could not reach the desktop: {exc}\nIs it running?  make up")
         return 1
 
-    s = Sweep(client, args.verbose)
+    s = Sweep(client, args.verbose, args.container)
     catalogue = [t["name"] for t in client.list_tools()]
     print(f"Sweeping {len(catalogue)} tools in container '{args.container}'")
 
