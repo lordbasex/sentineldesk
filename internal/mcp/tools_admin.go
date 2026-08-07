@@ -218,6 +218,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "install_packages",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Install Debian packages with apt (as root). Use it to add whatever the task needs — an editor, a compiler, a game, a driver. Returns the apt log and the version actually installed for each package.",
 			InputSchema: schema(map[string]any{
@@ -228,6 +229,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "remove_packages",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Uninstall Debian packages with apt (as root). purge=true also deletes their configuration.",
 			InputSchema: schema(map[string]any{
@@ -246,6 +248,7 @@ func (s *Server) buildRootTools() []toolDef {
 		},
 		{
 			Name:        "service_control",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Manage the desktop's own services through supervisor: X server, PulseAudio, the window manager, the accessibility bus, the WebRTC server. action: status (default), start, stop, restart. Omit `name` to act on everything. Restarting sentineldesk-server drops the live WebRTC session.",
 			InputSchema: schema(map[string]any{

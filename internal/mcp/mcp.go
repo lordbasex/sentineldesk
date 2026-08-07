@@ -286,6 +286,52 @@ func progressToken(params json.RawMessage) json.RawMessage {
 	return p.Meta.ProgressToken
 }
 
+// callProvenance is what the client says about WHY it is calling, pulled out of
+// the call's _meta.
+//
+// Namespaced, because none of it is in the specification, and optional, because
+// an external host will send none of it and must keep working. It exists for
+// the runtime: the server can see what was called and by which connection, and
+// it cannot see that seven calls across five connections were one job somebody
+// would describe in a sentence. Only the caller knows that, so the caller is
+// asked and the server keeps what it is told.
+//
+// Deliberately not trusted for anything but the log. A task id is a label on an
+// audit row, never an identity, never a capability — if it ever decides
+// something, a client can name another client's task and inherit it.
+type callProvenance struct {
+	Task string
+	Goal string
+}
+
+// maxGoalLen bounds what a client can write into every log line. A goal is a
+// sentence; anything longer is either a mistake or an attempt to use the audit
+// trail as storage.
+const maxGoalLen = 300
+
+func provenanceOf(params json.RawMessage) callProvenance {
+	var p struct {
+		Meta struct {
+			Task string `json:"sentineldesk/taskId"`
+			Goal string `json:"sentineldesk/goal"`
+		} `json:"_meta"`
+	}
+	if err := json.Unmarshal(params, &p); err != nil {
+		return callProvenance{}
+	}
+	out := callProvenance{
+		Task: strings.TrimSpace(p.Meta.Task),
+		Goal: strings.TrimSpace(p.Meta.Goal),
+	}
+	if len(out.Task) > 64 {
+		out.Task = out.Task[:64]
+	}
+	if len(out.Goal) > maxGoalLen {
+		out.Goal = out.Goal[:maxGoalLen] + "…"
+	}
+	return out
+}
+
 // --- connections ---------------------------------------------------------------
 
 // connection is what the server knows about one client on the socket.
@@ -474,7 +520,7 @@ func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *des
 		shells:    shell.NewShellManager(),
 		sshm:      shell.NewSSHManager(),
 		policy:    NewPolicy(),
-		actions:   NewActionLog(),
+		actions:   NewActionLog(cfg.ActionLog, cfg.ActionLogMaxMB),
 		discovery: discoveryEnabled(),
 	}
 	s.tools = s.buildTools()
@@ -749,10 +795,12 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	if len(params.Arguments) > 0 {
 		_ = json.Unmarshal(params.Arguments, &args)
 	}
+	prov := provenanceOf(req.Params)
 	entry := actionEntry{
 		Time: nowStamp(), Tool: params.Name, Args: summarizeArgs(args),
 		VideoAt: videoOffset(s.recorder),
 		Conn:    client.id, Client: client.clientName(),
+		Task: prov.Task, Goal: prov.Goal,
 	}
 
 	// One cancellable context per call, registered under this request's id so a
@@ -854,6 +902,7 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	}
 
 	entry.OK = !isErr
+	entry.Result = summarizeContent(content)
 	kind := denialKind("")
 	if isErr {
 		kind = denialToolError

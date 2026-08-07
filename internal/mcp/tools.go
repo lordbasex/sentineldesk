@@ -45,6 +45,29 @@ type toolDef struct {
 	// because the two plausible ones point in opposite directions.
 	Risk riskLevel `json:"-"`
 
+	// Visibility answers a question neither Risk nor RequiresControl can: will a
+	// person sharing this desktop SEE this happen?
+	//
+	// It is a third axis, not a rewording of the other two. RequiresControl
+	// looks like a proxy for it and is not — it means "injects events through
+	// XTEST", so browser_open, which puts a page on the screen everyone is
+	// watching, is ungated and therefore reads as invisible under that proxy.
+	//
+	// The case that forced it: run_command and terminal_run do the same job.
+	// One is invisible and ungated, the other visible and gated. Nothing said
+	// which was appropriate, so a model picked run_command every time — it is
+	// simpler and returns output more cleanly — and a person watching the
+	// desktop while an agent worked saw nothing at all. That is the right
+	// behaviour when nobody asked for evidence and the wrong one when they did,
+	// and it is not a judgement a model should be making per call. The runtime
+	// reads this field to substitute the visible tool when its role says so.
+	//
+	// Mandatory for anything that changes something, like Risk. A riskRead tool
+	// is visHidden by construction and does not declare it: something that
+	// observes and changes nothing cannot be seen changing anything, and saying
+	// otherwise is a startup error rather than a matter of taste.
+	Visibility visibility `json:"-"`
+
 	// RequiresControl marks the tools that must hold the room's controls before
 	// they run — the ones that put events into X, plus the two that publish the
 	// desktop outside the room.
@@ -54,6 +77,18 @@ type toolDef struct {
 	// It lives here for the other reason Risk does — so that a client can be
 	// told, rather than having to know. See registry.go.
 	RequiresControl bool `json:"-"`
+}
+
+// effectiveVisibility is what to publish: the declared value, or visHidden for
+// a read-only tool that correctly did not declare one.
+func (t toolDef) effectiveVisibility() visibility {
+	if t.Visibility != visUnset {
+		return t.Visibility
+	}
+	if t.Risk == riskRead {
+		return visHidden
+	}
+	return visUnset
 }
 
 // --- JSON Schema helpers -------------------------------------------------
@@ -85,6 +120,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:            "mouse_move",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Move the mouse pointer to absolute screen coordinates (x, y).",
@@ -92,6 +128,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:            "mouse_click",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Click a mouse button. Optionally move to (x, y) first. button: 1=left (default), 2=middle, 3=right. Set double=true for a double click.",
@@ -102,6 +139,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:            "type_text",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Type a string of text into the focused window (handles any character, including accents).",
@@ -109,6 +147,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:            "key_combo",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Press a key or key combination using X keysym names, e.g. 'Return', 'Escape', 'ctrl+c', 'alt+Tab', 'super+d', 'ctrl+shift+t'.",
@@ -116,6 +155,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "launch_app",
+			Visibility:  visVisible,
 			Risk:        riskDanger,
 			Description: "Launch a program on the desktop (runs detached, does not block). Pass the command line, e.g. 'firefox-esr', 'lxterminal', 'chromium https://example.com'. Set as_root:true for administration GUIs that need privileges (a file manager on /etc, gparted, synaptic).",
 			InputSchema: schema(map[string]any{
@@ -131,12 +171,14 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "activate_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Focus and raise a window by its id (from list_windows).",
 			InputSchema: schema(map[string]any{"id": pStr("window id, e.g. 0x02000007")}, "id"),
 		},
 		{
 			Name:        "run_command",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Run a shell command inside the desktop and return stdout, stderr and exit code. Full control of the container — use for diagnostics and automation. Set as_root:true to run it through passwordless sudo (edit /etc, manage services, install things).",
 			InputSchema: schema(map[string]any{
@@ -152,6 +194,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "start_recording",
+			Visibility:  visHidden,
 			Risk:        riskWrite,
 			Description: "Start recording the screen (and optionally audio) to a video file, in parallel with the live stream. container: mp4 (default, H.264+AAC), webm (VP8+Opus) or mkv. Returns the output path.",
 			InputSchema: schema(map[string]any{
@@ -164,6 +207,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "stop_recording",
+			Visibility:  visHidden,
 			Risk:        riskWrite,
 			Description: "Stop the current recording, finalize the file cleanly and return its path and size in bytes. destination overrides the one chosen at start: download hands the finished file to the browser of whoever is watching.",
 			InputSchema: schema(map[string]any{
@@ -190,6 +234,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 		{
 			Name:        "set_clipboard",
+			Visibility:  visHidden,
 			Risk:        riskWrite,
 			Description: "Write text to the desktop clipboard (so it can be pasted with Ctrl+V).",
 			InputSchema: schema(map[string]any{"text": pStr("text to place on the clipboard")}, "text"),

@@ -475,6 +475,8 @@ interface, set `NAT1TO1_IP=<public IP>` so ICE advertises the right address.
 | `AUTH_SECRET` | random | HMAC key for session tokens; pin it to survive restarts |
 | `AUTH_TTL_HOURS` | `12` | Session lifetime |
 | `FILES_ROOT` | `/home/sentineldesk` | What the file manager may reach |
+| `ACTION_LOG` | `/var/log/sentineldesk/actions.jsonl` | Where the agent's audit trail is appended, one JSON object per line. Deliberately outside `FILES_ROOT`, so it does not appear in the file manager people browse and tidy. Set it empty to keep only the in-memory ring, which is lost on restart |
+| `ACTION_LOG_MAX_MB` | `64` | Rotate the trail past this size, keeping one previous file. Bounds the disk at twice the value |
 | `WALLPAPER_ROTATE_SECS` | `300` | Wallpaper rotation interval; `0` disables it |
 | `WALLPAPER` | — | Pin one image and stop the rotation |
 | `TLS_SELFSIGNED` | `0` | `1` = HTTPS with a generated, persisted self-signed certificate |

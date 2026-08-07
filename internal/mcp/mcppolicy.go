@@ -229,44 +229,122 @@ type actionEntry struct {
 	// "the agent did this" useless in an audit once there is more than one.
 	Conn   uint64 `json:"conn,omitempty"`
 	Client string `json:"client,omitempty"`
+
+	// Task groups the calls a runtime considers one job, supplied by the client
+	// in _meta as "sentineldesk/taskId".
+	//
+	// Without it the trail is per-call, and per-call provenance is not a trail:
+	// a session that a person would describe as "install nginx and show me"
+	// appears here as seven unrelated rows across as many connections, because
+	// a bridge process is spawned per call. Only the runtime knows where a job
+	// starts and ends, so only the runtime can say — the server's part is to
+	// keep what it is told.
+	Task string `json:"task,omitempty"`
+
+	// Goal is what the runtime was trying to do, also from _meta. The server
+	// knows what was called; it cannot know why, and an audit missing the why
+	// is a list of commands rather than an account of a decision.
+	Goal string `json:"goal,omitempty"`
+
+	// Result is a bounded summary of what came back.
+	//
+	// Arguments alone answer "how did you install it" and not "what did it
+	// say", and for an audit the second is usually the more interesting half —
+	// it is where a warning that nobody acted on turns out to have been
+	// printed. Bounded because a screenshot's base64 or a directory listing
+	// would otherwise be the whole log.
+	Result string `json:"result,omitempty"`
 }
 
-// ActionLog keeps the most recent actions in memory and, on request, in a JSONL
+// ActionLog keeps the most recent actions in memory and appends them to a JSONL
 // file.
+//
+// Both, not either. The ring answers the action_log tool quickly and bounds
+// memory; the file is what makes the trail outlive the process. Persistence
+// used to be opt-in through a bare environment variable that was set nowhere,
+// so in practice every audit died at the next restart.
 type ActionLog struct {
 	mu      sync.Mutex
 	entries []actionEntry
 	max     int
 	file    *os.File
+	path    string
+	maxSize int64 // rotate past this; 0 disables rotation
+	size    int64
 }
 
-func NewActionLog() *ActionLog {
-	l := &ActionLog{max: 2000}
-	if path := os.Getenv("ACTION_LOG"); path != "" {
-		f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "mcp: could not open ACTION_LOG=%s: %v\n", path, err)
-		} else {
-			l.file = f
-		}
+// NewActionLog opens the trail at path, creating the file but not its parent.
+//
+// A path that cannot be written degrades to the in-memory ring with a line on
+// stderr, following the same rule as every other optional capability here: no
+// /dev/uinput disables the gamepad, no XFixes disables cursor tracking, and an
+// unwritable log disables persistence. Refusing to boot a desktop because its
+// audit file is in the wrong place would be the wrong trade.
+func NewActionLog(path string, maxMB int) *ActionLog {
+	l := &ActionLog{max: 2000, path: path}
+	if maxMB > 0 {
+		l.maxSize = int64(maxMB) * 1024 * 1024
 	}
+	if path == "" {
+		return l
+	}
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mcp: action log not persisted, %s: %v\n", path, err)
+		return l
+	}
+	if st, err := f.Stat(); err == nil {
+		l.size = st.Size()
+	}
+	l.file = f
 	return l
 }
 
 // Add records one call. videoAt is empty when no recording is running.
 func (l *ActionLog) Add(e actionEntry) {
+	b, err := json.Marshal(e)
+
 	l.mu.Lock()
 	l.entries = append(l.entries, e)
 	if len(l.entries) > l.max {
 		l.entries = l.entries[len(l.entries)-l.max:]
 	}
-	f := l.file
-	l.mu.Unlock()
-	if f != nil {
-		if b, err := json.Marshal(e); err == nil {
-			f.Write(append(b, '\n'))
-		}
+	// Written under the lock, unlike before. The unlocked write raced two calls
+	// on the same descriptor and could interleave halves of two JSON objects
+	// into one line — which is invisible until something tries to parse the
+	// file, i.e. exactly when the audit is being read.
+	if l.file != nil && err == nil {
+		n, _ := l.file.Write(append(b, '\n'))
+		l.size += int64(n)
+		l.rotateLocked()
 	}
+	l.mu.Unlock()
+}
+
+// rotateLocked moves the trail aside once it passes the size cap, keeping one
+// previous generation. The caller holds the lock.
+//
+// One generation rather than a numbered series: this bounds the disk at twice
+// the cap, which is the property that matters, and a desktop is not the place
+// for a log-rotation policy that somebody has to tune. Anything wanting long
+// retention should ship the file somewhere that does retention properly.
+func (l *ActionLog) rotateLocked() {
+	if l.maxSize <= 0 || l.size < l.maxSize || l.path == "" {
+		return
+	}
+	l.file.Close()
+	l.file = nil
+	l.size = 0
+	if err := os.Rename(l.path, l.path+".1"); err != nil {
+		fmt.Fprintf(os.Stderr, "mcp: could not rotate the action log: %v\n", err)
+		return
+	}
+	f, err := os.OpenFile(l.path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "mcp: action log stopped after rotation: %v\n", err)
+		return
+	}
+	l.file = f
 }
 
 // Tail returns the last n entries, optionally filtered by tool name.
@@ -312,6 +390,38 @@ func summarizeArgs(args map[string]any) string {
 	s := string(b)
 	if len(s) > 220 {
 		s = s[:220] + "…"
+	}
+	return s
+}
+
+// summarizeContent renders what a tool returned into one bounded line for the
+// audit trail.
+//
+// Bounded hard, and image data dropped rather than truncated: a screenshot is
+// forty kilobytes of base64 whose first two hundred characters say nothing at
+// all, so keeping a prefix of it would cost the same as keeping the text of
+// four real results and be worth nothing. What the audit wants from a
+// screenshot is that one was taken.
+func summarizeContent(content []map[string]any) string {
+	var parts []string
+	for _, c := range content {
+		switch c["type"] {
+		case "text":
+			if s, _ := c["text"].(string); s != "" {
+				parts = append(parts, s)
+			}
+		case "image":
+			mime, _ := c["mimeType"].(string)
+			if mime == "" {
+				mime = "image"
+			}
+			parts = append(parts, "["+mime+"]")
+		}
+	}
+	s := strings.Join(parts, " ")
+	s = strings.TrimSpace(strings.ReplaceAll(s, "\n", " "))
+	if len(s) > 400 {
+		s = s[:400] + "…"
 	}
 	return s
 }

@@ -62,6 +62,12 @@ chmod 700 "$RUNTIME_DIR"
 # refuses to start a program whose logfile it cannot create.
 mkdir -p /var/log/sentineldesk
 
+# The MCP action log is appended here by the daemon, which runs as the desktop
+# user, so the directory it writes into has to belong to that user. Everything
+# else in here is supervisord's, and supervisord runs as root — which is why
+# this went unnoticed until the audit trail needed to be durable.
+chown "$DESKTOP_USER:$DESKTOP_USER" /var/log/sentineldesk
+
 mkdir -p /tmp/.X11-unix
 chmod 1777 /tmp/.X11-unix
 

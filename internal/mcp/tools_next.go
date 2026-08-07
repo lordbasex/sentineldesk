@@ -54,6 +54,7 @@ func (s *Server) buildNextTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "set_resolution",
+			Visibility:  visVisible,
 			Risk:        riskDanger,
 			Description: "Change the desktop resolution WITHOUT restarting anything. Use a smaller one for vision tasks (screenshots above ~1280 wide lose detail when the model rescales them) and the full size for real work. It can only shrink below the size the X server reserved at boot; get_screen_info reports that maximum.",
 			InputSchema: schema(map[string]any{
@@ -73,6 +74,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "open_app_and_wait",
+			Visibility:  visVisible,
 			Risk:        riskDanger,
 			Description: "Launch a program, wait for its window to appear, focus it and wait for it to finish drawing — all in ONE call instead of launch_app + wait_for_window + activate_window + wait. Returns the window that appeared.",
 			InputSchema: schema(map[string]any{
@@ -84,6 +86,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:            "fill_form",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description: "Fill several fields of a dialog or form in one call, by the " +
@@ -122,6 +125,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_create",
+			Visibility:  visHidden,
 			Risk:        riskWrite,
 			Description: "Save a restore point of the desktop: the home directory plus the list of installed packages. Take one before anything risky — installing a driver, editing /etc, running an installer — so snapshot_restore can undo it.",
 			InputSchema: schema(map[string]any{
@@ -137,6 +141,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_restore",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Roll the home directory back to a restore point. Reports which packages were installed after the snapshot so you can remove them too. Does NOT touch files outside the home.",
 			InputSchema: schema(map[string]any{
@@ -145,6 +150,7 @@ func (s *Server) buildNextTools() []toolDef {
 		},
 		{
 			Name:        "snapshot_delete",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Delete a restore point.",
 			InputSchema: schema(map[string]any{"name": pStr("snapshot name")}, "name"),

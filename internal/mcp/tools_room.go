@@ -89,8 +89,9 @@ func (s *Server) roomTools() []toolDef {
 			InputSchema: schema(map[string]any{}),
 		},
 		{
-			Name: "request_control",
-			Risk: riskWrite,
+			Name:       "request_control",
+			Visibility: visVisible,
+			Risk:       riskWrite,
 			Description: "Ask the people watching for control of the desktop so you " +
 				"can move the mouse and type. THEY DECIDE: a prompt appears on their " +
 				"screen and this waits for the answer. No answer means no. With the " +
@@ -101,8 +102,9 @@ func (s *Server) roomTools() []toolDef {
 			}),
 		},
 		{
-			Name: "release_control",
-			Risk: riskWrite,
+			Name:       "release_control",
+			Visibility: visVisible,
+			Risk:       riskWrite,
 			Description: "Hand control back to the people watching. Do this when you " +
 				"finish a task, so a person does not have to take it from you.",
 			InputSchema: schema(map[string]any{}),

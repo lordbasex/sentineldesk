@@ -44,6 +44,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "move_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Move a window to absolute screen coordinates.",
 			InputSchema: schema(map[string]any{
@@ -52,6 +53,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "resize_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Resize a window to the given width and height in pixels.",
 			InputSchema: schema(map[string]any{
@@ -60,31 +62,36 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "close_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Close a window gracefully (like clicking its X button).",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "minimize_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Minimize (iconify) a window.",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "maximize_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Maximize a window (both directions).",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
 			Name:        "restore_window",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Un-maximize a window back to its previous size.",
 			InputSchema: schema(map[string]any{"id": pStr("window id")}, "id"),
 		},
 		{
-			Name: "fullscreen_window",
-			Risk: riskWrite,
+			Name:       "fullscreen_window",
+			Visibility: visVisible,
+			Risk:       riskWrite,
 			Description: "Put a window full screen, take it out, or toggle. " +
 				"action defaults to toggle, which is what this used to do and " +
 				"only that — say add or remove when you know which you want, " +
@@ -96,6 +103,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "set_window_desktop",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Move a window to another virtual desktop (workspace).",
 			InputSchema: schema(map[string]any{
@@ -119,6 +127,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "switch_desktop",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Switch to another virtual desktop (workspace) by number.",
 			InputSchema: schema(map[string]any{"desktop": pInt("desktop number, 0-based")}, "desktop"),
@@ -132,6 +141,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "kill_process",
+			Visibility:  visVisible,
 			Risk:        riskDanger,
 			Description: "Terminate a process by pid, or every process matching a name.",
 			InputSchema: schema(map[string]any{
@@ -169,6 +179,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- fine pointer control ----
 		{
 			Name:            "mouse_drag",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Drag with the mouse from one point to another (press, move, release).",
@@ -179,6 +190,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "mouse_scroll",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Scroll the mouse wheel. Positive dy scrolls down, negative up.",
@@ -194,6 +206,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "mouse_down",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Press and hold a mouse button (pair with mouse_up).",
@@ -201,6 +214,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "mouse_up",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Release a mouse button.",
@@ -259,6 +273,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- gamepad ----
 		{
 			Name:            "gamepad_button",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Press or release a virtual gamepad button. Index follows the W3C Gamepad API: 0=A 1=B 2=X 3=Y 4=LB 5=RB 6=LT 7=RT 8=Select 9=Start 10=L3 11=R3 12=Up 13=Down 14=Left 15=Right 16=Guide.",
@@ -268,6 +283,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "gamepad_tap",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Press and immediately release a gamepad button (a single 'tap', e.g. to confirm a menu).",
@@ -277,6 +293,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "gamepad_axis",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Move a virtual gamepad stick. axis: 0=left X, 1=left Y, 2=right X, 3=right Y. value between -1 and 1.",
@@ -286,6 +303,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "gamepad_state",
+			Visibility:      visHidden,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Set the full gamepad state at once: array of button values (0/1) and array of axis values (-1..1).",
@@ -306,6 +324,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "write_file",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Write (or create) a text file on the desktop filesystem. Set as_root:true to write outside the home directory (/etc, /usr/local/bin, a systemd or supervisor unit).",
 			InputSchema: schema(map[string]any{
@@ -331,6 +350,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:        "set_volume",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Set the desktop output volume (0-150 percent) and/or mute state.",
 			InputSchema: schema(map[string]any{
@@ -340,6 +360,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		// ---- re-streaming ----
 		{
 			Name:            "start_restream",
+			Visibility:      visVisible,
 			Risk:            riskDanger,
 			RequiresControl: true,
 			Description: "Also send the desktop to an external destination: rtmp:// or rtmps:// " +
@@ -361,6 +382,7 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		{
 			Name:            "stop_restream",
+			Visibility:      visVisible,
 			Risk:            riskDanger,
 			RequiresControl: true,
 			Description:     "Stop sending to an external destination.",

@@ -30,6 +30,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -1337,5 +1338,251 @@ func TestDeclaredListsWhatTheToolTakes(t *testing.T) {
 	names := idx.declared("wait")
 	if len(names) != 1 || names[0] != "ms" {
 		t.Fatalf("declared(wait) = %v, want [ms]", names)
+	}
+}
+
+// --- visibility -----------------------------------------------------------------
+//
+// The third axis, added for stage 2: will a person sharing the desktop see this
+// happen? These tests exist for the same reason the Risk ones do — the field is
+// only worth having if it cannot silently drift away from what the tools do.
+
+// TestEveryToolHasAVisibility is the catalogue-wide completeness check.
+// validateCatalogue enforces it at startup; this fails sooner and says more.
+func TestEveryToolHasAVisibility(t *testing.T) {
+	tools := (&Server{}).buildTools()
+	var missing []string
+	counts := map[string]int{}
+	for _, tool := range tools {
+		v := tool.effectiveVisibility()
+		if v == visUnset {
+			missing = append(missing, tool.Name)
+			continue
+		}
+		counts[v.String()]++
+	}
+	sort.Strings(missing)
+	if len(missing) > 0 {
+		t.Errorf("%d tool(s) that change something with no Visibility: %s",
+			len(missing), strings.Join(missing, ", "))
+	}
+	t.Logf("hidden %d · visible %d · injects %d",
+		counts["hidden"], counts["visible"], counts["injects"])
+}
+
+// TestInjectingToolsAreExactlyTheGatedOnes ties the new field to the old one.
+//
+// A tool that says it drives the desktop must hold the controls first, or it is
+// typing into somebody else's session. The reverse is deliberately not required:
+// start_restream and stop_restream are gated because they publish the desktop
+// outward, which is a different reason from driving it.
+func TestInjectingToolsAreExactlyTheGatedOnes(t *testing.T) {
+	for _, tool := range (&Server{}).buildTools() {
+		if tool.Visibility == visInjects && !tool.RequiresControl {
+			t.Errorf("%s injects input and is not gated by the room", tool.Name)
+		}
+	}
+}
+
+// TestReadOnlyToolsAreHidden. A tool that observes and changes nothing cannot be
+// seen changing something, so the two fields would be contradicting each other.
+func TestReadOnlyToolsAreHidden(t *testing.T) {
+	for _, tool := range (&Server{}).buildTools() {
+		if tool.Risk != riskRead {
+			continue
+		}
+		if got := tool.effectiveVisibility(); got != visHidden {
+			t.Errorf("%s is read-only and declares visibility %q", tool.Name, got)
+		}
+	}
+}
+
+// TestTheSubstitutionPairIsClassifiedApart is the whole point of the field, as a
+// test. run_command and terminal_run do the same job; the runtime substitutes
+// one for the other when its role calls for evidence, and it can only do that if
+// the catalogue distinguishes them.
+func TestTheSubstitutionPairIsClassifiedApart(t *testing.T) {
+	byName := map[string]toolDef{}
+	for _, tool := range (&Server{}).buildTools() {
+		byName[tool.Name] = tool
+	}
+	if got := byName["run_command"].effectiveVisibility(); got != visHidden {
+		t.Errorf("run_command is %q, want hidden — it is the invisible half of the pair", got)
+	}
+	if got := byName["terminal_run"].effectiveVisibility(); got != visInjects {
+		t.Errorf("terminal_run is %q, want injects — it types into a terminal people watch", got)
+	}
+}
+
+// TestVisibilityIsPublished. A client cannot work this out for itself, so a
+// field the server keeps to itself is a field the runtime has to duplicate — and
+// duplicating it is how the risk maps drifted in the first place.
+func TestVisibilityIsPublished(t *testing.T) {
+	c := newSession(t, testServer(t))
+	raw, _ := json.Marshal(c.call("tools/list", nil)["tools"])
+	var tools []struct {
+		Name        string `json:"name"`
+		Annotations struct {
+			Visibility string `json:"sentineldesk/visibility"`
+		} `json:"annotations"`
+	}
+	if err := json.Unmarshal(raw, &tools); err != nil {
+		t.Fatalf("%v", err)
+	}
+	valid := map[string]bool{"hidden": true, "visible": true, "injects": true}
+	for _, tool := range tools {
+		if !valid[tool.Annotations.Visibility] {
+			t.Errorf("%s published visibility %q", tool.Name, tool.Annotations.Visibility)
+		}
+	}
+}
+
+// TestValidateCatalogueRejectsAnUnclassifiedTool proves the startup guard, not
+// just the test above it. The guard is the thing that makes a missing
+// declaration a build failure rather than a default nobody chose — the failure
+// mode that cost forty-six tools their risk level.
+func TestValidateCatalogueRejectsAnUnclassifiedTool(t *testing.T) {
+	// Against the real catalogue plus one extra, because validateCatalogue also
+	// checks that no keyword vocabulary is stranded — a whole-catalogue
+	// question that a two-element slice cannot answer. Testing the real entry
+	// point is worth carrying the real catalogue.
+	base := (&Server{}).buildTools()
+	with := func(extra toolDef) []toolDef {
+		return append(append([]toolDef{}, base...), extra)
+	}
+
+	if err := validateCatalogue(with(
+		toolDef{Name: "a", Risk: riskWrite, Visibility: visHidden})); err != nil {
+		t.Fatalf("a correctly declared tool was rejected: %v", err)
+	}
+	for _, bad := range []struct {
+		why  string
+		tool toolDef
+		want string
+	}{
+		{"no visibility on a writing tool",
+			toolDef{Name: "b", Risk: riskWrite}, "Visibility"},
+		{"read-only claiming to be visible",
+			toolDef{Name: "c", Risk: riskRead, Visibility: visVisible}, "cannot be visible"},
+		{"injects without the room gate",
+			toolDef{Name: "d", Risk: riskWrite, Visibility: visInjects}, "somebody else's session"},
+	} {
+		err := validateCatalogue(with(bad.tool))
+		if err == nil {
+			t.Errorf("%s was accepted", bad.why)
+			continue
+		}
+		if !strings.Contains(err.Error(), bad.want) {
+			t.Errorf("%s: error does not mention %q: %v", bad.why, bad.want, err)
+		}
+	}
+
+	// And a read-only tool may say hidden out loud. Redundant, not wrong —
+	// refusing it would make the rule feel like a trap.
+	if err := validateCatalogue(with(
+		toolDef{Name: "e", Risk: riskRead, Visibility: visHidden})); err != nil {
+		t.Errorf("a read-only tool declaring visHidden was rejected: %v", err)
+	}
+}
+
+// --- provenance and the trail ---------------------------------------------------
+
+// TestTaskIdAndGoalReachTheLog. Per-call provenance is not a trail: without
+// these, a job a person would describe in one sentence appears as a scatter of
+// rows across as many connections as the client happened to open.
+func TestTaskIdAndGoalReachTheLog(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+
+	res := c.call("tools/call", map[string]any{
+		"name":      "wait",
+		"arguments": map[string]any{"ms": 1},
+		"_meta": map[string]any{
+			"sentineldesk/taskId": "task-42",
+			"sentineldesk/goal":   "prove the trail groups",
+		},
+	})
+	if isErr, _ := res["isError"].(bool); isErr {
+		t.Fatalf("wait failed: %v", res["content"])
+	}
+
+	entries := s.actions.Tail(10, "wait")
+	if len(entries) == 0 {
+		t.Fatal("the call is not in the log at all")
+	}
+	last := entries[len(entries)-1]
+	if last.Task != "task-42" {
+		t.Errorf("task is %q, want task-42", last.Task)
+	}
+	if last.Goal != "prove the trail groups" {
+		t.Errorf("goal is %q", last.Goal)
+	}
+}
+
+// TestProvenanceIsOptional. Every external host sends none of this, and they all
+// have to keep working — it is a namespaced extension, not a requirement.
+func TestProvenanceIsOptional(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+	res := c.call("tools/call", map[string]any{
+		"name": "wait", "arguments": map[string]any{"ms": 1}})
+	if isErr, _ := res["isError"].(bool); isErr {
+		t.Fatalf("a call with no _meta failed: %v", res["content"])
+	}
+	entries := s.actions.Tail(10, "wait")
+	if last := entries[len(entries)-1]; last.Task != "" || last.Goal != "" {
+		t.Errorf("provenance appeared from nowhere: task %q goal %q", last.Task, last.Goal)
+	}
+}
+
+// TestAGoalCannotBeUsedAsStorage. It is written into a line of every audit
+// record, so an unbounded one turns the trail into somebody's scratch space.
+func TestAGoalCannotBeUsedAsStorage(t *testing.T) {
+	s := testServer(t)
+	c := newSession(t, s)
+	c.call("tools/call", map[string]any{
+		"name": "wait", "arguments": map[string]any{"ms": 1},
+		"_meta": map[string]any{"sentineldesk/goal": strings.Repeat("x", 5000)},
+	})
+	entries := s.actions.Tail(10, "wait")
+	if got := len(entries[len(entries)-1].Goal); got > maxGoalLen+4 {
+		t.Errorf("a %d-character goal was stored whole", got)
+	}
+}
+
+// TestTheResultIsRecordedBesideTheArguments. Arguments answer "how did you do
+// it"; for an audit the more interesting half is usually "what did it say".
+func TestTheResultIsRecordedBesideTheArguments(t *testing.T) {
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("no shell available")
+	}
+	s := testServer(t)
+	c := newSession(t, s)
+	c.call("tools/call", map[string]any{
+		"name": "run_command",
+		"arguments": map[string]any{
+			"command": "echo audit-me-please", "timeout_ms": 10000},
+	})
+	entries := s.actions.Tail(10, "run_command")
+	if len(entries) == 0 {
+		t.Fatal("the command is not in the log")
+	}
+	if got := entries[len(entries)-1].Result; !strings.Contains(got, "audit-me-please") {
+		t.Errorf("the result is not in the trail: %q", got)
+	}
+}
+
+// TestAnImageIsNotedRatherThanStored. A screenshot is forty kilobytes of base64
+// whose first two hundred characters say nothing, so a prefix of it would cost
+// as much as four real results and be worth none of them.
+func TestAnImageIsNotedRatherThanStored(t *testing.T) {
+	got := summarizeContent([]map[string]any{
+		{"type": "image", "mimeType": "image/png", "data": strings.Repeat("A", 40000)},
+	})
+	if strings.Contains(got, "AAAA") {
+		t.Errorf("base64 leaked into the trail: %q", got)
+	}
+	if !strings.Contains(got, "image/png") {
+		t.Errorf("the trail does not record that an image came back: %q", got)
 	}
 }

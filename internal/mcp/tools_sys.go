@@ -30,6 +30,7 @@ func (s *Server) buildSysTools() []toolDef {
 		// ---------- terminal persistente ----------
 		{
 			Name:        "shell_open",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Open a PERSISTENT shell session on a real terminal (PTY). Unlike run_command, the session keeps its working directory, environment and history between calls, and can talk to interactive programs (vim, top, installers asking yes/no). Pass user:\"root\" for a root terminal — no password needed. Returns a session id.",
 			InputSchema: schema(map[string]any{
@@ -42,6 +43,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "shell_exec",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Run a command in a shell session and return its output. State persists: after `cd /etc` the next command runs there. Any Linux command works, pipes and redirection included.",
 			InputSchema: schema(map[string]any{
@@ -53,6 +55,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "shell_input",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Send raw keystrokes to a shell session WITHOUT a trailing newline — for answering a prompt, typing a password, or sending control characters (use \\u0003 for Ctrl+C, \\u001b for Escape). Read the result with shell_read.",
 			InputSchema: schema(map[string]any{
@@ -74,6 +77,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "shell_close",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Close a shell session and terminate its process.",
 			InputSchema: schema(map[string]any{"id": pStr("session id")}, "id"),
@@ -82,6 +86,7 @@ func (s *Server) buildSysTools() []toolDef {
 		// ---------- SSH ----------
 		{
 			Name:        "ssh_connect",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Open an SSH connection to a remote host, authenticating with a password or a private key (with optional passphrase). The connection stays open for the other ssh_* tools. Returns a session id.",
 			InputSchema: schema(map[string]any{
@@ -95,6 +100,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_exec",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Run a command on the remote host and return stdout, stderr and exit code.",
 			InputSchema: schema(map[string]any{
@@ -104,6 +110,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_upload",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Copy a local file to the remote host over SFTP.",
 			InputSchema: schema(map[string]any{
@@ -112,6 +119,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_download",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Copy a file from the remote host to the desktop over SFTP.",
 			InputSchema: schema(map[string]any{
@@ -128,6 +136,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_tunnel_local",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Local port forward (ssh -L): open a port HERE whose traffic comes out on the remote side. Use it to reach a service that only the remote host can see, e.g. its database on 127.0.0.1:5432.",
 			InputSchema: schema(map[string]any{
@@ -138,6 +147,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_tunnel_remote",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "REVERSE port forward (ssh -R): the server opens a port and everything arriving there is delivered to an address reachable from here. This is how you publish this desktop through a public jump host when it sits behind NAT. The server usually needs GatewayPorts enabled to listen on 0.0.0.0.",
 			InputSchema: schema(map[string]any{
@@ -154,6 +164,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_tunnel_close",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Close one tunnel by its id.",
 			InputSchema: schema(map[string]any{
@@ -168,12 +179,14 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_disconnect",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Close an SSH session and all of its tunnels.",
 			InputSchema: schema(map[string]any{"id": pStr("ssh session id")}, "id"),
 		},
 		{
 			Name:        "ssh_keygen",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Generate an SSH key pair on the desktop (ed25519 by default) and return the public key, ready to paste into a server's authorized_keys.",
 			InputSchema: schema(map[string]any{
@@ -184,6 +197,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "ssh_copy_id",
+			Visibility:  visHidden,
 			Risk:        riskDanger,
 			Description: "Install a public key into the remote user's authorized_keys over an existing session, so future connections can use the key instead of a password.",
 			InputSchema: schema(map[string]any{
@@ -201,6 +215,7 @@ func (s *Server) buildSysTools() []toolDef {
 		},
 		{
 			Name:        "window_set_state",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Change a window state via EWMH: above, below, sticky, shaded, fullscreen, maximized_vert, maximized_horz, skip_taskbar, skip_pager, hidden, modal, demands_attention.",
 			InputSchema: schema(map[string]any{

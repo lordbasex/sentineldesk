@@ -65,6 +65,28 @@ type Config struct {
 
 	// MaxViewers caps how many people can share one desktop at a time.
 	MaxViewers int
+
+	// ActionLog is where the MCP audit trail is appended, one JSON object per
+	// line.
+	//
+	// On by default, which is a change: the trail used to exist only in memory
+	// unless somebody set an environment variable that appeared in no compose
+	// file, no config struct and no table in the README. It answered "how did
+	// you install that" perfectly and lost the answer on the next restart —
+	// the wrong way round for something whose entire purpose is to still be
+	// there afterwards.
+	//
+	// Deliberately outside FILES_ROOT. An agent with run_command can reach it
+	// anyway, so this is not tamper-proofing; it is keeping the audit trail
+	// out of the file manager people browse and tidy up.
+	//
+	// ACTION_LOG= (empty) turns persistence off and keeps the in-memory ring.
+	ActionLog string
+
+	// ActionLogMaxMB rotates the trail once it passes this size, keeping one
+	// previous file. Without it a long-running desktop writes an unbounded
+	// file, which is how a durable audit trail becomes a full disk.
+	ActionLogMaxMB int
 }
 
 // Load reads the environment and fills in defaults.
@@ -105,6 +127,11 @@ func Load() Config {
 		TLSHosts:      Str("TLS_HOSTS", ""),
 		FilesRoot:     Str("FILES_ROOT", "/home/sentineldesk"),
 		MaxViewers:    Int("MAX_VIEWERS", 4),
+		// /var/log/sentineldesk is created and chowned to the desktop user by
+		// the entrypoint. A path the daemon cannot write degrades to the
+		// in-memory ring with a line on stderr, rather than refusing to start.
+		ActionLog:      Str("ACTION_LOG", "/var/log/sentineldesk/actions.jsonl"),
+		ActionLogMaxMB: Int("ACTION_LOG_MAX_MB", 64),
 	}
 	if urls := Str("CLIENT_TURN_URLS", ""); urls != "" {
 		for _, u := range strings.Split(urls, ",") {

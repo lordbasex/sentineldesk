@@ -65,6 +65,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:            "ui_click",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Invoke an element's action DIRECTLY by its ref (from ui_find/ui_tree) — presses the button, opens the menu, toggles the checkbox. The pointer never moves, so it cannot miss and it does not matter if the window is partly covered.",
@@ -75,6 +76,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:            "ui_set_text",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Write text straight into an editable field by ref, replacing its content. Unlike type_text this does not depend on which window has focus.",
@@ -90,6 +92,7 @@ func (s *Server) buildUITools() []toolDef {
 		},
 		{
 			Name:            "ui_focus",
+			Visibility:      visInjects,
 			Risk:            riskWrite,
 			RequiresControl: true,
 			Description:     "Give keyboard focus to an element by ref (then type_text goes where you want).",
@@ -219,6 +222,7 @@ func (s *Server) buildBrowserTools() []toolDef {
 	return []toolDef{
 		{
 			Name:        "browser_open",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Launch Chromium with the DevTools Protocol enabled (port 9222) so the other browser_* tools can drive the real DOM. Optionally opens a URL. If it is already running this just reports it.",
 			InputSchema: schema(map[string]any{"url": pStr("optional URL to open")}),
@@ -231,6 +235,7 @@ func (s *Server) buildBrowserTools() []toolDef {
 		},
 		{
 			Name:        "browser_goto",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Navigate the active tab to a URL and wait for the load to finish.",
 			InputSchema: schema(map[string]any{
@@ -239,18 +244,21 @@ func (s *Server) buildBrowserTools() []toolDef {
 		},
 		{
 			Name:        "browser_eval",
+			Visibility:  visVisible,
 			Risk:        riskDanger,
 			Description: "Run JavaScript in the page and return the result. The most powerful browser tool: you can read anything from the DOM without screenshots.",
 			InputSchema: schema(map[string]any{"expression": pStr("JavaScript expression")}, "expression"),
 		},
 		{
 			Name:        "browser_click",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Click an element in the page by CSS selector — exact, no coordinates involved.",
 			InputSchema: schema(map[string]any{"selector": pStr("CSS selector, e.g. '#login-btn' or 'button.primary'")}, "selector"),
 		},
 		{
 			Name:        "browser_type",
+			Visibility:  visVisible,
 			Risk:        riskWrite,
 			Description: "Type text into an input/textarea selected by CSS selector (fires the events a real page expects).",
 			InputSchema: schema(map[string]any{"selector": pStr("CSS selector"), "text": pStr("text")}, "selector", "text"),

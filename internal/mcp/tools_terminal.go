@@ -59,6 +59,7 @@ func (s *Server) terminalTools() []toolDef {
 	return []toolDef{
 		{
 			Name:            "terminal_run",
+			Visibility:      visInjects,
 			Risk:            riskDanger,
 			RequiresControl: true,
 			Description: "Type a command into a terminal window ON THE DESKTOP, wait " +
@@ -72,8 +73,9 @@ func (s *Server) terminalTools() []toolDef {
 			}, "command"),
 		},
 		{
-			Name: "terminal_open",
-			Risk: riskDanger,
+			Name:       "terminal_open",
+			Visibility: visVisible,
+			Risk:       riskDanger,
 			Description: "Open a terminal window on the desktop, visible to anyone " +
 				"watching. Every interactive shell here reports its exit status, so " +
 				"terminal_run can tell a silent failure from a success — and so can " +

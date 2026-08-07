@@ -88,6 +88,53 @@ func (r riskLevel) String() string {
 	return "unclassified"
 }
 
+// --- visibility ----------------------------------------------------------------
+
+// visibility is whether a person sharing the desktop sees a tool act.
+type visibility int
+
+const (
+	// visUnset is the zero value and, for a tool that changes anything, never
+	// a valid answer — same reasoning as riskUnset. The difference is that
+	// here there IS a correct default for one class of tool, and it is proved
+	// rather than assumed: see visHidden.
+	visUnset visibility = iota
+
+	// visHidden changes state and puts nothing on the screen. run_command,
+	// install_packages, write_file, the ssh_* and shell_* families.
+	//
+	// Every riskRead tool is also this, by construction rather than by
+	// declaration: a tool that changes nothing cannot be seen changing
+	// something.
+	visHidden
+
+	// visVisible changes what is on the screen without injecting input:
+	// launching an application, moving a window, driving the browser through
+	// DevTools. A person watching sees the result appear; they do not see it
+	// being done.
+	visVisible
+
+	// visInjects drives the desktop the way a person would — pointer, keyboard,
+	// gamepad, or text through the accessibility layer. A person watching sees
+	// the pointer move and the characters arrive. These are exactly the tools
+	// that must hold the room's controls first, and validateCatalogue enforces
+	// that: a tool claiming to inject without RequiresControl would be typing
+	// into somebody else's session.
+	visInjects
+)
+
+func (v visibility) String() string {
+	switch v {
+	case visHidden:
+		return "hidden"
+	case visVisible:
+		return "visible"
+	case visInjects:
+		return "injects"
+	}
+	return "unclassified"
+}
+
 // --- categories --------------------------------------------------------------
 
 // categoryRules maps a tool to a theme. The order matters: the first rule that
@@ -194,6 +241,14 @@ func (t toolDef) annotations() map[string]any {
 		// for control at the right moment has to carry its own copy of the
 		// list — which is the drift this whole file exists to end.
 		"sentineldesk/requiresControl": t.RequiresControl,
+
+		// Whether a person sharing the desktop sees this happen: hidden,
+		// visible or injects. Also not in the specification, and also not
+		// derivable by a client — requiresControl looks like the same question
+		// and is not. A runtime asked for a demonstration reads this to choose
+		// terminal_run over run_command; without it published, that choice can
+		// only be made by a table the client carries and the server contradicts.
+		"sentineldesk/visibility": t.effectiveVisibility().String(),
 	}
 }
 
@@ -221,9 +276,25 @@ func validateCatalogue(tools []toolDef) error {
 	var unclassified []string
 	seen := map[string]bool{}
 	var dupes []string
+	var unseen, readNotHidden, injectsUngated []string
 	for _, t := range tools {
 		if t.Risk == riskUnset {
 			unclassified = append(unclassified, t.Name)
+		}
+		switch {
+		case t.Risk == riskRead:
+			// Hidden by construction, so declaring anything else is a
+			// contradiction rather than a preference. Declaring visHidden
+			// explicitly is allowed and redundant; declaring visible or
+			// injects means one of the two fields is wrong.
+			if t.Visibility != visUnset && t.Visibility != visHidden {
+				readNotHidden = append(readNotHidden, t.Name)
+			}
+		case t.Visibility == visUnset:
+			unseen = append(unseen, t.Name)
+		}
+		if t.Visibility == visInjects && !t.RequiresControl {
+			injectsUngated = append(injectsUngated, t.Name)
 		}
 		if seen[t.Name] {
 			dupes = append(dupes, t.Name)
@@ -240,6 +311,27 @@ func validateCatalogue(tools []toolDef) error {
 	if len(dupes) > 0 {
 		sort.Strings(dupes)
 		problems = append(problems, "duplicate tool name(s): "+strings.Join(dupes, ", "))
+	}
+	if len(unseen) > 0 {
+		sort.Strings(unseen)
+		problems = append(problems, fmt.Sprintf(
+			"%d tool(s) that change something with no Visibility: %s — "+
+				"add visHidden, visVisible or visInjects to the toolDef",
+			len(unseen), strings.Join(unseen, ", ")))
+	}
+	if len(readNotHidden) > 0 {
+		sort.Strings(readNotHidden)
+		problems = append(problems, fmt.Sprintf(
+			"read-only tool(s) declaring they can be seen: %s — a tool that "+
+				"changes nothing cannot be visible; one of Risk or Visibility is wrong",
+			strings.Join(readNotHidden, ", ")))
+	}
+	if len(injectsUngated) > 0 {
+		sort.Strings(injectsUngated)
+		problems = append(problems, fmt.Sprintf(
+			"tool(s) that inject input without RequiresControl: %s — "+
+				"they would be typing into somebody else's session",
+			strings.Join(injectsUngated, ", ")))
 	}
 	// A renamed tool must not leave its search vocabulary behind. The stranded
 	// entry would never match anything and nothing would ever say so — the tool
