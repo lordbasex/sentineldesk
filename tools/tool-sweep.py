@@ -15,6 +15,13 @@ Destructive tools are run against things the sweep created, never against
 anything it found. Where that is impossible the tool is skipped with the reason
 written down, not quietly passed.
 
+For the ssh_* tools it will use a second host if one is running — start it with
+`make ssh-peer` — and fall back to connecting to 127.0.0.1 otherwise, saying in
+the report which it did. The distinction is not cosmetic: a loopback session
+cannot show that a file crossed a machine boundary, and it was a run against a
+real peer that caught ssh_tunnel_local returning a tunnel id for a forward the
+server had already refused.
+
 Usage:
     ./tool-sweep.py                       # run it and write docs/tool-sweep.md
     ./tool-sweep.py --out report.md
@@ -71,6 +78,24 @@ class Sweep:
         self.covered = set()
         self.seq = 0          # every call is numbered, in the order it happened
 
+        # A second host, if tools/ssh-peer.sh has started one. Optional on
+        # purpose: the sweep is meant to run anywhere after make up, so it falls
+        # back to connecting to itself and says which it did rather than
+        # requiring a peer nobody asked for.
+        self.peer_name = os.environ.get("SSH_PEER_NAME", "sentineldesk-ssh-peer")
+        self.peer = self._find_peer()
+
+    def _find_peer(self):
+        try:
+            out = subprocess.run(
+                ["docker", "inspect", self.peer_name, "--format",
+                 "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}"],
+                capture_output=True, text=True, timeout=10)
+            ip = out.stdout.strip()
+            return ip or None
+        except Exception:                              # noqa: BLE001
+            return None
+
     # --- running one tool ----------------------------------------------------
 
     # --- verifying from outside the MCP path ---------------------------------
@@ -94,6 +119,31 @@ class Sweep:
             return out.stdout.strip()
         except Exception as exc:                       # noqa: BLE001
             return f"__ERROR__ {exc}"
+
+    def peer_sh(self, cmd, timeout=20):
+        """Run a command on the SSH peer, if one is up.
+
+        The peer is the far side of the connection under test, so reading it is
+        the only way to establish that anything crossed. Without it the sweep
+        connects to 127.0.0.1 and can prove that ssh_upload wrote a file — but
+        not that the file went anywhere.
+        """
+        if not self.peer:
+            return "__NOPEER__"
+        try:
+            out = subprocess.run(["docker", "exec", self.peer_name, "sh", "-c", cmd],
+                                 capture_output=True, text=True, timeout=timeout)
+            return out.stdout.strip()
+        except Exception as exc:                       # noqa: BLE001
+            return f"__ERROR__ {exc}"
+
+    def peer_file_is(self, path, want):
+        got = self.peer_sh(f"cat {shlex.quote(path)} 2>/dev/null")
+        if got == "__NOPEER__":
+            return None      # nothing to check against; not a failure
+        if want not in got:
+            return f"{path} on the peer does not contain {want!r} (got {got[:60]!r})"
+        return None
 
     def sh_user(self, cmd, timeout=20):
         """Same door, but as the desktop's user.
@@ -751,28 +801,49 @@ def phase_ssh(s, ready):
         m = re.search(r'"id"\s*:\s*"([^"]+)"', out)
         if m:
             s.state["ssh"] = m.group(1)
-    s.run("ssh_connect", "Open an SSH session to a host",
-          {"host": "127.0.0.1", "user": "sentineldesk",
-           "key_path": "/home/sentineldesk/.ssh/sweep"},
-          capture=grab, timeout=60, tolerate="")
+    # A real second host when one is up, the desktop itself otherwise. The
+    # difference is not cosmetic: connecting to 127.0.0.1 cannot show that
+    # anything crossed a machine boundary, so every check below that reads the
+    # far side is only meaningful against the peer.
+    if s.peer:
+        target = {"host": s.peer, "user": "peer", "password": "peerpass"}
+        where = f"a second host at {s.peer}"
+    else:
+        target = {"host": "127.0.0.1", "user": "sentineldesk",
+                  "key_path": "/home/sentineldesk/.ssh/sweep"}
+        where = "the desktop itself — start tools/ssh-peer.sh for a real remote host"
+    s.run("ssh_connect", f"Open an SSH session to {where}",
+          target, capture=grab, timeout=60, tolerate="")
     sid = s.state.get("ssh")
     if not sid:
         for n, d in names[1:]:
             s.skip(n, d, "the SSH session did not open")
         return
 
+    # Leave a mark on the far side and read it from there. The command's own
+    # stdout coming back only shows the channel works; the file shows WHERE it
+    # ran, which against a peer is a different machine.
     s.run("ssh_exec", "Run a command on the remote host",
-          {"id": sid, "command": "echo sweep-ssh-ok", "timeout_sec": 20}, timeout=40)
+          {"id": sid, "command": "echo sweep-ssh-ok > /tmp/sweep-ssh.txt; hostname",
+           "timeout_sec": 20}, timeout=40,
+          expect=lambda out: s.peer_file_is("/tmp/sweep-ssh.txt", "sweep-ssh-ok"))
     s.run("ssh_upload", "Send a file over SFTP",
-          {"id": sid, "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}, timeout=40)
+          {"id": sid, "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}, timeout=40,
+          expect=lambda out: s.peer_file_is("/tmp/sweep-up.txt", "sentineldesk sweep"))
     s.run("ssh_download", "Fetch a file over SFTP",
           {"id": sid, "remote": "/tmp/sweep-up.txt", "local": "/tmp/sweep-down.txt"},
-          timeout=40)
+          timeout=40,
+          expect=lambda out: s.file_is("/tmp/sweep-down.txt", "sentineldesk sweep"))
     s.run("ssh_list_remote", "List a directory on the remote host",
           {"id": sid, "path": "/tmp"}, timeout=40)
+    # Point it at the peer's own sshd, which is certain to be listening, and
+    # check the port is open here. Against 127.0.0.1:8080 there was nothing on
+    # the far side to reach, so the forward could be dead and look fine.
     s.run("ssh_tunnel_local", "Forward a local port to the remote side",
-          {"id": sid, "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"},
-          timeout=40)
+          {"id": sid, "local_addr": "127.0.0.1:18080",
+           "remote_addr": "127.0.0.1:22" if s.peer else "127.0.0.1:8080"},
+          timeout=40,
+          expect=lambda out: s.port_listening(18080))
     tunnels = s.run("ssh_tunnels", "The tunnels open on this session", {"id": sid})
     tid = None
     if tunnels:

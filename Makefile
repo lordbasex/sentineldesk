@@ -89,7 +89,7 @@ VERSION_ARGS := --build-arg VERSION=$(next_version) \
                 --build-arg BUILD_DATE=$(build_date)
 
 .PHONY: build image image-lite image-full up down logs shell test fmt vet help \
-        _version version release-binaries checksums push release
+        _version version release-binaries checksums push release ssh-peer ssh-peer-down
 
 # _version persists version.txt and prints the version. One target, so make
 # runs it once even when several builds depend on it.
@@ -143,6 +143,22 @@ logs:
 ## shell: a root shell inside the running desktop
 shell:
 	$(DOCKER) exec -it -u root sentineldesk bash
+
+## ssh-peer: a second host on the desktop's network, for testing the ssh_* tools
+#
+# The sweep can start sshd inside the desktop and connect to 127.0.0.1, which
+# runs the code without proving much: a loopback session cannot show that a file
+# crossed a machine boundary, and a tunnel to your own host forwards to where you
+# already are. Against a real peer ssh_exec returns the OTHER hostname and a
+# local forward hands back the peer's own banner — and it was that difference
+# which exposed a tunnel reporting success for a forward the server had refused.
+ssh-peer:
+	@tools/ssh-peer.sh up
+	@tools/ssh-peer.sh forward
+
+## ssh-peer-down: remove it
+ssh-peer-down:
+	@tools/ssh-peer.sh down
 
 ## release-binaries: Linux amd64 + arm64 binaries into dist/, named with the version
 #
