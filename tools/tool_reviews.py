@@ -83,27 +83,44 @@ review(
 )
 review(
     "read_screen_text",
-    "Captured at 2x and ran tesseract over it. The upscale is what makes OCR "
-    "usable on 11px UI type at all.",
-    2,
-    "The output in this very run shows the problem: 'SAVRANaAAAA SS', 'oO xXx', "
-    "a button read as 'Go' only because it happened to be large. OCR is the "
-    "wrong instrument for a desktop — it is trained on documents and a desktop "
-    "is icons and gradients. It earns its 2 because it is the only thing that "
-    "works on an application with no accessibility support at all. To be "
-    "excellent it should try the AT-SPI tree first and fall back to OCR, "
-    "reporting which one answered so the caller knows how much to trust it.",
+    "Read the screen from the accessibility tree where an application exposes "
+    "one, fell back to OCR where none does, and said which answered.",
+    4,
+    "OCR is now the fallback rather than the method, which is the whole "
+    "difference. On the same screen the tree returned every label exactly — "
+    "Minimize, Restore, Tab search, Bookmark this tab, Save changes — while "
+    "tesseract returned 'mel OF Se @ vread.htm!- chromium', 'GC QQ Q@File', "
+    "lost a dash out of --no-sandbox and missed the button entirely. A caller "
+    "cannot tell a misreading from a reading, so the reply now carries which "
+    "source produced it and OCR carries a warning that it is a guess. Runs of "
+    "the object replacement character are dropped as well: a toolbar of icons "
+    "was arriving as a line of them, several times per window, costing tokens "
+    "and carrying nothing. What is still missing is scope — it returns "
+    "everything showing, including the whole browser chrome, with no way to ask "
+    "for the focused window alone, and no spatial grouping, so a two-column "
+    "layout reads as one interleaved column.",
 )
 review(
     "find_text",
-    "OCR with word boxes, mapping a string back to screen coordinates a click "
-    "can use.",
-    2,
-    "Inherits every weakness of read_screen_text and adds one: a misread "
-    "character means coordinates for the wrong thing, and the caller cannot "
-    "tell. It should return tesseract's per-word confidence, and prefer an "
-    "AT-SPI match when the text exists in the tree — where it does, the answer "
-    "is exact rather than probable.",
+    "Located text and returned screen coordinates: exact ones from the "
+    "accessibility tree where it can, and OCR word boxes with a confidence "
+    "where it cannot.",
+    4,
+    "Two separate faults, and the quieter one was worse. tesseract's TSV is one "
+    "row per word, and the needle was tested against each row on its own, so a "
+    "search containing a space could never match anything — 'Save changes' and "
+    "'Quarterly Report' both came back 'no match on screen' while plainly "
+    "rendered, which reads as the text being absent rather than as the tool "
+    "only being able to look for one word at a time. Lines are reassembled from "
+    "their words now, and a phrase's box is the union of the words it spans "
+    "with the weakest word's confidence, because a phrase is only as "
+    "trustworthy as its least certain part. The other fault was the source: "
+    "these coordinates go straight into a click, and one misread character "
+    "produced a confident box around the wrong thing. The tree is asked first, "
+    "where the position is the application's own and marked exact. Left "
+    "undone: nothing checks that the point is reachable, so a match under a "
+    "dialog is returned as freely as one in the open — the check browser_click "
+    "now makes for a page.",
 )
 review(
     "get_mouse_position",

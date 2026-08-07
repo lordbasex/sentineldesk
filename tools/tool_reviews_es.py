@@ -65,25 +65,43 @@ review(
 )
 review(
     "read_screen_text",
-    "Capturó a 2x y le pasó tesseract. Ese escalado es lo único que hace el OCR "
-    "usable sobre tipografía de interfaz de 11px.",
-    "La salida de esta misma corrida muestra el problema: 'SAVRANaAAAA SS', 'oO "
-    "xXx', un botón leído como 'Go' sólo porque era grande. El OCR es el "
-    "instrumento equivocado para un escritorio — está entrenado en documentos y "
-    "un escritorio son íconos y degradados. Se gana el 2 porque es lo único que "
-    "funciona sobre una aplicación sin ningún soporte de accesibilidad. Para ser "
-    "excelente debería intentar primero el árbol AT-SPI y caer al OCR, diciendo "
-    "cuál de los dos contestó para que quien llama sepa cuánto confiar.",
+    "Leyó la pantalla desde el árbol de accesibilidad donde la aplicación "
+    "expone uno, cayó al OCR donde no lo hay, y dijo cuál contestó.",
+    "El OCR ahora es el respaldo y no el método, que es toda la diferencia. "
+    "Sobre la misma pantalla el árbol devolvió cada etiqueta exacta — "
+    "Minimize, Restore, Tab search, Bookmark this tab, Save changes — mientras "
+    "tesseract devolvía 'mel OF Se @ vread.htm!- chromium', 'GC QQ Q@File', "
+    "perdía un guion de --no-sandbox y no encontraba el botón. Quien llama no "
+    "puede distinguir una mala lectura de una lectura, así que la respuesta "
+    "ahora dice de qué fuente salió y el OCR avisa que es una conjetura. "
+    "También se descartan las rachas del carácter de reemplazo de objeto: una "
+    "barra de íconos llegaba como una línea de ellos, varias veces por "
+    "ventana, gastando tokens sin aportar nada. Lo que falta es alcance — "
+    "devuelve todo lo visible, incluido el cromo entero del navegador, sin "
+    "forma de pedir sólo la ventana enfocada, y sin agrupación espacial, así "
+    "que un diseño a dos columnas se lee como una sola intercalada.",
 )
 review(
     "find_text",
-    "OCR con cajas por palabra, mapeando un texto de vuelta a coordenadas de "
-    "pantalla que sirven para un clic.",
-    "Hereda todas las debilidades de read_screen_text y suma una: un carácter "
-    "mal leído da coordenadas de otra cosa, y quien llama no puede notarlo. "
-    "Debería devolver la confianza por palabra de tesseract, y preferir una "
-    "coincidencia AT-SPI cuando el texto exista en el árbol — ahí la respuesta "
-    "es exacta en vez de probable.",
+    "Ubicó texto y devolvió coordenadas de pantalla: exactas desde el árbol de "
+    "accesibilidad cuando puede, y cajas de palabra del OCR con confianza "
+    "cuando no.",
+    "Dos fallas distintas, y la más silenciosa era la peor. El TSV de tesseract "
+    "es una fila por palabra, y la búsqueda se probaba contra cada fila por "
+    "separado, así que un texto con un espacio no podía coincidir nunca — "
+    "'Save changes' y 'Quarterly Report' devolvían 'no match on screen' "
+    "estando claramente dibujados, lo que se lee como que el texto no está y "
+    "no como que la herramienta sólo sabe buscar de a una palabra. Ahora las "
+    "líneas se rearman desde sus palabras, y la caja de una frase es la unión "
+    "de las palabras que abarca con la confianza de la más débil, porque una "
+    "frase vale lo que su parte menos segura. La otra falla era la fuente: "
+    "estas coordenadas van directo a un click, y un carácter mal leído "
+    "producía una caja confiada alrededor de otra cosa. Ahora se pregunta "
+    "primero al árbol, donde la posición es la que declara la aplicación y "
+    "viene marcada como exacta. Queda pendiente: nada verifica que el punto "
+    "sea alcanzable, así que una coincidencia debajo de un diálogo se devuelve "
+    "igual que una a la vista — la comprobación que browser_click ya hace para "
+    "una página.",
 )
 review(
     "get_mouse_position",

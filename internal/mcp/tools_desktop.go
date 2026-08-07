@@ -25,6 +25,7 @@ import (
 	"github.com/lordbasex/sentineldesk/internal/media"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -211,22 +212,31 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		// ---- OCR ----
 		{
-			Name:        "read_screen_text",
-			Risk:        riskRead,
-			Description: "OCR the screen (or a region) and return the text found. Use it to read what is on screen without sending an image.",
+			Name: "read_screen_text",
+			Risk: riskRead,
+			Description: "Read the text on screen (or in a region) without sending an image. " +
+				"Takes it from the accessibility tree where the application exposes one and " +
+				"falls back to OCR where it does not; the reply says which, because OCR is a " +
+				"guess and the tree is not.",
 			InputSchema: schema(map[string]any{
 				"x": pInt("optional region left"), "y": pInt("optional region top"),
 				"width": pInt("optional region width"), "height": pInt("optional region height"),
-				"lang": pStr("tesseract language, default eng"),
+				"lang":   pStr("tesseract language, default eng — OCR only"),
+				"source": pStr("auto (default) | accessibility | ocr"),
 			}),
 		},
 		{
-			Name:        "find_text",
-			Risk:        riskRead,
-			Description: "OCR the screen and return the screen coordinates of every occurrence of the given text, so you can click on it.",
+			Name: "find_text",
+			Risk: riskRead,
+			Description: "Find text on screen and return its coordinates, so you can click on it. " +
+				"Prefers the accessibility tree, where the position is exact, and falls back to " +
+				"OCR with a per-word confidence. The reply says which answered.",
 			InputSchema: schema(map[string]any{
 				"text": pStr("text to look for (case-insensitive)"),
-				"lang": pStr("tesseract language, default eng"),
+				"x":    pInt("optional region left"), "y": pInt("optional region top"),
+				"width": pInt("optional region width"), "height": pInt("optional region height"),
+				"lang":   pStr("tesseract language, default eng — OCR only"),
+				"source": pStr("auto (default) | accessibility | ocr"),
 			}, "text"),
 		},
 		// ---- gamepad ----
@@ -879,12 +889,265 @@ func (s *Server) ocrImage(args map[string]any, mode string) (string, error) {
 	return string(out), nil
 }
 
+// cleanA11yText strips what the accessibility tree contributes but nobody can
+// read, and returns "" for anything that was only that.
+//
+// An image inside a run of text appears as U+FFFC, the object replacement
+// character. A toolbar of icons therefore comes back as a line of them, and a
+// browser window produces a dozen such lines — pure cost to a model reading the
+// screen, carrying not one bit about what is there. The same goes for the zero
+// width characters layout code leaves behind.
+func cleanA11yText(s string) string {
+	// Written as escapes rather than as themselves: the last of them is U+FEFF,
+	// which a Go source file beginning with it would be read as a byte order
+	// mark, and none of the others can be seen in a diff anyway.
+	s = strings.Map(func(r rune) rune {
+		switch r {
+		case '\uFFFC', // object replacement: an image or widget inside text
+			'\u200B', '\u200C', '\u200D', // zero-width space, non-joiner, joiner
+			'\uFEFF': // zero-width no-break space
+			return -1
+		}
+		return r
+	}, s)
+	return strings.TrimSpace(s)
+}
+
+// ocrWord is one row of tesseract's TSV: a word and the box it occupies.
+type ocrWord struct {
+	text                     string
+	left, top, width, height int
+	conf                     float64
+}
+
+// ocrLineMatches finds a phrase in tesseract's word-level output.
+//
+// The TSV numbers every word with the block, paragraph and line it belongs to,
+// which is enough to put the line back together. Searching the reassembled line
+// is what makes a phrase findable at all; mapping the match position back onto
+// the words it covers is what keeps the coordinates usable, since a caller
+// wants to click the phrase and not its first word.
+//
+// Coordinates come back in screen space: the capture was at 2x and may have
+// been of a sub-region, so every box is halved and then shifted by the region's
+// origin. Getting that wrong sends a click to the wrong part of the screen,
+// which is worse than not finding the text.
+func ocrLineMatches(tsv, needle string, offX, offY int) []map[string]any {
+	type lineKey struct{ block, par, line string }
+	var order []lineKey
+	words := map[lineKey][]ocrWord{}
+
+	for i, row := range strings.Split(tsv, "\n") {
+		if i == 0 {
+			continue // the TSV header
+		}
+		f := strings.Split(row, "\t")
+		if len(f) < 12 {
+			continue
+		}
+		text := strings.TrimSpace(f[11])
+		if text == "" {
+			continue
+		}
+		k := lineKey{f[2], f[3], f[4]}
+		if _, seen := words[k]; !seen {
+			order = append(order, k)
+		}
+		left, _ := strconv.Atoi(f[6])
+		top, _ := strconv.Atoi(f[7])
+		width, _ := strconv.Atoi(f[8])
+		height, _ := strconv.Atoi(f[9])
+		conf, _ := strconv.ParseFloat(f[10], 64)
+		words[k] = append(words[k], ocrWord{text, left, top, width, height, conf})
+	}
+
+	var hits []map[string]any
+	for _, k := range order {
+		ws := words[k]
+		// Rebuild the line, remembering where each word starts so a match
+		// position can be traced back to the words underneath it.
+		var sb strings.Builder
+		starts := make([]int, len(ws))
+		for i, w := range ws {
+			if i > 0 {
+				sb.WriteByte(' ')
+			}
+			starts[i] = sb.Len()
+			sb.WriteString(w.text)
+		}
+		line := sb.String()
+		lower := strings.ToLower(line)
+
+		from := 0
+		for {
+			at := strings.Index(lower[from:], needle)
+			if at < 0 {
+				break
+			}
+			start := from + at
+			end := start + len(needle)
+			from = start + 1 // overlapping occurrences still count
+
+			// Union of every word the match touches.
+			x0, y0 := 1<<31-1, 1<<31-1
+			x1, y1 := 0, 0
+			minConf := 100.0
+			touched := false
+			for i, w := range ws {
+				wStart, wEnd := starts[i], starts[i]+len(w.text)
+				if wEnd <= start || wStart >= end {
+					continue
+				}
+				touched = true
+				x0, y0 = min(x0, w.left), min(y0, w.top)
+				x1, y1 = max(x1, w.left+w.width), max(y1, w.top+w.height)
+				// The weakest word governs: a phrase is only as trustworthy as
+				// its least certain part, and averaging would hide the one
+				// character that sends a click somewhere else.
+				if w.conf < minConf {
+					minConf = w.conf
+				}
+			}
+			if !touched {
+				continue
+			}
+			x, y := offX+x0/2, offY+y0/2
+			w, h := (x1-x0)/2, (y1-y0)/2
+			hits = append(hits, map[string]any{
+				"text": strings.TrimSpace(line[start:end]),
+				"line": line,
+				"x":    x, "y": y, "width": w, "height": h,
+				"center_x": x + w/2, "center_y": y + h/2,
+				"confidence": minConf,
+			})
+		}
+	}
+	return hits
+}
+
+// a11yElement is the part of the accessibility bridge's output these two tools
+// need: what an element says, and where it is.
+type a11yElement struct {
+	Role   string   `json:"role"`
+	Name   string   `json:"name"`
+	Text   string   `json:"text"`
+	X      int      `json:"x"`
+	Y      int      `json:"y"`
+	Width  int      `json:"width"`
+	Height int      `json:"height"`
+	State  []string `json:"state"`
+}
+
+func (e a11yElement) showing() bool {
+	for _, st := range e.State {
+		if st == "showing" {
+			return true
+		}
+	}
+	return false
+}
+
+// within reports whether the element overlaps the requested region. A zero
+// width or height means the whole screen, which is how both tools already treat
+// an absent region.
+func (e a11yElement) within(x, y, w, h int) bool {
+	if w <= 0 || h <= 0 {
+		return true
+	}
+	return e.X < x+w && e.X+e.Width > x && e.Y < y+h && e.Y+e.Height > y
+}
+
+// screenElements reads the accessibility tree and returns what is on screen.
+//
+// This is the source read_screen_text and find_text should have been asking
+// first. Where an application exposes its interface, the tree gives the text
+// exactly as the program wrote it, with the real position of every string —
+// against OCR, which reads pixels of anti-aliased 11px type and returns its
+// best guess with a box around it.
+func (s *Server) screenElements() ([]a11yElement, error) {
+	out, err := s.a11yRaw("tree", "--limit", "4000", "--depth", "14")
+	if err != nil {
+		return nil, err
+	}
+	var parsed struct {
+		Elements []a11yElement `json:"elements"`
+		Error    string        `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		return nil, fmt.Errorf("accessibility tree: %w", err)
+	}
+	if parsed.Error != "" {
+		return nil, fmt.Errorf("%s", parsed.Error)
+	}
+	return parsed.Elements, nil
+}
+
+// toolReadScreenText reads what is on screen, preferring structure to pixels.
+//
+// OCR is the fallback rather than the method. It earns its place — it is the
+// only thing that works on an application exposing no accessibility at all —
+// but it is guessing, and the earlier sweeps show what that looks like:
+// "SAVRANaAAAA SS", a whole desktop returned as "H ee ee we P| = ~ be ~ po".
+// A caller cannot tell a misread from a reading, which is why the answer now
+// says where it came from.
 func (s *Server) toolReadScreenText(args map[string]any) ([]map[string]any, bool) {
+	source := strings.ToLower(argStr(args, "source"))
+	x, y := argInt(args, "x"), argInt(args, "y")
+	w, h := argInt(args, "width"), argInt(args, "height")
+
+	if source != "ocr" {
+		els, err := s.screenElements()
+		if err == nil {
+			// Reading order rather than tree order: a caller is looking at a
+			// screen, and the tree's idea of sequence is the application's.
+			var visible []a11yElement
+			for _, e := range els {
+				if e.showing() && e.within(x, y, w, h) {
+					visible = append(visible, e)
+				}
+			}
+			sort.SliceStable(visible, func(i, j int) bool {
+				if visible[i].Y != visible[j].Y {
+					return visible[i].Y < visible[j].Y
+				}
+				return visible[i].X < visible[j].X
+			})
+
+			var lines []string
+			seen := map[string]bool{}
+			for _, e := range visible {
+				for _, str := range []string{e.Text, e.Name} {
+					str = cleanA11yText(str)
+					// A label and its own accessible name are usually the same
+					// string, and every container repeats its children's, so
+					// without this the output is mostly echoes.
+					if str == "" || seen[str] {
+						continue
+					}
+					seen[str] = true
+					lines = append(lines, str)
+				}
+			}
+			if len(lines) > 0 {
+				return jsonContent(map[string]any{
+					"via": "accessibility", "text": strings.Join(lines, "\n"),
+					"elements": len(visible),
+				}), false
+			}
+		}
+		if source == "accessibility" {
+			return textContent("nothing on screen exposes text through accessibility"), true
+		}
+	}
+
 	text, err := s.ocrImage(args, "")
 	if err != nil {
 		return textContent("read_screen_text failed: %v", err), true
 	}
-	return textContent("%s", strings.TrimSpace(text)), false
+	return jsonContent(map[string]any{
+		"via": "ocr", "text": strings.TrimSpace(text),
+		"note": "read from pixels, so this is a guess — prefer ui_tree or browser_text where they apply",
+	}), false
 }
 
 func (s *Server) toolFindText(args map[string]any) ([]map[string]any, bool) {
@@ -892,6 +1155,48 @@ func (s *Server) toolFindText(args map[string]any) ([]map[string]any, bool) {
 	if needle == "" {
 		return textContent("no text given"), true
 	}
+	source := strings.ToLower(argStr(args, "source"))
+
+	// The accessibility tree first, where the answer is exact rather than
+	// probable. This matters more here than in read_screen_text: these
+	// coordinates are what a caller feeds to mouse_click, and a single
+	// misread character in OCR produces a confident box around the wrong
+	// thing, with nothing in the result to say so.
+	if source != "ocr" {
+		if els, err := s.screenElements(); err == nil {
+			rx, ry := argInt(args, "x"), argInt(args, "y")
+			rw, rh := argInt(args, "width"), argInt(args, "height")
+			var hits []map[string]any
+			for _, e := range els {
+				if !e.showing() || !e.within(rx, ry, rw, rh) {
+					continue
+				}
+				hay := strings.ToLower(e.Text + " " + e.Name)
+				if !strings.Contains(hay, needle) {
+					continue
+				}
+				label := strings.TrimSpace(e.Text)
+				if label == "" {
+					label = strings.TrimSpace(e.Name)
+				}
+				hits = append(hits, map[string]any{
+					"text": label, "role": e.Role,
+					"x": e.X, "y": e.Y, "width": e.Width, "height": e.Height,
+					"center_x": e.X + e.Width/2, "center_y": e.Y + e.Height/2,
+					// Not a confidence score dressed up as one: the tree either
+					// contains the string or it does not.
+					"exact": true,
+				})
+			}
+			if len(hits) > 0 {
+				return jsonContent(map[string]any{"via": "accessibility", "matches": hits}), false
+			}
+		}
+		if source == "accessibility" {
+			return textContent("no match for %q in the accessibility tree", needle), false
+		}
+	}
+
 	tsv, err := s.ocrImage(args, "tsv")
 	if err != nil {
 		return textContent("find_text failed: %v", err), true
@@ -901,40 +1206,23 @@ func (s *Server) toolFindText(args map[string]any) ([]map[string]any, bool) {
 	// the wrong place.
 	offX, offY := argInt(args, "x"), argInt(args, "y")
 
-	var hits []map[string]any
-	for i, line := range strings.Split(tsv, "\n") {
-		if i == 0 {
-			continue // encabezado TSV
-		}
-		f := strings.Split(line, "\t")
-		if len(f) < 12 {
-			continue
-		}
-		word := strings.ToLower(strings.TrimSpace(f[11]))
-		if word == "" || !strings.Contains(word, needle) {
-			continue
-		}
-		left, _ := strconv.Atoi(f[6])
-		top, _ := strconv.Atoi(f[7])
-		width, _ := strconv.Atoi(f[8])
-		height, _ := strconv.Atoi(f[9])
-		conf, _ := strconv.ParseFloat(f[10], 64)
-		// undo the 2x scale, then translate by the region's origin
-		x := offX + left/2
-		y := offY + top/2
-		w := width / 2
-		h := height / 2
-		hits = append(hits, map[string]any{
-			"text": strings.TrimSpace(f[11]),
-			"x":    x, "y": y, "width": w, "height": h,
-			"center_x": x + w/2, "center_y": y + h/2,
-			"confidence": conf,
-		})
-	}
+	// Match against whole lines, not single words.
+	//
+	// tesseract's TSV is one row per word, and this used to test the needle
+	// against each row on its own — so "Save changes" could never match
+	// anything, because no row ever contains a space. Every multi-word search
+	// came back "no match for … on screen", which reads as the text not being
+	// there rather than as the tool only being able to look for one word at a
+	// time. Reassembling each line from its words and searching that makes a
+	// phrase findable, and the box is the union of the words it spans.
+	hits := ocrLineMatches(tsv, needle, offX, offY)
 	if len(hits) == 0 {
 		return textContent("no match for %q on screen", needle), false
 	}
-	return jsonContent(hits), false
+	return jsonContent(map[string]any{
+		"via": "ocr", "matches": hits,
+		"note": "coordinates come from reading pixels; check confidence before clicking",
+	}), false
 }
 
 // --- files --------------------------------------------------------------
