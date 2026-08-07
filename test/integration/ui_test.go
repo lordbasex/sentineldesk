@@ -232,12 +232,19 @@ func TestFillForm(t *testing.T) {
 	})
 
 	// A label nothing carries has to be reported, not silently counted as done.
-	out = shared.Call(t, "fill_form", map[string]any{
+	// The tool returns an error result for this, which is the point, so it goes
+	// through the non-fatal caller.
+	out, isErr := shared.call(t, "fill_form", map[string]any{
 		"app":    "zenity",
 		"fields": map[string]any{"NoSuchFieldAnywhere": "x"},
 	})
-	if strings.Contains(out, "\"failed\": 0") {
+	if !isErr || !strings.Contains(out, "\"failed\": 1") {
 		t.Errorf("a field that does not exist was reported as filled:\n%s", trunc(out, 300))
+	}
+	// And it has to say which field, or a form with six of them reports a
+	// failure the caller cannot locate.
+	if !strings.Contains(out, "NoSuchFieldAnywhere") {
+		t.Errorf("the failure does not name the field it was about:\n%s", trunc(out, 300))
 	}
 }
 

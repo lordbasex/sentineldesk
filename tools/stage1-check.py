@@ -45,7 +45,7 @@ MCPClient = _mcpcli.MCPClient
 # are updated by hand when a tool is added, which is the point — adding
 # list_commands moved both and the mismatch is how anyone found out.
 EXPECTED_TOOLS = 118
-EXPECTED_READ = 48
+EXPECTED_READ = 50
 EXPECTED_DANGER = 30
 EXPECTED_CONTROL = 19
 
@@ -314,6 +314,75 @@ def check_progress(c, client):
          f"{len(quiet)} unasked-for notifications")
 
 
+def check_events(c, client):
+    """The channel that lets an agent be told rather than only asked.
+
+    Nothing here is in the MCP specification, so the point of checking it from
+    the outside is that the shape on the wire is what the runtime will be
+    written against — a topic name or a field renamed on a whim breaks an agent
+    that is not in this repository.
+    """
+    c.section("Events")
+
+    # Silence first. A host that never subscribes must receive nothing, which
+    # is what makes it safe to ship this to clients that do not know about it.
+    before = len(client.notifications)
+    client.call("wait", {"ms": 1200}, timeout=30)
+    unasked = [n for n in client.notifications[before:]
+               if n.get("method") == "notifications/sentineldesk/event"]
+    c.ok("no events reach a connection that did not subscribe", not unasked,
+         f"{len(unasked)} unasked-for events")
+
+    out, err = client.call("subscribe_events", {"topics": ["control", "windows"]})
+    c.ok("subscribe_events accepts a topic list", not err, out[:200])
+    if not err:
+        body = _json_body(out)
+        c.ok("it reports what it subscribed to",
+             sorted(body.get("subscribed", [])) == ["control", "windows"], out[:200])
+        c.ok("it names the method the events will arrive as",
+             body.get("method") == "notifications/sentineldesk/event", out[:200])
+
+    # An unknown topic has to be refused. Accepting it silently would leave an
+    # agent waiting on something that was never going to arrive, which is the
+    # failure the whole feature removes.
+    _, err = client.call("subscribe_events", {"topics": ["control", "telepathy"]})
+    c.ok("an unknown topic is refused rather than ignored", err)
+
+    # A window opening is a real event from a real source. This is the cheapest
+    # of the five to provoke from outside; control needs a second participant.
+    client.call("subscribe_events", {"topics": ["windows"]})
+    before = len(client.notifications)
+    out, err = client.call(
+        "launch_app", {"command": "xterm -T STAGE1EVENT -e sleep 20"}, timeout=30)
+    if err:
+        c.ok("a window could be opened to provoke an event", False, out[:200])
+    else:
+        deadline = time.time() + 12
+        seen = []
+        while time.time() < deadline and not seen:
+            # The client reads on a background thread, so notifications
+            # accumulate on their own; this only gives them time to arrive.
+            time.sleep(0.5)
+            seen = [n for n in client.notifications[before:]
+                    if n.get("method") == "notifications/sentineldesk/event"
+                    and n.get("params", {}).get("topic") == "windows"]
+        c.ok("opening a window delivers a windows event", seen,
+             "nothing arrived in 12s")
+        client.call("run_command", {"command": "pkill -f STAGE1EVENT || true"}, timeout=20)
+
+    out, err = client.call("unsubscribe_events", {})
+    c.ok("unsubscribe_events stops the subscription",
+         not err and not _json_body(out).get("subscribed"), out[:200])
+
+
+def _json_body(out):
+    """The JSON object a tool returned as its text content, or {}."""
+    try:
+        return json.loads(out)
+    except Exception:
+        return {}
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -339,6 +408,7 @@ def main():
         check_denials(c, client, args.container, args.sock)
         check_room(c, client)
         check_cancellation(c, client)
+        check_events(c, client)
         check_progress(c, client)
     finally:
         client.close()

@@ -239,7 +239,19 @@ def locate(args, prefer=None):
     if not name:
         return None, "", {"error": "give either --ref or --name"}
 
-    found = cmd_find(args)["elements"]
+    # An explicit filter rather than args itself. settext's --text is the value
+    # to write, and handing that to the search would look for an element that
+    # already contains what is about to be typed into it — which matches
+    # nothing on the first run and the wrong thing on the second.
+    query = argparse.Namespace(
+        app=getattr(args, "app", None),
+        depth=getattr(args, "depth", 12),
+        limit=getattr(args, "limit", 200),
+        role=getattr(args, "role", None),
+        name=name,
+        text=None,
+    )
+    found = cmd_find(query)["elements"]
     if not found:
         return None, "", {"error": f"nothing matches --name {name!r}",
                           "hint": "ui_tree shows what is there and what its role is called"}
@@ -447,7 +459,9 @@ def main():
     # exit 2 before it reached any of this.
     def addressable(p):
         p.add_argument("--ref")
-        common(p)
+        common(p, with_filters=False)
+        p.add_argument("--role")
+        p.add_argument("--name")
 
     p = sub.add_parser("click")
     addressable(p)
