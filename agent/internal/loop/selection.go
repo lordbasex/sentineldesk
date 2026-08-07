@@ -47,7 +47,6 @@ package loop
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
@@ -105,9 +104,13 @@ type Selection struct {
 // Select decides which tools a run starts with.
 //
 // limit is how many ranked tools to add on top of the core. Zero offers
-// everything, which is what --tools all does: the honest escape hatch for the
-// day a run fails and the first question is whether the selection caused it.
-func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
+// everything, which is what --tools 0 does: the honest escape hatch for the day
+// a run fails and the first question is whether the selection caused it.
+//
+// capped says the caller chose that number rather than inheriting the default.
+// It decides what happens when the ranking finds nothing, and the two answers
+// are opposite for good reasons — see below.
+func Select(catalogue []mcpclient.Tool, goal string, limit int, capped bool) Selection {
 	if limit <= 0 {
 		return Selection{Tools: catalogue, Core: 0, Ranked: 0, Dropped: 0}
 	}
@@ -168,6 +171,22 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
 	// having when the ranking is confident and worth losing when it is not: a
 	// wrong small set costs turns, and turns cost more than schemas.
 	if ranked == 0 {
+		// Unless the caller asked for a specific number, in which case they
+		// meant it.
+		//
+		// Offering everything is the right recovery against a hosted model: the
+		// prefix is cached, and a wrong small set costs turns, which cost more
+		// than schemas. It is the wrong recovery against a model on a CPU,
+		// where a hundred and twenty schemas is nineteen thousand tokens to
+		// process before a single one is generated — minutes, not cents. So
+		// `--tools 6` is honoured even here, and the narration says the ranking
+		// had nothing to offer, because a run that is about to go badly for
+		// this reason should say so rather than discover it.
+		if capped {
+			sortTools(out)
+			return Selection{Tools: out, Core: core, Ranked: 0,
+				Dropped: len(catalogue) - len(out), RankingFailed: true}
+		}
 		return Selection{Tools: catalogue, Core: core, Ranked: 0, Dropped: 0,
 			RankingFailed: true}
 	}
@@ -175,7 +194,7 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
 	// Stable order, so two runs with the same goal produce a byte-identical
 	// prefix and the cache from the first is still warm for the second. Left in
 	// ranking order it would depend on map iteration and quietly stop matching.
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	sortTools(out)
 
 	return Selection{
 		Tools: out, Core: core, Ranked: ranked,
@@ -185,10 +204,16 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
 
 // Describe is one line for the narration.
 func (s Selection) Describe() string {
-	if s.RankingFailed {
+	if s.RankingFailed && s.Dropped == 0 {
 		return fmt.Sprintf(
 			"nothing in the goal matched the catalogue, so all %d are offered "+
 				"(the ranking's vocabulary is English)", len(s.Tools))
+	}
+	if s.RankingFailed {
+		return fmt.Sprintf(
+			"nothing in the goal matched the catalogue; %d offered because you asked "+
+				"for a cap · %d reachable through tool_search (the ranking's vocabulary is English)",
+			len(s.Tools), s.Dropped)
 	}
 	if s.Dropped == 0 {
 		return ""

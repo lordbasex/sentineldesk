@@ -82,6 +82,11 @@ func main() {
 	model := fs.String("model", "", "which model (default: the provider's)")
 	maxTurns := fs.Int("max-turns", 25, "stop a run after this many turns")
 	toolLimit := fs.Int("tools", 12, "how many goal-matched tools to add to the core set; 0 offers all of them")
+	// Whether --tools was chosen or inherited. It decides what happens when the
+	// ranking finds nothing: offering everything is the right recovery against
+	// a cached hosted model and the wrong one against a CPU, so a number the
+	// caller actually asked for is honoured either way.
+	toolsCapped := false
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -91,6 +96,11 @@ func main() {
 		fmt.Println(version)
 		return
 	}
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == "tools" {
+			toolsCapped = true
+		}
+	})
 	args := fs.Args()
 	if len(args) == 0 {
 		fs.Usage()
@@ -147,7 +157,8 @@ func main() {
 		// A run is bounded by the person at the keyboard, not by the -timeout
 		// meant for one step. Ctrl-C still stops it, and stops it properly:
 		// the cancellation reaches the server and the tool in flight ends.
-		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model, *maxTurns, *toolLimit))
+		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model,
+			*maxTurns, *toolLimit, toolsCapped))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -475,7 +486,7 @@ func errText(err error) string {
 // other than the operator decides what happens next, and a run whose steps are
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
-func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int) int {
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped bool) int {
 	llm, err := provider.Open(providerName, model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -499,7 +510,7 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 	}
 	// Chosen once and left alone: caching matches a byte-identical prefix, so a
 	// set that changed each turn would cost more than sending everything.
-	selection := loop.Select(catalogue, goal, toolLimit)
+	selection := loop.Select(catalogue, goal, toolLimit, toolsCapped)
 	if line := selection.Describe(); line != "" {
 		fmt.Printf("Tools: %s\n", line)
 	}

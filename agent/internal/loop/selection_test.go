@@ -47,7 +47,7 @@ func has(sel Selection, name string) bool {
 
 // TestTheGoalPullsInWhatItNeeds.
 func TestTheGoalPullsInWhatItNeeds(t *testing.T) {
-	sel := Select(bigCatalogue(), "record a video of the desktop", 3)
+	sel := Select(bigCatalogue(), "record a video of the desktop", 3, false)
 	if !has(sel, "start_recording") {
 		t.Errorf("the goal's own tool was not offered: %v", offeredNames(sel))
 	}
@@ -70,7 +70,7 @@ func TestTheGoalPullsInWhatItNeeds(t *testing.T) {
 // core set. Turns cost more than schemas.
 func TestAGoalThatMatchesNothingGetsEverything(t *testing.T) {
 	catalogue := bigCatalogue()
-	sel := Select(catalogue, "¿qué aplicaciones están instaladas?", 3)
+	sel := Select(catalogue, "¿qué aplicaciones están instaladas?", 3, false)
 
 	if !sel.RankingFailed {
 		t.Fatal("a goal that matched nothing was not reported as a ranking failure")
@@ -90,7 +90,7 @@ func TestAGoalThatMatchesNothingGetsEverything(t *testing.T) {
 // question is whether the selection caused it.
 func TestZeroOffersEverything(t *testing.T) {
 	catalogue := bigCatalogue()
-	if sel := Select(catalogue, "anything", 0); len(sel.Tools) != len(catalogue) {
+	if sel := Select(catalogue, "anything", 0, false); len(sel.Tools) != len(catalogue) {
 		t.Errorf("--tools 0 offered %d of %d", len(sel.Tools), len(catalogue))
 	}
 }
@@ -99,9 +99,9 @@ func TestZeroOffersEverything(t *testing.T) {
 // runs of the same goal must produce the same order — left to map iteration it
 // would differ and the second run would quietly pay full price.
 func TestTheOfferedSetIsStable(t *testing.T) {
-	first := offeredNames(Select(bigCatalogue(), "record a video", 4))
+	first := offeredNames(Select(bigCatalogue(), "record a video", 4, false))
 	for i := 0; i < 20; i++ {
-		if got := offeredNames(Select(bigCatalogue(), "record a video", 4)); !equal(first, got) {
+		if got := offeredNames(Select(bigCatalogue(), "record a video", 4, false)); !equal(first, got) {
 			t.Fatalf("the order changed between runs:\n%v\n%v", first, got)
 		}
 	}
@@ -117,4 +117,31 @@ func equal(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// TestAnExplicitCapIsHonouredEvenWhenTheRankingFails.
+//
+// Offering everything is the right recovery against a hosted model — the prefix
+// is cached, and a wrong small set costs turns, which cost more than schemas.
+// It is the wrong recovery against a model on a CPU, where a hundred and twenty
+// schemas is nineteen thousand tokens to process before one is generated:
+// minutes, not cents. Somebody who typed --tools 6 meant it.
+func TestAnExplicitCapIsHonouredEvenWhenTheRankingFails(t *testing.T) {
+	catalogue := bigCatalogue()
+	sel := Select(catalogue, "¿qué ventanas están abiertas?", 2, true)
+
+	if !sel.RankingFailed {
+		t.Fatal("a goal that matched nothing was not reported as a ranking failure")
+	}
+	if len(sel.Tools) == len(catalogue) {
+		t.Errorf("an explicit cap was ignored: all %d offered", len(sel.Tools))
+	}
+	// And it still says why, because a run about to go badly for this reason
+	// should say so rather than let somebody discover it.
+	if !strings.Contains(sel.Describe(), "English") {
+		t.Errorf("the narration does not explain the failure: %q", sel.Describe())
+	}
+	if !strings.Contains(sel.Describe(), "cap") {
+		t.Errorf("the narration does not say the cap was respected: %q", sel.Describe())
+	}
 }
