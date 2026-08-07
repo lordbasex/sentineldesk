@@ -133,22 +133,54 @@ Known to work: the `qwen3` family, `llama3.1` and later, `mistral-nemo`.
 ollama show qwen3:4b | grep -A3 Capabilities
 ```
 
-### Keep the catalogue small
+### What is actually slow: the model thinking, not the catalogue
 
-A small model given 120 tool schemas chooses badly, and on a CPU it is worse
-than that — generating is slow, and *processing* nineteen thousand tokens of
-JSON schema before generating anything is much slower.
+Measured rather than assumed, and the measurement contradicted the assumption.
+
+`qwen3:4b` on an i9-10900, one question, two turns:
+
+| turn | seconds | in | out | tok/s |
+|---|---|---|---|---|
+| 1 | 138.5 | 2,414 | 678 | 4.90 |
+| 2 | 213.2 | 2,598 | 1,252 | 5.87 |
+
+1,930 output tokens at 5.5 tok/s is 352 seconds — **the entire run**. Processing
+the prompt was noise. And turn 2 spent 1,252 tokens to write two lines of
+answer: the rest was qwen3 reasoning, which Ollama's `/v1` endpoint discards
+before the runtime ever sees it.
+
+So the machine spent minutes generating text nobody reads.
+
+**Prefer a model that does not think.** The loop already plans, acts and
+observes explicitly; a reasoning model's internal deliberation is duplicated
+work that is then thrown away. `qwen2.5`, `llama3.2` and `mistral-nemo` support
+tools without it.
+
+`think: false` does not help — checked. It does not remove the reasoning, it
+moves it into the answer, which is worse:
+
+```
+think=true   →  158 tokens, 678 chars of thinking in its own field, content "OK"
+think=false  →  105 tokens, no thinking field, content "Hmm, the user just said…"
+```
+
+### Keeping the catalogue small still helps, just less
 
 ```bash
-# Fewer tools, and the ones the goal actually ranks.
 sentineldesk-agent -container sentineldesk \
   --provider ollama --model qwen3:4b --tools 6 \
   run "take a screenshot"
 ```
 
-`--tools 6` offers the core set plus six. If the model needs something else it
-calls `tool_search` and the runtime widens the set — the escape hatch is still
-there, it just is not paid for up front.
+`--tools 6` offers the core set plus six, and if the model needs something else
+it calls `tool_search` and the runtime widens the set. It matters here for a
+different reason than on a hosted provider: not the seconds, but that a small
+model given a hundred and twenty schemas chooses badly among them.
+
+**An explicit `--tools` is honoured even when the ranking finds nothing.** A goal
+the English vocabulary does not match normally falls back to offering
+everything — the right recovery when the prefix is cached and a wrong small set
+costs turns. On a CPU that is the wrong recovery, so a number you typed wins.
 
 ### The GPU
 
