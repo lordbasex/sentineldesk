@@ -89,7 +89,7 @@ VERSION_ARGS := --build-arg VERSION=$(next_version) \
                 --build-arg BUILD_DATE=$(build_date)
 
 .PHONY: build image image-lite image-full up down logs shell test fmt vet help \
-        _version version release-binaries checksums push release ssh-peer ssh-peer-down
+        _version version release-binaries checksums push release ssh-peer ssh-peer-down test-integration
 
 # _version persists version.txt and prints the version. One target, so make
 # runs it once even when several builds depend on it.
@@ -143,6 +143,16 @@ logs:
 ## shell: a root shell inside the running desktop
 shell:
 	$(DOCKER) exec -it -u root sentineldesk bash
+
+## test-integration: drive a RUNNING desktop through MCP and check what happened
+#
+# Behind a build tag so `make test` keeps its property: it runs anywhere, with no
+# X, no GStreamer and no container, and a green run means the logic is sound
+# rather than that the machine was set up. These need a desktop — start it with
+# make up — and each check reads the container directly rather than confirming
+# one tool with another, which would only establish that the two agree.
+test-integration:
+	go test -tags integration -count=1 -v ./test/integration/...
 
 ## ssh-peer: a second host on the desktop's network, for testing the ssh_* tools
 #
