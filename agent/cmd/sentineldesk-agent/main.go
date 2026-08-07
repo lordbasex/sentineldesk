@@ -34,6 +34,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
+	"github.com/lordbasex/sentineldesk/internal/toolsearch"
 )
 
 // version is stamped in at build time, like the desktop's.
@@ -53,6 +54,10 @@ The model:
   --role       efficient | witnessed   (witnessed does the work where people can see it)
   --model      which model to use
   --max-turns  stop after this many (default 25)
+  --tools      how many goal-matched tools on top of the core set (0 = all 120)
+
+The catalogue is 98% of what a turn costs, so a run starts with a core set plus
+whatever the goal ranks highest, and reaches the rest through tool_search.
 
 The API key is read from ~/.sentineldesk/anthropic.key (chmod 600), or from
 ANTHROPIC_API_KEY_FILE. Never pass it on the command line.
@@ -76,6 +81,7 @@ func main() {
 	providerName := fs.String("provider", "anthropic", "which provider (see `providers`)")
 	model := fs.String("model", "", "which model (default: the provider's)")
 	maxTurns := fs.Int("max-turns", 25, "stop a run after this many turns")
+	toolLimit := fs.Int("tools", 12, "how many goal-matched tools to add to the core set; 0 offers all of them")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -141,7 +147,7 @@ func main() {
 		// A run is bounded by the person at the keyboard, not by the -timeout
 		// meant for one step. Ctrl-C still stops it, and stops it properly:
 		// the cancellation reaches the server and the tool in flight ends.
-		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model, *maxTurns))
+		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model, *maxTurns, *toolLimit))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -410,16 +416,18 @@ func listTools(ctx context.Context, c *mcpclient.Client, query string) int {
 		return 1
 	}
 	if query != "" {
-		// Placeholder ranking until the server's is shared out (ADR-003): a
-		// substring match, which is honest about being one. It is here so
-		// `tools <query>` exists and is measured against the real ranking in
-		// 2.1c rather than being invented twice.
+		// The real ranking, shared with the server through internal/toolsearch
+		// (ADR-003) and measured at 100% top ten. Answered here rather than over
+		// the socket because this side is already holding the catalogue.
+		flat := make([]toolsearch.Tool, len(tools))
+		byName := make(map[string]mcpclient.Tool, len(tools))
+		for i, t := range tools {
+			flat[i] = toolsearch.Tool{Name: t.Name, Description: t.Description}
+			byName[t.Name] = t
+		}
 		var kept []mcpclient.Tool
-		q := strings.ToLower(query)
-		for _, t := range tools {
-			if strings.Contains(strings.ToLower(t.Name+" "+t.Description), q) {
-				kept = append(kept, t)
-			}
+		for _, hit := range toolsearch.Rank(flat, query, 15) {
+			kept = append(kept, byName[hit.Name])
 		}
 		tools = kept
 	}
@@ -467,7 +475,7 @@ func errText(err error) string {
 // other than the operator decides what happens next, and a run whose steps are
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
-func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns int) int {
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int) int {
 	llm, err := provider.Open(providerName, model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -484,10 +492,16 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 	}
 	fmt.Printf("Model: %s   key: %s\n", llm.Name(), source)
 
-	tools, err := c.ListTools(ctx)
+	catalogue, err := c.ListTools(ctx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tools/list: %v\n", err)
 		return 1
+	}
+	// Chosen once and left alone: caching matches a byte-identical prefix, so a
+	// set that changed each turn would cost more than sending everything.
+	selection := loop.Select(catalogue, goal, toolLimit)
+	if line := selection.Describe(); line != "" {
+		fmt.Printf("Tools: %s\n", line)
 	}
 
 	// A task id, so every call this run makes is one group in the server's
@@ -510,12 +524,13 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 	}
 
 	runner := loop.New(c, loop.Options{
-		Role:     loop.Role(role),
-		Model:    llm,
-		Tools:    tools,
-		MaxTurns: maxTurns,
-		OnEvent:  narrate,
-		Recorder: recorder,
+		Role:      loop.Role(role),
+		Model:     llm,
+		Tools:     selection.Tools,
+		Catalogue: catalogue,
+		MaxTurns:  maxTurns,
+		OnEvent:   narrate,
+		Recorder:  recorder,
 	})
 
 	// Losing the controls has to reach the loop while it is running, not at the
@@ -590,6 +605,8 @@ func narrate(p loop.Progress) {
 		fmt.Printf("  \033[36m→\033[0m %s %s\n", p.Tool, dim(p.Detail))
 	case "result":
 		fmt.Printf("  \033[2m  %s (%v)\033[0m\n", trunc(p.Detail, 100), p.Elapsed.Round(time.Millisecond))
+	case "widened":
+		fmt.Printf("  \033[35m+\033[0m %s\n", p.Detail)
 	case "interrupted":
 		fmt.Printf("\n\033[33m■ %s\033[0m\n", p.Detail)
 	}

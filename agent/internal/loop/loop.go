@@ -33,6 +33,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -82,10 +83,14 @@ type Options struct {
 	// somebody's credit discovering it.
 	MaxTurns int
 
-	// Tools is the catalogue offered to the model. The caller narrows it; the
-	// loop does not, because deciding what an agent may see is a policy
-	// question and this is not where policy lives.
+	// Tools is what the model is offered. Narrowed by the caller through
+	// Select, which is where the reasoning about it lives.
 	Tools []mcpclient.Tool
+
+	// Catalogue is everything the connection can call, whether offered or not.
+	// It is what a tool_search result is resolved against when the model finds
+	// something outside the offered set. Empty means Tools is everything.
+	Catalogue []mcpclient.Tool
 
 	// OnEvent reports what the loop is doing, for a console or a log.
 	OnEvent func(Progress)
@@ -187,7 +192,8 @@ func (r *Runner) wasInterrupted() (bool, string) {
 func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 	var res Result
 	messages := []provider.Message{{Role: provider.RoleUser, Text: goal}}
-	tools := r.offeredTools()
+	offered := r.opts.Tools
+	tools := toProviderTools(offered)
 
 	for turn := 1; turn <= r.opts.MaxTurns; turn++ {
 		res.Turns = turn
@@ -247,6 +253,23 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 			res.Calls++
 			out := r.runOne(ctx, turn, call)
 			results = append(results, out)
+
+			// The model went looking for something it was not offered. Widen
+			// the set so it can actually call what it just found — otherwise
+			// tool_search is a tool that returns names nobody can use, which is
+			// worse than not offering it.
+			//
+			// This costs one cache rebuild, because the prefix changed. Paying
+			// it to reach a tool beats failing the task to keep a cache warm.
+			if call.Name == "tool_search" && !out.IsErr && len(r.opts.Catalogue) > 0 {
+				if extra := newTools(offered, discovered(out.Text, r.opts.Catalogue)); len(extra) > 0 {
+					offered = append(offered, extra...)
+					sortTools(offered)
+					tools = toProviderTools(offered)
+					r.report(Progress{Kind: "widened", Turn: turn,
+						Detail: fmt.Sprintf("%s now offered", names(extra))})
+				}
+			}
 
 			// Checked between calls, not only between turns. A person taking
 			// the controls does not wait for the model, and running the rest of
@@ -351,18 +374,49 @@ func (r *Runner) substitute(name string) string {
 	return name
 }
 
-// offeredTools converts the MCP catalogue into what the model is told.
+// toProviderTools converts MCP tools into what the model is told.
 //
 // The schema is the server's own, passed through untouched. A second
 // description of a tool is a second thing to drift from the first.
-func (r *Runner) offeredTools() []provider.Tool {
-	out := make([]provider.Tool, 0, len(r.opts.Tools))
-	for _, t := range r.opts.Tools {
+func toProviderTools(tools []mcpclient.Tool) []provider.Tool {
+	out := make([]provider.Tool, 0, len(tools))
+	for _, t := range tools {
 		out = append(out, provider.Tool{
 			Name: t.Name, Description: t.Description, InputSchema: t.InputSchema,
 		})
 	}
 	return out
+}
+
+// newTools returns the ones not already offered.
+func newTools(have, found []mcpclient.Tool) []mcpclient.Tool {
+	seen := make(map[string]bool, len(have))
+	for _, t := range have {
+		seen[t.Name] = true
+	}
+	var out []mcpclient.Tool
+	for _, t := range found {
+		if !seen[t.Name] {
+			out = append(out, t)
+			seen[t.Name] = true
+		}
+	}
+	return out
+}
+
+// sortTools keeps the offered set in a stable order, so two runs that end up
+// with the same tools send a byte-identical prefix and the second finds the
+// first one's cache still warm.
+func sortTools(tools []mcpclient.Tool) {
+	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+}
+
+func names(tools []mcpclient.Tool) string {
+	out := make([]string, len(tools))
+	for i, t := range tools {
+		out[i] = t.Name
+	}
+	return strings.Join(out, ", ")
 }
 
 func (r *Runner) systemPrompt() string {
