@@ -441,3 +441,26 @@ func lastResultText(t *testing.T, model *provider.Scripted) string {
 	t.Fatal("no tool result reached the model")
 	return ""
 }
+
+// TestThePromptSaysWhichLanguageGoesWhere.
+//
+// The model answered in Spanish to a Spanish question, which was the right
+// behaviour by accident: nothing said so. With another model, or a goal that
+// mixes languages, it could as easily answer in English — and worse, it could
+// translate a command. A shell does not speak Spanish, and `abrir` fails in a
+// way that reads like a broken desktop rather than a mistranslation.
+func TestThePromptSaysWhichLanguageGoesWhere(t *testing.T) {
+	c, _ := newFakeMCP(t)
+	model := provider.NewScripted(provider.Says("listo"))
+	r := New(c, Options{Model: model, Tools: catalogue("screenshot")})
+	if _, err := r.Run(context.Background(), "¿qué ventanas hay abiertas?"); err != nil {
+		t.Fatalf("%v", err)
+	}
+	system := model.Seen[0].System
+	if !strings.Contains(system, "language they wrote to you in") {
+		t.Error("the prompt does not tell the model to answer in the person's language")
+	}
+	if !strings.Contains(system, "stays English") {
+		t.Error("the prompt does not keep commands and arguments in English")
+	}
+}
