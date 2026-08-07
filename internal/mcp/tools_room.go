@@ -62,6 +62,10 @@ type Rooms interface {
 	ReleaseControl(id string)
 	UpdatePointer(id string, x, y int)
 
+	// Presence changes, so the agent can be told the controls moved instead of
+	// finding out when its next injection is refused. See events.go.
+	WatchPresence(fn func()) func()
+
 	// The live capture can be forwarded to an external destination without
 	// encoding it a second time, so the agent uses the same path the toolbar
 	// does rather than raising a capture of its own.

@@ -14,7 +14,7 @@
 package mcp
 
 // The tool registry: what each tool is, what it can do to the machine, and how
-// an agent finds the handful it needs among a hundred and fifteen.
+// an agent finds the handful it needs among a hundred and eighteen.
 //
 // Two problems are solved here, and they turn out to be the same problem.
 //
@@ -31,7 +31,7 @@ package mcp
 // maps are derived from it. The failure it replaces was silent; this one is a
 // startup error.
 //
-// The second is discovery. A hundred and fifteen schemas is a large fraction of
+// The second is discovery. A hundred and eighteen schemas is a large fraction of
 // a model's context spent before it reads the request, and most hosts pay it on
 // every turn. Some of them already defer tool loading and search on demand;
 // where the host does not, MCP_DISCOVERY=1 does it from this side — tools/list
@@ -453,7 +453,7 @@ func (idx argIndex) declared(tool string) []string {
 // look at the desktop, read its structure, click, type and run something — plus
 // the one tool that finds the rest. An agent that never calls tool_search can
 // still do useful work with only these; the point is that it no longer pays for
-// a hundred and fifteen schemas to find out whether it needs ssh_tunnel_remote.
+// a hundred and eighteen schemas to find out whether it needs ssh_tunnel_remote.
 var coreTools = map[string]bool{
 	"tool_search":  true,
 	"screenshot":   true,
@@ -747,11 +747,13 @@ var toolKeywords = map[string][]string{
 	"gamepad_state":   {"controller reporting", "what the controller", "pad state"},
 
 	// System and bookkeeping.
-	"sudo_status":     {"as root", "privileges", "am i allowed", "elevated"},
-	"service_control": {"restart the", "daemon", "supervisor", "bounce the"},
-	"action_log":      {"history", "audit", "what has been done", "trail", "past calls"},
-	"wait":            {"pause", "sleep", "delay", "for a moment", "seconds"},
-	"wait_for_idle":   {"stops changing", "settles", "quiet", "finishes drawing", "stable"},
+	"sudo_status":        {"as root", "privileges", "am i allowed", "elevated"},
+	"service_control":    {"restart the", "daemon", "supervisor", "bounce the"},
+	"action_log":         {"history", "audit", "what has been done", "trail", "past calls"},
+	"subscribe_events":   {"notify", "tell me when", "instead of polling", "be told", "watch for changes", "let me know"},
+	"unsubscribe_events": {"stop notifying", "no more notifications", "stop telling me", "stop sending"},
+	"wait":               {"pause", "sleep", "delay", "for a moment", "seconds"},
+	"wait_for_idle":      {"stops changing", "settles", "quiet", "finishes drawing", "stable"},
 }
 
 // keywordIndex splits toolKeywords into the single words, which are compared
@@ -799,7 +801,7 @@ type searchHit struct {
 // The scoring is deliberately dumb — substring matching over name, category and
 // description, weighted in that order. Anything cleverer (embeddings, a real
 // index) would need a model or a dependency to answer a question that a handful
-// of keywords already answers well, on a corpus of a hundred and fifteen short
+// of keywords already answers well, on a corpus of a hundred and eighteen short
 // strings that fits in a cache line's worth of cache misses. A hit on the name
 // outranks the category, which outranks the description, because a tool called
 // ssh_exec is a better answer to "ssh" than one that mentions ssh in passing.

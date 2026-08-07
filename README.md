@@ -31,7 +31,7 @@ same session, the same room:
   costs bandwidth, not CPU.
 
 People drive it through a control layer in the browser. The agent drives it
-through a local Unix socket with **116 MCP tools**. Neither is a guest of the
+through a local Unix socket with **118 MCP tools**. Neither is a guest of the
 other.
 
 The backend is **a single Go binary** (Pion WebRTC + go-gst): GStreamer runs
@@ -48,7 +48,7 @@ track, and the encoder stays under full control at runtime.
 | Audio | PulseAudio null sink → `opusenc`; a remapped source so the browser's microphone appears as a real input device |
 | Transport | Pion WebRTC v4, GCC congestion control over TWCC, PLI keyframes, NACK, Opus in-band FEC |
 | Human control | WebSocket signalling + DataChannel, XTEST injection, XFixes cursors, XShape peer pointers, EWMH |
-| Agent control | MCP over a `0600` Unix socket, 116 tools, each classified by risk |
+| Agent control | MCP over a `0600` Unix socket, 118 tools, each classified by risk |
 | Reading the screen | AT-SPI accessibility tree, Chrome DevTools Protocol — structure, not pixels |
 | Web UI | `go:embed`, served with content ETags |
 
@@ -167,7 +167,7 @@ where the host exposes `/dev/uinput`.
 ### Control plane 2 — the AI agent, over a local Unix socket
 
 The MCP server listens on `/run/user/1000/sentineldesk-mcp.sock`, mode `0600`,
-and exposes **116 tools**. (In the container that path is fixed; a native
+and exposes **118 tools**. (In the container that path is fixed; a native
 install puts the desktop's user on whatever uid is free, so the socket follows
 it — `grep MCP_SOCK /etc/sentineldesk/env`.) The AI host — Claude Code, Claude Desktop, or any
 other agent — spawns `sentineldesk -mcp-stdio` with `docker exec`; that
@@ -226,7 +226,7 @@ internal/config/      environment configuration
 internal/desktop/     X11: input injection, cursor, clipboard, joystick, pointers
 internal/media/       GStreamer: pipelines, encoders, recording, upstream audio
 internal/stream/      sessions, the shared room, auth, rate limiting, TLS, files
-internal/mcp/         the MCP server, its 116 tools and the risk registry
+internal/mcp/         the MCP server, its 118 tools and the risk registry
 internal/webui/       the browser client, embedded with go:embed
 deploy/               Dockerfile, compose files, desktop and supervisor config
 ```
@@ -706,7 +706,7 @@ Two details worth knowing:
 
 ## The MCP server
 
-An AI model can drive the desktop through **116 tools** over a local Unix socket:
+An AI model can drive the desktop through **118 tools** over a local Unix socket:
 see the screen, move the mouse, type, manage windows, run commands, administer
 the container. Three permission levels and two lists bound what it may do, and
 each connection can restrict itself further but never widen.
@@ -719,7 +719,7 @@ one stops the daemon from starting, which is the point: the classification used
 to live in a separate table, and a tool missing from it was refused under
 `readonly` and allowed under `safe` with nothing to indicate either.
 
-A hundred and fifteen schemas is a real amount of a model's context, so
+A hundred and eighteen schemas is a real amount of a model's context, so
 `tool_search` finds the handful that matter — "give someone remote access"
 returns the `ssh_*` tools with their schemas attached, ready to call. Set
 `MCP_DISCOVERY=1` and `tools/list` advertises only a core set of twelve; every

@@ -85,6 +85,12 @@ type Room struct {
 	pending   *controlRequest
 	requestNo int
 
+	// Observers of who is here and who is driving. See WatchPresence: the MCP
+	// plane subscribes so that an agent can be told the controls moved instead
+	// of discovering it when its next injection is refused.
+	presenceSubs map[int]func()
+	presenceSeq  int
+
 	// The agreed bitrate: the minimum of what each network can carry. Encoding
 	// for the best link would break the worst one; the other way round only
 	// costs some quality.
@@ -817,12 +823,66 @@ func (r *Room) snapshotMembers() []*roomMember {
 	return out
 }
 
+// WatchPresence registers a callback for every change in who is here and who is
+// driving, and returns the function that unregisters it.
+//
+// The callback is given nothing. That is deliberate and it is the same
+// reasoning as desktop.Watcher's: an event that carries state has to be
+// delivered in order and cannot be dropped, while an event that means "look
+// again" can be coalesced, delivered late, or missed entirely without the
+// observer reaching a different conclusion — it re-reads Members() and
+// Controller() and sees the truth, not a stale copy of it.
+//
+// This exists for the MCP plane, which until now could not be *told* anything.
+// An agent could ask room_state who was driving, but if a person took the
+// controls in the middle of a task the agent found out by having its next
+// injection refused — an error where there should have been a notice. Every
+// caller of broadcastPresence is a moment a human client already gets told;
+// this puts the other plane on the same footing.
+//
+// The callback runs on the goroutine that made the change, so it must not
+// block and must not call back into the room. The one subscriber today hands
+// off to a channel immediately.
+func (r *Room) WatchPresence(fn func()) func() {
+	if fn == nil {
+		return func() {}
+	}
+	r.mu.Lock()
+	if r.presenceSubs == nil {
+		r.presenceSubs = map[int]func(){}
+	}
+	id := r.presenceSeq
+	r.presenceSeq++
+	r.presenceSubs[id] = fn
+	r.mu.Unlock()
+
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			r.mu.Lock()
+			delete(r.presenceSubs, id)
+			r.mu.Unlock()
+		})
+	}
+}
+
 // broadcastPresence tells everyone who is present and who holds control.
 func (r *Room) broadcastPresence() {
 	members := r.Members()
 	r.mu.RLock()
 	targets := r.snapshotMembers()
+	watchers := make([]func(), 0, len(r.presenceSubs))
+	for _, fn := range r.presenceSubs {
+		watchers = append(watchers, fn)
+	}
 	r.mu.RUnlock()
+
+	// Outside the lock: a watcher that touched the room would deadlock, and one
+	// that is merely slow would hold every other participant's presence update
+	// behind it.
+	for _, fn := range watchers {
+		fn()
+	}
 
 	for _, m := range targets {
 		if m.session == nil {

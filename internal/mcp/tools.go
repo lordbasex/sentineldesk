@@ -196,6 +196,7 @@ func (s *Server) buildTools() []toolDef {
 		},
 	}
 	base = append(base, s.buildRegistryTools()...)
+	base = append(base, s.buildEventTools()...)
 	base = append(base, s.buildAdvancedTools()...)
 	base = append(base, s.buildUITools()...)
 	base = append(base, s.buildSysTools()...)
@@ -217,6 +218,11 @@ func (s *Server) dispatch(ctx context.Context, name string, rawArgs json.RawMess
 	// The catalogue asking about itself. It comes first because it is the one
 	// tool whose answer depends on the caller's policy rather than the desktop.
 	if content, isErr, handled := s.dispatchRegistry(ctx, name, args, policy); handled {
+		return content, isErr
+	}
+	// Subscribing to events: like tool_search, an answer about this connection
+	// rather than about the desktop.
+	if content, isErr, handled := s.dispatchEvents(ctx, name, args); handled {
 		return content, isErr
 	}
 	// Sharing the desktop: these answer about the room rather than touching it.

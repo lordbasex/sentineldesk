@@ -140,6 +140,8 @@ var searchCorpus = map[string]string{
 	"start_restream":       "broadcast the screen to youtube",
 	"stop_recording":       "stop the video",
 	"stop_restream":        "stop the broadcast",
+	"subscribe_events":     "tell me when something changes instead of me asking every time",
+	"unsubscribe_events":   "stop sending me notifications",
 	"sudo_status":          "can I run things as root",
 	"switch_desktop":       "go to the next workspace",
 	"terminal_open":        "open a terminal window on the desktop",

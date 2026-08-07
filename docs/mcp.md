@@ -58,7 +58,7 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (116)
+## Available tools (118)
 
 Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
 to its definition. It is what the three `MCP_POLICY` levels are built on, and it
@@ -90,6 +90,18 @@ at the right moment reads this rather than carrying its own copy of the list.
 | Tool | What it does |
 |---|---|
 | `tool_search` | Describe a task in plain words and get back the tools that do it, with their full input schemas — see [Finding tools without loading all of them](#finding-tools-without-loading-all-of-them) |
+
+**🔔 Being told, instead of asking**
+
+| Tool | What it does |
+|---|---|
+| `subscribe_events` | Ask to be notified when something changes: `control` (who is driving), `room` (who joined or left), `windows` (a window appeared — how a dialog interrupts), `focus`, `desktop`. Events arrive as `notifications/sentineldesk/event` |
+| `unsubscribe_events` | Stop receiving them on this connection |
+
+Nothing is sent until `subscribe_events` is called, so a host that does not know
+about the extension is unaffected. The topic that matters most is `control`:
+without it, an agent learns that a person took the desktop away by having its
+next click refused — a denial where there should have been a notice.
 
 **👁️ Seeing the screen**
 
@@ -289,7 +301,7 @@ Full checklist and design notes: [mcp-tools-checklist.md](mcp-tools-checklist.md
 
 ## Finding tools without loading all of them
 
-A hundred and fifteen schemas is a real amount of a model's context, spent
+A hundred and eighteen schemas is a real amount of a model's context, spent
 before it has read the request. `tool_search` is the way around it: describe the
 task and get back the handful of tools that do it.
 
@@ -299,7 +311,7 @@ task and get back the handful of tools that do it.
 
 ```json
 {
-  "matched": 6, "of": 116,
+  "matched": 6, "of": 118,
   "tools": [
     {"name": "ssh_connect",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
     {"name": "ssh_copy_id",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},

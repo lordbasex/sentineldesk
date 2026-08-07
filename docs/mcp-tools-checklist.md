@@ -1,6 +1,6 @@
 # MCP server — tool checklist for driving the desktop end to end
 
-> **Status: 116 tools implemented and verified.** Everything marked [x] works in
+> **Status: 118 tools implemented and verified.** Everything marked [x] works in
 > the binary (`sentineldesk`). See [mcp.md](mcp.md) for how to connect it.
 
 Goal: let an AI model use the WebRTC desktop **the way a person does** — see the
@@ -41,6 +41,15 @@ Every tool declares a **risk level** beside its definition — `read` observes,
 - [x] `tool_search` — describe a task, get the matching tools **with their input
   schemas** so they can be called without a second round trip. Filtered by the
   connection's policy before ranking; `category` lists a whole theme. 🔶 new
+
+- [x] `subscribe_events` — be told when something changes instead of polling for
+  it: `control`, `room`, `windows`, `focus`, `desktop`. Delivered as
+  `notifications/sentineldesk/event`. Nothing is sent until it is called. 🔶 new
+- [x] `unsubscribe_events` — stop receiving them on this connection. 🔶 new
+
+`control` is the one an agent cannot work without: it is how it learns that a
+person took the controls mid-task, rather than discovering it when its next
+injection is refused.
 
 `MCP_DISCOVERY=1` trims `tools/list` to a core set of twelve and leaves
 `tool_search` to surface the rest. Every other tool stays callable by name —

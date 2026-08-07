@@ -244,7 +244,7 @@ func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *
 //
 // The reporter rides on the context rather than the signatures. The context is
 // already threaded through every dispatcher and every tool, so this reaches all
-// of them without touching one of the hundred and fifteen, and a tool that has
+// of them without touching one of the hundred and eighteen, and a tool that has
 // nothing to report simply never asks for it.
 type progressFunc func(message string, done float64)
 
@@ -307,6 +307,12 @@ func progressToken(params json.RawMessage) json.RawMessage {
 // emergency stop able to tell them apart.
 type connection struct {
 	id uint64
+
+	// Where unsolicited notifications go, when this client has asked for any.
+	// It lives on the connection because that is exactly its lifetime: the
+	// subscription cannot outlive the socket, and closing the socket needs no
+	// bookkeeping to end it. See events.go.
+	events *eventHub
 
 	mu     sync.Mutex
 	client string // name and version from initialize, when it sent any
@@ -604,6 +610,17 @@ func (s *Server) serve(conn net.Conn) {
 		_ = enc.Encode(resp)
 	}
 
+	// Built for every connection, subscribed to nothing until the client asks.
+	// An idle hub costs one struct and watches no source, so there is no reason
+	// to construct it lazily and a good reason not to: the deferred close is
+	// the only thing that guarantees a departing client's watchers are torn
+	// down, and it has to be registered before the first message is read.
+	client.events = newEventHub(write, s.room, func() *desktop.Watcher {
+		w, _ := s.watch()
+		return w
+	})
+	defer client.events.close()
+
 	scanner := bufio.NewScanner(conn)
 	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for scanner.Scan() {
@@ -747,6 +764,10 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 	// no id — a notification-shaped tools/call, which has nothing to cancel by
 	// and would collide with the next one under the empty key.
 	ctx, reply := pending.ctx, pending.reply
+	// The connection's event hub rides on the context the same way the progress
+	// reporter does, so subscribe_events can reach it without a signature
+	// change in every dispatcher between here and there.
+	ctx = withEvents(ctx, client.events)
 	defer pending.done()
 
 	// refuse writes the failure once, in both forms: the sentence for whoever
