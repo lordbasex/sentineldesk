@@ -466,3 +466,65 @@ func TestAskHumanNeedsAQuestion(t *testing.T) {
 		t.Errorf("a blank question was accepted: %v", res)
 	}
 }
+
+// TestReleasingIsNotBeingRobbed. The order of the transition tests is
+// load-bearing and this is the case that proved it.
+//
+// An agent calling release_control at the end of a task leaves previous=agent
+// and controller="", which satisfies "previous was the agent and now it is
+// not". Classified as taken_from_you, a run that had just finished cleanly
+// reported that somebody snatched the desktop from it, and the runtime marked a
+// successful task as interrupted. Nobody driving is never a theft.
+func TestReleasingIsNotBeingRobbed(t *testing.T) {
+	room := newMovableRoom(AgentID, "AI agent")
+	s := testServer(t)
+	s.SetRoom(room, "AI agent")
+	c := newSession(t, s)
+	c.subscribeTo("control")
+
+	// What release_control does to the room: free, not handed on.
+	room.moveControl("", "")
+
+	ev := c.awaitEvent("control", 5*time.Second)
+	if ev["change"] != "released" {
+		t.Errorf("change is %q, want \"released\": %v", ev["change"], ev)
+	}
+	if held, _ := ev["you_have_it"].(bool); held {
+		t.Error("the event says the agent still holds controls it released")
+	}
+}
+
+// TestTakenFromYouStillFires, so fixing the case above did not trade one wrong
+// answer for another. A person taking the controls names themselves as the new
+// controller, which is what distinguishes it from letting go.
+func TestTakenFromYouStillFires(t *testing.T) {
+	room := newMovableRoom(AgentID, "AI agent")
+	s := testServer(t)
+	s.SetRoom(room, "AI agent")
+	c := newSession(t, s)
+	c.subscribeTo("control")
+
+	room.moveControl("viewer-1", "Ana")
+
+	ev := c.awaitEvent("control", 5*time.Second)
+	if ev["change"] != "taken_from_you" {
+		t.Errorf("change is %q, want \"taken_from_you\": %v", ev["change"], ev)
+	}
+}
+
+// TestControlMovingBetweenOthersIsNotAboutTheAgent. Two people passing the
+// desktop between them is not an interruption of anything the agent is doing.
+func TestControlMovingBetweenOthersIsNotAboutTheAgent(t *testing.T) {
+	room := newMovableRoom("viewer-1", "Ana")
+	s := testServer(t)
+	s.SetRoom(room, "AI agent")
+	c := newSession(t, s)
+	c.subscribeTo("control")
+
+	room.moveControl("viewer-2", "Beto")
+
+	ev := c.awaitEvent("control", 5*time.Second)
+	if ev["change"] != "moved" {
+		t.Errorf("change is %q, want \"moved\": %v", ev["change"], ev)
+	}
+}

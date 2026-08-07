@@ -329,13 +329,26 @@ func (h *eventHub) watchRoom() func() {
 					// The transition the agent has to act on, named rather than
 					// left to be inferred from two id comparisons. An agent that
 					// reads only this field still behaves correctly.
+					//
+					// The order is load-bearing, and getting it wrong was a real
+					// bug: "released" has to be tested BEFORE "taken from you".
+					// An agent calling release_control at the end of a task
+					// leaves previous=agent and controller="", which satisfies
+					// "previous was the agent and now it is not" — so a run that
+					// finished cleanly reported that somebody had snatched the
+					// desktop out of its hands, and the runtime marked a
+					// successful task as interrupted.
+					//
+					// Nobody driving is never a theft. It is what the room sits
+					// in after anyone lets go, including the agent itself and
+					// including a controller whose connection died.
 					switch {
-					case previous == AgentID && id != AgentID:
-						detail["change"] = "taken_from_you"
-					case id == AgentID:
-						detail["change"] = "granted_to_you"
 					case id == "":
 						detail["change"] = "released"
+					case id == AgentID:
+						detail["change"] = "granted_to_you"
+					case previous == AgentID:
+						detail["change"] = "taken_from_you"
 					default:
 						detail["change"] = "moved"
 					}
