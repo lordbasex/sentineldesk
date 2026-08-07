@@ -619,13 +619,31 @@ func (s *Server) dispatchRegistry(ctx context.Context, name string, args map[str
 				narrowed = append(narrowed, t)
 			}
 		}
-		pool = narrowed
-		// A category on its own is a valid request: list the theme.
+		// A category on its own is a valid request: list the theme, and only
+		// the theme.
 		if strings.TrimSpace(query) == "" {
+			pool = narrowed
 			if limit <= 0 {
 				limit = len(pool)
 			}
 			query = category
+		} else {
+			// A category ALONGSIDE a query is a hint about where to look, not
+			// a wall. It used to be a wall, and a wall excludes the right
+			// answer whenever the guess is off by one theme: asking
+			// category=packages for "list installed applications" returned
+			// install, remove and search — the three tools that CHANGE what is
+			// installed — while list_installed_apps sat under `processes` and
+			// was never considered. The model gave up on tools and shelled out
+			// to `ls /usr/share/applications`, which is a correct answer
+			// arrived at the expensive way.
+			//
+			// Now the category boosts its own theme and everything else still
+			// competes, so a good query cannot be beaten by a bad guess about
+			// where its answer lives. The ranking already weighs a category
+			// match above a description one; this just stops the filter from
+			// deciding the outcome before the ranking runs.
+			query = category + " " + query
 		}
 	}
 	if strings.TrimSpace(query) == "" && category == "" {

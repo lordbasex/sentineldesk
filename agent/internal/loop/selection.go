@@ -94,6 +94,12 @@ type Selection struct {
 
 	// Dropped is how many the model will not see unless it searches.
 	Dropped int
+
+	// RankingFailed says the goal matched nothing, so everything was offered
+	// rather than narrowing on an opinion that did not exist. Worth surfacing:
+	// it is the signal that the goal is in a language the vocabulary does not
+	// cover, and a run that quietly costs more for that reason should say so.
+	RankingFailed bool
 }
 
 // Select decides which tools a run starts with.
@@ -148,6 +154,24 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
 		}
 	}
 
+	// Nothing matched. That is not "the core set is enough" — it is the ranking
+	// having no opinion, and the two must not produce the same behaviour.
+	//
+	// It happens whenever the goal is not in English, because the vocabulary is
+	// English keywords: "¿qué aplicaciones están instaladas?" matched zero of a
+	// hundred and twenty tools, the run started with the core set alone, and the
+	// model spent two turns searching before it could do anything — then gave up
+	// on tools and shelled out. Six turns and USD 0.0651 for a question that
+	// costs three turns and a fifth of that when the right tool is on offer.
+	//
+	// So a ranking that says nothing hands back everything. The saving is worth
+	// having when the ranking is confident and worth losing when it is not: a
+	// wrong small set costs turns, and turns cost more than schemas.
+	if ranked == 0 {
+		return Selection{Tools: catalogue, Core: core, Ranked: 0, Dropped: 0,
+			RankingFailed: true}
+	}
+
 	// Stable order, so two runs with the same goal produce a byte-identical
 	// prefix and the cache from the first is still warm for the second. Left in
 	// ranking order it would depend on map iteration and quietly stop matching.
@@ -161,6 +185,11 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int) Selection {
 
 // Describe is one line for the narration.
 func (s Selection) Describe() string {
+	if s.RankingFailed {
+		return fmt.Sprintf(
+			"nothing in the goal matched the catalogue, so all %d are offered "+
+				"(the ranking's vocabulary is English)", len(s.Tools))
+	}
 	if s.Dropped == 0 {
 		return ""
 	}
