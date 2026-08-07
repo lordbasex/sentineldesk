@@ -119,8 +119,24 @@ stop the engine from starting (ADR-004's spirit, applied one level down).
 
 ### 3.3 The loop
 
-Goal → plan → act → observe → decide, with the observation step budgeted
-according to stage 1 §11.5. That section is the one to read before writing this
+Goal → plan → act → observe → decide.
+
+**The cost model is round-trips first, tokens second, milliseconds third.** That
+ordering is a correction: stage 1 §11.5 measured perception in milliseconds and
+tokens, and both are real, but a 30 ms tool that forces the model to call again
+to learn what happened costs more than a 770 ms tool that answers completely.
+See [`practices-from-openclaw.md`](practices-from-openclaw.md) §2. It is also
+why `open_app_and_wait` beats `launch_app` followed by `wait_for_window`.
+
+**An interrupted turn must be told it was interrupted.** After any abort the
+next turn carries a notice that tools may have partially executed — a cancelled
+`run_command` may have installed half a package, and the model has to know that
+before planning the next step. A *deliberate* stop is marked so it does not
+carry one: telling the model things may be half-done after a clean handoff is
+its own kind of lie. Same shape as the denial kinds. See §6 of the practices
+document.
+
+Within that, the observation step is budgeted according to stage 1 §11.5. That section is the one to read before writing this
 part: the measured finding is that **latency and context cost are almost
 uncorrelated** — `ui_find` and a full `ui_tree` both cost ~770 ms and differ by
 2,500× in tokens — so a loop that optimises for either number alone will get the
@@ -194,13 +210,36 @@ not (stage 1 §1):
 
 `modernc.org/sqlite` (ADR-002). Conversations, tasks, events, memory.
 
+**Compaction keeps the structured facts as structure.** The transcript is
+compressible; the list of what was actually done is not. Which windows were
+opened, which packages were installed, whether the controls are held, what was
+tried and failed — those cross a compaction boundary as state, never as a
+sentence in a summary that the next summary will compress again.
+
 The runtime generates the `task_id` that 2.0.3 threads into the server's action
 log, so a person asking "what did you do" gets one trail rather than a scatter
 of calls. It also records the **goal** alongside them — the server knows what
 was called, only the runtime knows why, and a trail with the why is worth more
 than one without.
 
-### 3.9 Stopping
+### 3.9 Skills
+
+Plain `SKILL.md` with the standard Anthropic Agent Skills frontmatter, so a
+skill written for Claude Code, Codex or Cowork — or published on a marketplace —
+loads unchanged. `name` and `description` are the contract; anything of ours
+goes under `metadata.sentineldesk` where another host ignores it, exactly as
+`sentineldesk/visibility` sits beside `readOnlyHint` one layer down.
+
+The obvious first extension is `requires`: a skill about administering Linux is
+only useful if the binaries it names are present, and `list_commands` can answer
+that before the model spends a turn finding out. It must stay optional — a skill
+without it loads and works.
+
+Progressive disclosure as the format intends: frontmatter is what the model sees
+while choosing, the body loads once chosen. The same argument as
+`MCP_DISCOVERY`, applied to skills.
+
+### 3.10 Stopping
 
 Pause, cancel and emergency stop with honest semantics. A cancel that returns
 before the tool actually stopped is worse than no cancel, because it tells the
