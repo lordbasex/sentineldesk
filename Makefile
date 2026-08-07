@@ -232,16 +232,42 @@ release: release-binaries checksums
 test:
 	$(GO) test ./...
 
-## agent: build sentineldesk-agent (no CGO, so it cross-compiles anywhere)
+# The agent ships for Linux on both architectures, because that is where the
+# desktop runs and the runtime lives beside it (ADR-004). It is built for the
+# host too, so a developer can drive a container from their own machine with
+# -container.
+AGENT_PLATFORMS := linux/amd64 linux/arm64
+
+## agent: build sentineldesk-agent for this machine
 agent: _version
 	CGO_ENABLED=0 $(GO) build -trimpath \
 		-ldflags "-s -w -X main.version=$(next_version)" \
 		-o bin/sentineldesk-agent ./agent/cmd/sentineldesk-agent
 	@echo "✓ bin/sentineldesk-agent"
 
-## agent-doctor: build the agent and check it can reach the running desktop
-agent-doctor: agent
-	./bin/sentineldesk-agent doctor
+## agent-linux: build the agent for every platform it ships on
+#
+# No CGO, so this is a loop rather than a QEMU matrix — which is the whole of
+# ADR-002 and the reason the second binary costs so much less to release than
+# the first one, which links GStreamer and cannot cross-compile at all.
+agent-linux: _version
+	@for p in $(AGENT_PLATFORMS); do \
+		os=$${p%/*}; arch=$${p#*/}; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch $(GO) build -trimpath \
+			-ldflags "-s -w -X main.version=$(next_version)" \
+			-o bin/sentineldesk-agent-$$os-$$arch ./agent/cmd/sentineldesk-agent || exit 1; \
+		echo "✓ bin/sentineldesk-agent-$$os-$$arch"; \
+	done
+
+## agent-doctor: run doctor INSIDE the running container, over the socket
+#
+# Through the socket as the desktop user, which is how it will actually run —
+# not through docker exec from the host, which is the development path and
+# would prove the wrong thing.
+agent-doctor: agent-linux
+	docker cp bin/sentineldesk-agent-linux-$$(docker exec sentineldesk uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/') \
+		sentineldesk:/usr/local/bin/sentineldesk-agent
+	docker exec -u sentineldesk sentineldesk /usr/local/bin/sentineldesk-agent doctor
 
 fmt:
 	gofmt -w cmd internal deploy agent

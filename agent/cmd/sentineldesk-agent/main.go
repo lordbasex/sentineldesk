@@ -42,9 +42,8 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent tools [query]   the catalogue, or a search of it
 
 Reaching the desktop:
-  --sock PATH        a unix socket, when running beside the desktop
-  --container NAME   docker exec into a container (default: sentineldesk)
-  --bin PATH         the sentineldesk binary inside it
+  --sock PATH        the daemon's MCP socket (the default; this runs beside it)
+  --container NAME   develop from another machine, through docker exec
 
 `
 
@@ -53,9 +52,9 @@ func main() {
 	fs.SetOutput(os.Stderr)
 	fs.Usage = func() { fmt.Fprint(os.Stderr, usage); fs.PrintDefaults() }
 
-	sock := fs.String("sock", "/run/user/1000/sentineldesk-mcp.sock", "MCP socket inside the desktop")
-	container := fs.String("container", "sentineldesk", "container to docker exec into; empty to connect directly")
-	bin := fs.String("bin", "sentineldesk", "the sentineldesk binary")
+	sock := fs.String("sock", "/run/user/1000/sentineldesk-mcp.sock", "the daemon's MCP socket")
+	container := fs.String("container", "", "develop from another machine: docker exec into this container instead of opening the socket")
+	bin := fs.String("bin", "sentineldesk", "the sentineldesk binary, for -container")
 	timeout := fs.Duration("timeout", 90*time.Second, "how long any one step may take")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
@@ -80,10 +79,15 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	client, err := connect(ctx, *container, *bin, *sock)
+	client, how, err := connect(ctx, *container, *bin, *sock)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not reach the desktop: %v\n", err)
-		fmt.Fprintf(os.Stderr, "\nIs it running?  make up\n")
+		fmt.Fprintf(os.Stderr, "could not reach the desktop over %s: %v\n", how, err)
+		if *container == "" {
+			fmt.Fprintf(os.Stderr, "\nThis expects to run beside the daemon, as the desktop user.\n"+
+				"From another machine, use  -container sentineldesk\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "\nIs it running?  make up\n")
+		}
 		os.Exit(1)
 	}
 	defer client.Close()
@@ -93,7 +97,7 @@ func main() {
 
 	switch args[0] {
 	case "doctor":
-		os.Exit(doctor(runCtx, client))
+		os.Exit(doctor(runCtx, client, how))
 	case "tools":
 		os.Exit(listTools(runCtx, client, strings.Join(args[1:], " ")))
 	default:
@@ -104,25 +108,35 @@ func main() {
 }
 
 // connect opens the transport and performs the handshake.
-func connect(ctx context.Context, container, bin, sock string) (*mcpclient.Client, error) {
+//
+// The socket is the default because that is where this runs: a supervised
+// process inside the container, beside the daemon, as the same user (ADR-004).
+// Nothing is spawned and nothing has to be reaped.
+//
+// -container is the development path, for driving a desktop from a machine that
+// is not it. It is opt-in rather than a fallback: a runtime that quietly
+// reached for docker when its socket was missing would hide a misconfiguration
+// on the box where it matters, and "it worked on the laptop" is exactly how.
+func connect(ctx context.Context, container, bin, sock string) (*mcpclient.Client, string, error) {
 	var transport mcpclient.Transport
 	var err error
+	how := "socket " + sock
 	if container != "" {
-		// The path an AI host takes. Testing through it is testing what ships.
+		how = "docker exec " + container
 		transport, err = mcpclient.DialStdio("docker", "exec", "-i", "-u", "sentineldesk",
 			container, bin, "-mcp-stdio", "-mcp-sock", sock)
 	} else {
-		transport, err = mcpclient.DialStdio(bin, "-mcp-stdio", "-mcp-sock", sock)
+		transport, err = mcpclient.DialUnix(sock)
 	}
 	if err != nil {
-		return nil, err
+		return nil, how, err
 	}
 	client := mcpclient.New(transport)
 	if err := client.Start(ctx, "sentineldesk-agent", version); err != nil {
 		transport.Close()
-		return nil, err
+		return nil, how, err
 	}
-	return client, nil
+	return client, how, nil
 }
 
 // --- doctor -----------------------------------------------------------------
@@ -150,10 +164,11 @@ func (c *checks) section(name string) { fmt.Printf("\n\033[1m%s\033[0m\n", name)
 // They are worth proving separately from the loop because when a loop
 // misbehaves the first question is whether the transport underneath it is
 // sound, and answering that by reading the loop's logs is how a morning goes.
-func doctor(ctx context.Context, c *mcpclient.Client) int {
+func doctor(ctx context.Context, c *mcpclient.Client, how string) int {
 	ck := &checks{}
 	info := c.ServerInfo()
-	fmt.Printf("Connected to %s %s (connection %d)\n", info.Name, info.Version, c.ConnectionID())
+	fmt.Printf("Connected to %s %s over %s (connection %d)\n",
+		info.Name, info.Version, how, c.ConnectionID())
 
 	ck.section("The catalogue")
 	tools, err := c.ListTools(ctx)

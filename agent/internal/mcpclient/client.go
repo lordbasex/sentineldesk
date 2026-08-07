@@ -41,6 +41,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"os/exec"
 	"strings"
 	"sync"
@@ -91,11 +92,16 @@ type Client struct {
 	goal   string
 }
 
-// Transport is where the JSON-RPC lines go. Two exist: a unix socket for an
-// agent running beside the desktop, and a `docker exec … -mcp-stdio` pipe for
-// one running on a developer's machine. Neither is more real than the other —
-// the stdio bridge is what an AI host uses, so testing through it is testing
-// the path that ships.
+// Transport is where the JSON-RPC lines go.
+//
+// Two exist, and one of them is production. The runtime ships as a supervised
+// process inside the container, beside the daemon and under the same user
+// (ADR-004), so it opens the socket directly — no bridge process, nothing to
+// reap, one fewer thing between the loop and the desktop.
+//
+// The stdio bridge is for developing from a machine that is not the desktop.
+// It spawns `docker exec … sentineldesk -mcp-stdio`, which is the path an
+// external AI host takes, so it is worth keeping and worth not defaulting to.
 type Transport interface {
 	io.ReadWriteCloser
 }
@@ -525,6 +531,20 @@ func (t *stdioTransport) Close() error {
 		go func() { _ = t.cmd.Wait() }()
 	})
 	return nil
+}
+
+// DialUnix opens the daemon's socket directly.
+//
+// The production path. The socket is mode 0600 and owned by the desktop user,
+// so this works because the runtime runs as that user — and fails as a
+// permission error rather than silently doing something else if it does not,
+// which is the right way round.
+func DialUnix(path string) (Transport, error) {
+	conn, err := net.DialTimeout("unix", path, 5*time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("mcp socket %s: %w", path, err)
+	}
+	return conn, nil
 }
 
 // DialStdio spawns a bridge process and speaks to its stdin and stdout.

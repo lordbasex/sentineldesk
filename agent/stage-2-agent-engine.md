@@ -89,6 +89,19 @@ rather than defaulting into whichever answer the surrounding code implies.
 
 `agent/cmd/sentineldesk-agent/`, one Go module (ADR-001), **no CGO** (ADR-002).
 
+**It ships for Linux on amd64 and arm64**, because that is where the desktop
+runs and the runtime lives beside it — a supervised process in the container,
+same host, same user (ADR-004). Without CGO the release is a `for` loop rather
+than a QEMU matrix, and the binaries come out statically linked, so there is no
+glibc version to match on the box they land on.
+
+That decides the transport. The default is **the unix socket, opened
+directly**: nothing spawned, nothing to reap, one fewer process between the
+loop and the desktop. `docker exec … -mcp-stdio` stays as `-container`, for
+driving a desktop from a machine that is not it, and it is opt-in rather than a
+fallback — a runtime that quietly reached for docker when its socket was
+missing would hide a misconfiguration on the box where it matters.
+
 ### 3.1 The MCP client
 
 Spawns `sentineldesk -mcp-stdio` or connects to the socket directly, speaks
