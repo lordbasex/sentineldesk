@@ -926,3 +926,121 @@ because it is cheap.
   to trust blindly.
 
 None of these blocks starting the runtime.
+
+## 12. Three things the runtime has to decide that the catalogue cannot express
+
+These came out of a live demo rather than a review, which is why they are worth
+writing down: none of the three is a defect, and all three are decisions the
+server currently makes by accident.
+
+The demo was "install nginx and show it to somebody". Installing it took
+`install_packages` and two `run_command` calls, and a person watching the shared
+desktop at the time **saw nothing happen at all**. That is not wrong. It is that
+nothing in the system expressed the alternative.
+
+### 12.1 There is no visibility axis, and the obvious proxy is wrong
+
+The first attempt to classify the catalogue by "will a human see this" used
+`RequiresControl`, and produced a list that included `browser_open` as invisible
+— a tool that had just opened Chromium on screen while somebody watched.
+
+`RequiresControl` does not mean visible. It means **injects events through
+XTEST**. The honest taxonomy is three-way, and the catalogue encodes a two-way
+split that answers a different question:
+
+| | | examples |
+|---|---|---|
+| 19 | injects input — seen, and gated by the room | `mouse_click`, `type_text`, `terminal_run`, `ui_click` |
+| ~25 | changes the screen without injecting — **seen, ungated** | `launch_app`, `browser_open`, `close_window`, `move_window` |
+| ~25 | changes real state, **zero pixels** | `run_command`, `install_packages`, `write_file`, `ssh_*`, `shell_*`, `service_control`, `snapshot_*` |
+
+The third group is the answer to "how was that done invisibly". Those tools
+never touch X, so they do not even reach the room gate — there is nothing to
+claim and nobody to notice.
+
+The case that makes it concrete: **`run_command` and `terminal_run` do the same
+job.** One is invisible and ungated, the other is visible and gated. Nothing in
+the catalogue, the policy or the room says which one is appropriate, and a model
+choosing on its own will take the first — it is simpler and it returns the
+output more cleanly.
+
+**What stage 2 needs:** a third field on `toolDef`, beside `Risk` and
+`RequiresControl` — `hidden` / `visible` / `injects` — validated at startup like
+the other two. This is the trigger §5.4 was waiting for. Note that the field it
+turns out to need is not one of the five listed there, which is the argument for
+having waited.
+
+### 12.2 Observability is a role, not a judgement call
+
+Three situations, and they want different behaviour:
+
+- **`efficient`** — nobody watching, no evidence asked for. The invisible path
+  is the right one; making a person's desktop flicker for a package install is
+  theatre.
+- **`witnessed`** — somebody asked for a recording, screenshots, or a
+  demonstration. Here the invisible path must be **closed**, not discouraged:
+  where a visible equivalent exists, `run_command` becomes `terminal_run` and
+  the runtime substitutes it. The evidence cannot depend on the model
+  remembering to be observable.
+- **`ask`** — a person granted control while they were working. The agent should
+  ask whether they want to watch it happen or have it run in the background,
+  because that is a question about their attention, not about the task.
+
+The mechanism for the third already exists and was exercised in the demo:
+`request_control` blocked and put a prompt in the human's browser. That is
+agent-to-human questioning, already built and already wired to the room. An
+`ask_human` generalises it — the same path, different text — and it runs in the
+opposite direction to the event channel from §11.2, which completes the pair.
+
+### 12.3 The audit trail exists, and it does not survive a restart
+
+`action_log` recorded the whole demo, correctly and usefully — including the
+things that went wrong, which is the part that matters:
+
+```
+12:03:24  tool_search      {"query":"install the nginx web server"}   ok
+12:03:36  install_packages {"packages":["nginx"]}                     ok
+12:06:06  run_command      nginx -t …            (no root, failed)    ok
+12:06:22  run_command      {"as_root":true, …}                        ok
+12:08:44  activate_window  {"match":"nginx"}                          FAILED
+```
+
+A person asking "how did you install it" can be answered from that, exactly.
+
+Four limits, and the first is the serious one:
+
+- **It is memory only.** `NewActionLog` keeps a ring of 2000 and writes to disk
+  only when `ACTION_LOG` is set. That variable **is set nowhere** — not in the
+  compose file, not in `config.Config`, not in the README's variable table. It
+  is read straight from the environment, which is also why it escaped the
+  convention that every knob has a row in that table. Restart the container and
+  the audit is gone. For a property the user has asked for by name, the default
+  is the wrong way round: this should be on, with the path a knob for moving it,
+  not off with a knob for existing.
+- **2000 entries is roughly two hours** at the rate of this session. An agent
+  working a full day loses its own morning.
+- **Arguments are recorded, results are not.** "How did you install it" is
+  answerable; "what did apt actually print" is not. For an audit that is
+  usually the more interesting half.
+- **There is no task identity.** Entries carry `conn`, and this session shows 43
+  distinct connections because the CLI spawns a bridge per call. Nothing groups
+  "these seven calls were the nginx task". Per-call provenance is not the same
+  as a trail, and the trail is what somebody asking for an audit wants.
+
+**What stage 2 needs:** persistence on by default; a task or run id threaded
+from the runtime through `_meta` so entries group; and the result, or a bounded
+summary of it, stored beside the arguments. The runtime is also the only thing
+that knows *why* a call was made, and a trail that records the goal alongside
+the calls is worth more than one that records the calls alone.
+
+### 12.4 Why these three belong together
+
+They are one property seen from three sides. **A thing that happened should be
+recoverable** — while it happens (visibly, if somebody is watching), by asking
+(the role decides which), and afterwards (the log). Today the server does the
+first by accident, has no mechanism for the second, and loses the third on
+restart.
+
+None of this blocks starting the runtime. All of it is easier to build into the
+runtime than to retrofit, which is why it is written down before rather than
+after.
