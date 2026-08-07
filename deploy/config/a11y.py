@@ -85,7 +85,15 @@ def describe(obj, ref):
         if ext and (ext.width or ext.height):
             info.update({"x": ext.x, "y": ext.y, "width": ext.width, "height": ext.height,
                          "center_x": ext.x + ext.width // 2,
-                         "center_y": ext.y + ext.height // 2})
+                         "center_y": ext.y + ext.height // 2,
+                         # Said out loud because it is not what the constant
+                         # promises. DESKTOP_COORDS returns window-relative
+                         # values here: a dialog the window manager places at
+                         # (805, 429) reports (0, 0), and still does after being
+                         # moved. Anything wanting a screen coordinate has to add
+                         # the window's own origin, which list_windows knows and
+                         # this bridge does not.
+                         "coords": "window-relative"})
 
     act = safe(obj.queryAction)
     if act:
@@ -323,6 +331,83 @@ def cmd_gettext(args):
             "role": info.get("role", "")}
 
 
+def cmd_atpoint(args):
+    """What is at a point inside a window, found by descending rather than walking.
+
+    Two coordinate systems, and the split is the whole design.
+
+    X owns where a window is. AT-SPI claims to as well, and on this desktop it
+    is wrong: a zenity dialog the window manager reports at (805, 429) reports
+    itself at (0, 0) through DESKTOP_COORDS, and still says (0, 0) after being
+    moved to (100, 200). Not staleness — it never knew. So desktop coordinates
+    from this bridge cannot be trusted, and the caller resolves the window with
+    EWMH (which is correct) and passes a point already relative to it.
+
+    Inside the window AT-SPI is reliable, and WINDOW_COORDS descent is O(depth):
+    each element is asked which of its children holds the point. The walk that
+    ui_find and ui_tree do is O(tree) — every application, every widget, three
+    quarters of a second and up to twenty thousand tokens to answer one
+    question. The Component interface exists precisely so a screen reader can
+    follow a pointer without doing that.
+
+    The ancestor chain comes back with the element, because "the button named
+    Save" is ambiguous across three open applications and "Save, in the dialog
+    Export, in GIMP" is not.
+    """
+    x, y = args.x, args.y
+    want_app = (args.app or "").lower()
+
+    best = None
+    for i, app in enumerate(pyatspi.Registry.getDesktop(0)):
+        if app is None:
+            continue
+        if want_app and want_app not in (safe(lambda: app.name, "") or "").lower():
+            continue
+        for j, win in enumerate(app):
+            if win is None:
+                continue
+            comp = safe(win.queryComponent)
+            if not comp:
+                continue
+            # Descend from this window. A window that does not hold the point
+            # yields nothing on the first step, which is how the right one is
+            # picked when an application has several.
+            chain = [describe(win, f"{i}/{j}")]
+            node, ref = win, f"{i}/{j}"
+            for _ in range(args.max_depth):
+                c = safe(node.queryComponent)
+                if not c:
+                    break
+                child = safe(lambda: c.getAccessibleAtPoint(x, y, pyatspi.WINDOW_COORDS))
+                if child is None:
+                    break
+                # getIndexInParent, not a scan comparing with ==. Two wrappers
+                # around the same accessible do not compare equal, so the scan
+                # never matched, the walk stopped at the first step, and every
+                # lookup reported that nothing was there — a wrong answer that
+                # looked exactly like a correct one about an empty point.
+                idx = safe(child.getIndexInParent, -1)
+                if idx is None or idx < 0:
+                    break
+                ref = f"{ref}/{idx}"
+                node = child
+                chain.append(describe(node, ref))
+            # The deepest answer wins: a point inside a button is also inside
+            # the panel and the frame that contain it, and the button is what
+            # was asked about.
+            if len(chain) > 1 and (best is None or len(chain) > len(best)):
+                best = chain
+
+    if not best:
+        return {"found": False, "x": x, "y": y,
+                "hint": "nothing accessible is at that point in that window — "
+                        "the toolkit may not expose an accessibility tree "
+                        "(Chromium content is a common case; use browser_* there)"}
+
+    return {"found": True, "x": x, "y": y,
+            "element": best[-1], "ancestors": best[:-1]}
+
+
 def cmd_focus(args):
     obj, ref, err = locate(args)
     if err:
@@ -478,6 +563,12 @@ def main():
     p = sub.add_parser("focus")
     addressable(p)
 
+    p = sub.add_parser("atpoint")
+    p.add_argument("--x", type=int, required=True)   # relative to the window
+    p.add_argument("--y", type=int, required=True)
+    p.add_argument("--app")
+    p.add_argument("--max-depth", type=int, default=25)
+
     p = sub.add_parser("waitfor")
     common(p)
     p.add_argument("--timeout-ms", type=int, default=15000)
@@ -485,7 +576,8 @@ def main():
     args = ap.parse_args()
     handlers = {"tree": cmd_tree, "find": cmd_find, "click": cmd_click,
                 "settext": cmd_settext, "gettext": cmd_gettext,
-                "focus": cmd_focus, "waitfor": cmd_waitfor}
+                "focus": cmd_focus, "waitfor": cmd_waitfor,
+                "atpoint": cmd_atpoint}
     try:
         print(json.dumps(handlers[args.cmd](args), ensure_ascii=False))
     except Exception as exc:

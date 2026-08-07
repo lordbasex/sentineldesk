@@ -14,7 +14,7 @@
 package mcp
 
 // The tool registry: what each tool is, what it can do to the machine, and how
-// an agent finds the handful it needs among a hundred and eighteen.
+// an agent finds the handful it needs among a hundred and nineteen.
 //
 // Two problems are solved here, and they turn out to be the same problem.
 //
@@ -31,7 +31,7 @@ package mcp
 // maps are derived from it. The failure it replaces was silent; this one is a
 // startup error.
 //
-// The second is discovery. A hundred and eighteen schemas is a large fraction of
+// The second is discovery. A hundred and nineteen schemas is a large fraction of
 // a model's context spent before it reads the request, and most hosts pay it on
 // every turn. Some of them already defer tool loading and search on demand;
 // where the host does not, MCP_DISCOVERY=1 does it from this side — tools/list
@@ -545,7 +545,7 @@ func (idx argIndex) declared(tool string) []string {
 // look at the desktop, read its structure, click, type and run something — plus
 // the one tool that finds the rest. An agent that never calls tool_search can
 // still do useful work with only these; the point is that it no longer pays for
-// a hundred and eighteen schemas to find out whether it needs ssh_tunnel_remote.
+// a hundred and nineteen schemas to find out whether it needs ssh_tunnel_remote.
 var coreTools = map[string]bool{
 	"tool_search":  true,
 	"screenshot":   true,
@@ -746,6 +746,7 @@ var toolKeywords = map[string][]string{
 	// Accessibility.
 	"ui_tree":     {"structure", "hierarchy", "widgets", "layout", "what is in the app"},
 	"ui_find":     {"locate the button", "search box", "which element", "find the field"},
+	"ui_at_point": {"what is at", "under the pointer", "at these coordinates", "what is there", "identify", "under the mouse"},
 	"ui_click":    {"press the button", "activate the element", "push"},
 	"ui_focus":    {"cursor", "caret", "put the cursor", "select the field"},
 	"ui_get_text": {"read the field", "contents of the field", "what does it hold"},
@@ -893,7 +894,7 @@ type searchHit struct {
 // The scoring is deliberately dumb — substring matching over name, category and
 // description, weighted in that order. Anything cleverer (embeddings, a real
 // index) would need a model or a dependency to answer a question that a handful
-// of keywords already answers well, on a corpus of a hundred and eighteen short
+// of keywords already answers well, on a corpus of a hundred and nineteen short
 // strings that fits in a cache line's worth of cache misses. A hit on the name
 // outranks the category, which outranks the description, because a tool called
 // ssh_exec is a better answer to "ssh" than one that mentions ssh in passing.

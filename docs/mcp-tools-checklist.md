@@ -1,6 +1,6 @@
 # MCP server — tool checklist for driving the desktop end to end
 
-> **Status: 118 tools implemented and verified.** Everything marked [x] works in
+> **Status: 119 tools implemented and verified.** Everything marked [x] works in
 > the binary (`sentineldesk`). See [mcp.md](mcp.md) for how to connect it.
 
 Goal: let an AI model use the WebRTC desktop **the way a person does** — see the
@@ -42,6 +42,9 @@ Every tool declares a **risk level** beside its definition — `read` observes,
   schemas** so they can be called without a second round trip. Filtered by the
   connection's policy before ranking; `category` lists a whole theme. 🔶 new
 
+- [x] `ui_at_point` — what is at a screen coordinate, by descending rather than
+  walking. The cheapest question after a screenshot was the most expensive to
+  answer; this makes it `O(depth)`. 🔶 new
 - [x] `subscribe_events` — be told when something changes instead of polling for
   it: `control`, `room`, `windows`, `focus`, `desktop`. Delivered as
   `notifications/sentineldesk/event`. Nothing is sent until it is called. 🔶 new

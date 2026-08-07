@@ -244,7 +244,7 @@ func newPendingCall(req rpcRequest, write func(rpcResponse), flight *inflight) *
 //
 // The reporter rides on the context rather than the signatures. The context is
 // already threaded through every dispatcher and every tool, so this reaches all
-// of them without touching one of the hundred and eighteen, and a tool that has
+// of them without touching one of the hundred and nineteen, and a tool that has
 // nothing to report simply never asks for it.
 type progressFunc func(message string, done float64)
 

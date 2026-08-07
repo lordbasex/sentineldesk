@@ -148,6 +148,7 @@ var searchCorpus = map[string]string{
 	"terminal_read":        "what does the terminal show",
 	"terminal_run":         "type a command into the terminal window",
 	"type_text":            "type hello world",
+	"ui_at_point":          "what is that thing at these coordinates on screen",
 	"ui_click":             "click the OK button in the dialog",
 	"ui_diff":              "what changed on screen since I last looked",
 	"ui_find":              "find the search box in the application",

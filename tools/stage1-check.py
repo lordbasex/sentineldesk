@@ -44,8 +44,8 @@ MCPClient = _mcpcli.MCPClient
 # from the thing being checked would make the check agree with any drift. These
 # are updated by hand when a tool is added, which is the point — adding
 # list_commands moved both and the mismatch is how anyone found out.
-EXPECTED_TOOLS = 118
-EXPECTED_READ = 50
+EXPECTED_TOOLS = 119
+EXPECTED_READ = 51
 EXPECTED_DANGER = 30
 EXPECTED_CONTROL = 19
 

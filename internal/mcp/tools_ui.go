@@ -38,6 +38,22 @@ const sessionBus = "unix:path=/run/user/1000/bus"
 func (s *Server) buildUITools() []toolDef {
 	return []toolDef{
 		{
+			Name:       "ui_at_point",
+			Risk:       riskRead,
+			Visibility: visHidden,
+			Description: "What is at these screen coordinates: the element, and the " +
+				"chain of things containing it. Use this after a screenshot, when you " +
+				"can see something and need its ref — it descends to the point instead " +
+				"of walking every window, so it costs a fraction of ui_tree and answers " +
+				"in one call rather than a search. The coordinates are the screen's, the " +
+				"same ones screenshot and get_mouse_position use. Returns nothing useful " +
+				"inside a browser page, which has its own tree: use browser_text there.",
+			InputSchema: schema(map[string]any{
+				"x": pInt("screen x"),
+				"y": pInt("screen y"),
+			}, "x", "y"),
+		},
+		{
 			Name:        "ui_tree",
 			Risk:        riskRead,
 			Description: "Read the ACCESSIBILITY TREE of the desktop: every window and widget with its role, name, text, state, screen coordinates and the actions it accepts. This is how you SEE what is on screen as structured data instead of taking a screenshot and guessing. Prefer this over `screenshot` whenever you need to operate an application. Use interactive=true to keep only the parts you can act on.",
@@ -164,6 +180,9 @@ func (s *Server) dispatchUI(ctx context.Context, name string, args map[string]an
 	}
 
 	switch name {
+	case "ui_at_point":
+		content, isErr := s.toolUIAtPoint(args)
+		return content, isErr, true
 	case "ui_tree":
 		a := []string{"tree"}
 		a = append(a, opt("--app", "app")...)
@@ -473,4 +492,84 @@ func (s *Server) cdpEvalReport(expr string) ([]map[string]any, bool) {
 func jsStr(v string) string {
 	b, _ := json.Marshal(v)
 	return string(b)
+}
+
+// --- what is at a point ---------------------------------------------------------
+
+// toolUIAtPoint answers "what is under these coordinates" without walking the
+// tree.
+//
+// It exists because the cheapest question an agent asks after looking at a
+// screenshot — *what is that thing* — was the most expensive one to answer.
+// ui_find and ui_tree are O(tree): every application, every window, every
+// widget, three quarters of a second and up to twenty thousand tokens. AT-SPI's
+// Component interface answers it in O(depth), which is what a screen reader
+// following a pointer has always used.
+//
+// Two coordinate systems, and combining them is the whole design. X owns where
+// a window is and EWMH reports it correctly. AT-SPI claims to own it too and on
+// this desktop is simply wrong: a dialog the window manager places at (805, 429)
+// reports itself at (0, 0), and still does after being moved to (100, 200) — it
+// never knew rather than having gone stale. So the window is resolved here,
+// where the answer is right, and only the in-window descent is asked of the
+// bridge, where AT-SPI is reliable.
+func (s *Server) toolUIAtPoint(args map[string]any) ([]map[string]any, bool) {
+	x, y := argInt(args, "x"), argInt(args, "y")
+	if _, ok := args["x"]; !ok {
+		return textContent("`x` and `y` are missing: screen coordinates, the kind screenshot and get_mouse_position report"), true
+	}
+
+	// Topmost window containing the point. The list is in stacking order with
+	// the most recently mapped last, so it is scanned backwards: the first
+	// match walking forwards would be whatever happens to be underneath.
+	windows := s.listWindows()
+	var win *windowInfo
+	for i := len(windows) - 1; i >= 0; i-- {
+		w := windows[i]
+		if x >= w.X && x < w.X+w.W && y >= w.Y && y < w.Y+w.H {
+			win = &windows[i]
+			break
+		}
+	}
+	if win == nil {
+		return jsonContent(map[string]any{
+			"found": false, "x": x, "y": y,
+			"hint": "no window covers that point — it is the desktop background, " +
+				"or the coordinates are off-screen. list_windows shows what is where.",
+		}), false
+	}
+
+	// The application name AT-SPI knows is not the window class X knows, and
+	// neither is a superset of the other. The class is the better bet and the
+	// bridge matches on a substring, so `Zenity` finds `zenity`.
+	app := win.Class
+	if i := strings.LastIndex(app, "."); i >= 0 {
+		app = app[i+1:] // wmctrl reports WM_CLASS as "instance.Class"
+	}
+
+	out, err := s.a11yRaw("atpoint",
+		"--app", app,
+		"--x", strconv.Itoa(x-win.X),
+		"--y", strconv.Itoa(y-win.Y))
+	if err != nil {
+		return textContent("accessibility bridge: %v", err), true
+	}
+	var res map[string]any
+	if json.Unmarshal([]byte(out), &res) != nil {
+		return textContent("accessibility bridge returned non-JSON: %s", strings.TrimSpace(out)), true
+	}
+
+	// The window goes back with the answer whether or not an element was found.
+	// "Nothing accessible there" plus "it is Chromium" is a useful answer;
+	// "nothing accessible there" on its own is a dead end, and the next step
+	// (browser_* instead of ui_*) depends entirely on which it was.
+	res["window"] = win
+	if found, _ := res["found"].(bool); !found {
+		res["hint"] = fmt.Sprintf(
+			"%s is at that point and exposes nothing accessible there. "+
+				"If it is a browser, the page has its own tree — use browser_text "+
+				"or browser_click. Otherwise the toolkit has no accessibility support "+
+				"and mouse_click with these coordinates is the way in.", win.Title)
+	}
+	return jsonContent(res), false
 }

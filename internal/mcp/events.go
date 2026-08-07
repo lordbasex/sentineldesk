@@ -416,7 +416,7 @@ func (h *eventHub) watchX(w *desktop.Watcher) func() {
 
 // The hub reaches the tools the same way the progress reporter does, and for the
 // same reason: the context is already threaded through every dispatcher, so a
-// per-connection handle arrives without changing a hundred and eighteen
+// per-connection handle arrives without changing a hundred and nineteen
 // signatures. A Server built without one — every test that does not exercise
 // this file — simply finds nothing there.
 type eventsKeyType struct{}

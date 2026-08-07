@@ -58,7 +58,7 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (118)
+## Available tools (119)
 
 Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
 to its definition. It is what the three `MCP_POLICY` levels are built on, and it
@@ -89,6 +89,7 @@ at the right moment reads this rather than carrying its own copy of the list.
 
 | Tool | What it does |
 |---|---|
+| `ui_at_point` | What is at these screen coordinates: the element plus the chain containing it. Descends to the point instead of walking every window, so it answers *what is that thing* in one call rather than a tree walk |
 | `tool_search` | Describe a task in plain words and get back the tools that do it, with their full input schemas — see [Finding tools without loading all of them](#finding-tools-without-loading-all-of-them) |
 
 **🔔 Being told, instead of asking**
@@ -301,7 +302,7 @@ Full checklist and design notes: [mcp-tools-checklist.md](mcp-tools-checklist.md
 
 ## Finding tools without loading all of them
 
-A hundred and eighteen schemas is a real amount of a model's context, spent
+A hundred and nineteen schemas is a real amount of a model's context, spent
 before it has read the request. `tool_search` is the way around it: describe the
 task and get back the handful of tools that do it.
 
@@ -311,7 +312,7 @@ task and get back the handful of tools that do it.
 
 ```json
 {
-  "matched": 6, "of": 118,
+  "matched": 6, "of": 119,
   "tools": [
     {"name": "ssh_connect",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
     {"name": "ssh_copy_id",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
