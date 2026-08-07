@@ -241,6 +241,22 @@ func validateCatalogue(tools []toolDef) error {
 		sort.Strings(dupes)
 		problems = append(problems, "duplicate tool name(s): "+strings.Join(dupes, ", "))
 	}
+	// A renamed tool must not leave its search vocabulary behind. The stranded
+	// entry would never match anything and nothing would ever say so — the tool
+	// would simply get harder to find, which is the failure mode this whole file
+	// was written to stop being silent.
+	var stranded []string
+	for name := range toolKeywords {
+		if !seen[name] {
+			stranded = append(stranded, name)
+		}
+	}
+	if len(stranded) > 0 {
+		sort.Strings(stranded)
+		problems = append(problems, fmt.Sprintf(
+			"toolKeywords names %d tool(s) that are not in the catalogue: %s",
+			len(stranded), strings.Join(stranded, ", ")))
+	}
 	if len(problems) > 0 {
 		return fmt.Errorf("mcp catalogue: %s", strings.Join(problems, "; "))
 	}
@@ -544,11 +560,229 @@ func categoryMatches(category, term string) bool {
 		return true
 	}
 	for _, alias := range categoryAliases[category] {
-		if alias == term || strings.HasPrefix(alias, term) && len(term) >= 4 {
+		// Both directions. The prefix test used to run only one way, so a query
+		// saying "application" could not reach the alias "app" — which is half
+		// of why "open the calculator application" never found launch_app.
+		if alias == term ||
+			(strings.HasPrefix(alias, term) && len(term) >= 4) ||
+			(strings.HasPrefix(term, alias) && len(alias) >= 4) {
 			return true
 		}
 	}
 	return false
+}
+
+// toolKeywords is the vocabulary that connects a task to the tool that does it.
+//
+// Categories were not enough. A category alias helps a query that already names
+// the theme — "remote access" reaches the ssh_* family — but it cannot choose
+// between thirteen tools inside that family, and it does nothing at all for the
+// tools whose theme is obvious and whose *name* is the obstacle. "open the
+// calculator application" is a request for launch_app, and before this map it
+// returned browser_open, terminal_open, shell_open and open_app_and_wait,
+// because those four have the query's only distinctive word in their names and
+// launch_app does not have it anywhere.
+//
+// Three kinds of entry earn their place here, and nothing else should:
+//
+//   - the word for the thing that is not the word in the name — "uninstall" for
+//     remove_packages, "checkpoint" for the snapshot family, "pause" for wait;
+//   - the spelling the writer did not use — "color" beside "colour", "a11y"
+//     beside "accessibility";
+//   - the multi-word phrase that means the tool and nothing else — "port
+//     forward", "always on top", "bring to front". These are matched against the
+//     whole query rather than term by term, which is what makes them worth more
+//     than their words separately: "forward" alone is ambiguous between the two
+//     tunnel directions, "port forward" is not.
+//
+// What does not belong here is a word already in the tool's name or description.
+// It buys nothing — those are searched — and it makes the map look authoritative
+// when it is only supplementary. A tool absent from this map is not misfiled;
+// it is a tool whose name says what it does, which is most of them.
+//
+// Every key is checked against the catalogue at startup, so a renamed tool
+// cannot leave its vocabulary behind. Whether the vocabulary is *sufficient* is
+// a different question, and the only honest answer to it is a measurement:
+// search_test.go holds one plain-English query per tool and fails when recall
+// drops. Add a tool, add its query; if it ranks, it needs nothing here.
+var toolKeywords = map[string][]string{
+	// Processes — the family the naming hurts most, because "open", "start" and
+	// "run" are what a person says and three other families own those words.
+	"launch_app":          {"open", "start", "application", "program", "app", "open the"},
+	"open_app_and_wait":   {"open and wait", "start and wait", "launch and wait", "until", "and wait"},
+	"run_command":         {"execute", "shell", "one-off", "command line"},
+	"list_processes":      {"running", "tasks", "what is running", "processes"},
+	"is_running":          {"already open", "is it open", "still running", "alive"},
+	"kill_process":        {"stop", "terminate", "quit", "frozen", "hung", "force quit"},
+	"list_installed_apps": {"installed", "available applications", "what applications"},
+	"list_commands":       {"binaries", "executables", "programs", "what can i run", "path"},
+
+	// Screen.
+	"screenshot":        {"picture", "capture", "image", "look", "see"},
+	"screenshot_region": {"crop", "rectangle", "part of the screen", "area"},
+	"get_screen_info":   {"resolution", "size", "dimensions", "how big"},
+	"get_pixel_color":   {"color", "colour", "rgb", "pixel", "dot", "shade"},
+	"read_screen_text":  {"ocr", "what does it say", "read the screen"},
+	"find_text":         {"locate", "where does it say", "where is the word", "search the screen"},
+	"set_resolution":    {"change resolution", "resize the display", "1920", "1280"},
+
+	// Windows.
+	"activate_window":   {"front", "foreground", "bring to front", "switch to", "raise"},
+	"get_active_window": {"which window", "has focus", "current window", "frontmost"},
+	"move_window":       {"position", "corner", "place", "put the window", "reposition"},
+	"resize_window":     {"narrower", "wider", "taller", "shorter", "dimensions"},
+	"minimize_window":   {"hide", "out of the way", "iconify", "taskbar"},
+	"maximize_window":   {"as big as", "bigger", "fill the screen", "enlarge"},
+	"restore_window":    {"unmaximize", "back to", "previous size", "undo maximize"},
+	"fullscreen_window": {"full screen", "entire display", "whole screen"},
+	"window_properties": {"details", "attributes", "geometry", "about that window"},
+	"window_hierarchy":  {"parent", "child", "tree of windows", "nesting"},
+	"window_set_state":  {"always on top", "above the others", "sticky", "shaded", "keep above"},
+	"wait_for_window":   {"until the window", "window to open", "window to appear"},
+
+	// Desktops.
+	"list_desktops":      {"workspaces", "how many workspaces", "virtual desktops"},
+	"get_desktop_info":   {"which workspace", "current workspace", "am i on"},
+	"switch_desktop":     {"go to workspace", "next workspace", "change workspace"},
+	"set_window_desktop": {"send to workspace", "move to workspace", "another workspace"},
+
+	// The room.
+	"room_state":      {"who", "connected", "participants", "viewers", "people", "others", "sharing"},
+	"request_control": {"take the controls", "claim", "grab", "acquire", "may i"},
+	"release_control": {"give back", "hand back", "relinquish", "let go of the controls", "done"},
+
+	// Accessibility.
+	"ui_tree":     {"structure", "hierarchy", "widgets", "layout", "what is in the app"},
+	"ui_find":     {"locate the button", "search box", "which element", "find the field"},
+	"ui_click":    {"press the button", "activate the element", "push"},
+	"ui_focus":    {"cursor", "caret", "put the cursor", "select the field"},
+	"ui_get_text": {"read the field", "contents of the field", "what does it hold"},
+	"ui_set_text": {"write into", "put text in", "enter into the field"},
+	"ui_diff":     {"changed", "difference", "since i last", "what is new"},
+	"ui_wait_for": {"until it appears", "dialog to appear", "element to appear"},
+	"fill_form":   {"complete the form", "several fields", "fill in"},
+
+	// Terminal and shell — two families a query cannot tell apart on names.
+	"terminal_open": {"terminal window", "xterm", "console window"},
+	"terminal_run":  {"into the terminal", "at the prompt", "in the console"},
+	"terminal_read": {"terminal output", "what the terminal", "console output"},
+	"shell_open":    {"background session", "persistent", "keep using", "long running"},
+	"shell_exec":    {"in the session", "same session", "persistent command"},
+	"shell_input":   {"send a line", "answer the prompt", "stdin", "waiting for input"},
+	"shell_read":    {"session output", "what the session", "printed"},
+	"shell_list":    {"open sessions", "my sessions", "which sessions"},
+	"shell_close":   {"end the session", "finish the session"},
+	"check_errors":  {"fail", "failed", "failure", "problem", "wrong", "broken", "crash", "went wrong"},
+
+	// Browser.
+	"browser_open":     {"website", "web site", "web page", "url"},
+	"browser_goto":     {"navigate", "different address", "another page", "go to"},
+	"browser_text":     {"page contents", "what the page says", "read the page"},
+	"browser_type":     {"text box", "input field", "into the website", "on the site"},
+	"browser_click":    {"press on the page", "button on the page", "link"},
+	"browser_eval":     {"javascript", "js", "script in the page", "evaluate"},
+	"browser_tabs":     {"open pages", "which tabs", "what is open in the browser"},
+	"browser_wait_for": {"until the element", "element to appear", "page to show"},
+
+	// Files.
+	"read_file":      {"contents of the file", "cat", "show the file"},
+	"write_file":     {"save to a file", "create a file", "put in a file"},
+	"list_directory": {"folder", "what is inside", "ls", "contents of the directory"},
+
+	// Packages.
+	"install_packages": {"apt install", "add software", "get the package"},
+	"remove_packages":  {"uninstall", "purge", "get rid of the package", "delete the package"},
+	"search_packages":  {"is there a package", "look for software", "find a package"},
+
+	// Snapshots.
+	"snapshot_create":  {"checkpoint", "save the state", "come back to", "backup"},
+	"snapshot_list":    {"checkpoints", "what backups", "saved states"},
+	"snapshot_restore": {"roll back", "revert", "go back to", "undo everything"},
+	"snapshot_delete":  {"throw away the checkpoint", "remove the backup"},
+
+	// Recording and restreaming.
+	"start_recording":      {"film", "capture video", "make a video", "record"},
+	"stop_recording":       {"stop the video", "finish recording", "end the recording"},
+	"get_recording_status": {"still recording", "am i recording", "is it recording"},
+	"list_recordings":      {"videos", "what have i recorded", "past recordings"},
+	"start_restream":       {"youtube", "twitch", "go live", "broadcast"},
+	"stop_restream":        {"stop the broadcast", "go offline", "end the stream"},
+	"list_restreams":       {"broadcasts", "what is live", "active streams"},
+
+	// SSH — thirteen tools whose names differ by one word, so the phrases matter
+	// more here than anywhere else.
+	"ssh_connect":       {"log in to", "sign in to", "open a connection", "reach the machine"},
+	"ssh_disconnect":    {"close the connection", "log out", "drop the connection"},
+	"ssh_list":          {"which hosts", "my connections", "connected to"},
+	"ssh_exec":          {"on the remote", "on that machine", "over ssh"},
+	"ssh_upload":        {"send the file", "copy to the server", "put the file"},
+	"ssh_download":      {"fetch the file", "copy from the server", "get the file"},
+	"ssh_list_remote":   {"files on the remote", "directory on the server", "what is on the server"},
+	"ssh_keygen":        {"key pair", "private key", "public key", "make a key"},
+	"ssh_copy_id":       {"passwordless", "install the key", "trust the key", "without a password"},
+	"ssh_tunnel_local":  {"port forward", "forward a local port", "reach a remote service"},
+	"ssh_tunnel_remote": {"reverse tunnel", "expose locally", "publish my service"},
+	"ssh_tunnels":       {"open forwards", "which tunnels", "active tunnels", "forwards"},
+	"ssh_tunnel_close":  {"close the tunnel", "shut down", "stop forwarding", "tear down"},
+
+	// Input.
+	"mouse_click":        {"click at", "coordinates", "click there"},
+	"mouse_move":         {"pointer to", "move the cursor", "hover"},
+	"mouse_down":         {"hold the button", "press and hold", "begin the drag"},
+	"mouse_up":           {"let go", "release the button", "end the drag"},
+	"mouse_drag":         {"drag and drop", "drag onto", "move it onto"},
+	"mouse_scroll":       {"wheel", "scroll down", "scroll up"},
+	"get_mouse_position": {"where is the pointer", "cursor position", "pointer location"},
+	"type_text":          {"write", "enter text", "keyboard"},
+	"key_combo":          {"shortcut", "control and", "press ctrl", "hotkey", "modifier"},
+
+	// Clipboard, audio, gamepad.
+	"get_clipboard":   {"what did i copy", "paste buffer", "copied"},
+	"set_clipboard":   {"copy this", "put on the clipboard", "make it pasteable"},
+	"get_audio_state": {"muted", "how loud", "is there sound"},
+	"set_volume":      {"louder", "quieter", "turn the sound", "turn it down", "turn it up"},
+	"gamepad_axis":    {"stick", "analog", "thumbstick", "trigger"},
+	"gamepad_button":  {"hold a controller", "controller button down"},
+	"gamepad_tap":     {"press a controller", "tap the controller"},
+	"gamepad_state":   {"controller reporting", "what the controller", "pad state"},
+
+	// System and bookkeeping.
+	"sudo_status":     {"as root", "privileges", "am i allowed", "elevated"},
+	"service_control": {"restart the", "daemon", "supervisor", "bounce the"},
+	"action_log":      {"history", "audit", "what has been done", "trail", "past calls"},
+	"wait":            {"pause", "sleep", "delay", "for a moment", "seconds"},
+	"wait_for_idle":   {"stops changing", "settles", "quiet", "finishes drawing", "stable"},
+}
+
+// keywordIndex splits toolKeywords into the single words, which are compared
+// against one query term at a time, and the phrases, which are compared against
+// the whole query. Building it once beats re-splitting on every search.
+type keywordIndex struct {
+	words   map[string]map[string]bool // tool -> set of single-word keywords
+	phrases map[string][]string        // tool -> multi-word keywords
+}
+
+var keywords = buildKeywordIndex()
+
+func buildKeywordIndex() keywordIndex {
+	idx := keywordIndex{
+		words:   make(map[string]map[string]bool, len(toolKeywords)),
+		phrases: make(map[string][]string, len(toolKeywords)),
+	}
+	for tool, list := range toolKeywords {
+		for _, kw := range list {
+			kw = strings.ToLower(strings.TrimSpace(kw))
+			if strings.Contains(kw, " ") {
+				idx.phrases[tool] = append(idx.phrases[tool], kw)
+				continue
+			}
+			if idx.words[tool] == nil {
+				idx.words[tool] = map[string]bool{}
+			}
+			idx.words[tool][kw] = true
+		}
+	}
+	return idx
 }
 
 type searchHit struct {
@@ -570,8 +804,9 @@ type searchHit struct {
 // outranks the category, which outranks the description, because a tool called
 // ssh_exec is a better answer to "ssh" than one that mentions ssh in passing.
 func searchTools(tools []toolDef, query string, limit int) []searchHit {
+	lower := strings.ToLower(query)
 	var terms []string
-	for _, term := range strings.Fields(strings.ToLower(query)) {
+	for _, term := range strings.Fields(lower) {
 		term = strings.Trim(term, ".,;:!?\"'()")
 		if len(term) < 2 || searchStopwords[term] {
 			continue
@@ -593,15 +828,45 @@ func searchTools(tools []toolDef, query string, limit int) []searchHit {
 		spaced := strings.ReplaceAll(name, "_", " ")
 		cat := categoryOf(t.Name)
 		desc := strings.ToLower(t.Description)
-		score, strong := 0, 0
+		kwWords := keywords.words[t.Name]
+
+		score, strong, weak := 0, 0, 0
+
+		// Phrases first, and against the whole query rather than term by term.
+		// A phrase surviving intact is the strongest signal in the file: "port
+		// forward" appearing in a sentence is not an accident of vocabulary the
+		// way "forward" on its own is.
+		for _, phrase := range keywords.phrases[t.Name] {
+			if strings.Contains(lower, phrase) {
+				score += 10
+				strong++
+			}
+		}
+
 		for _, term := range terms {
 			// Underscores are separators, not letters: "remote access" should
 			// find ssh_list_remote, and it will not if the term has to survive
 			// as a contiguous substring of the whole name.
+			//
+			// Two-letter terms are matched only as whole words. Left as
+			// substrings they matched anything: "am" in "which workspace am I
+			// on" hit every gamepad tool through the "am" in "gamepad", and
+			// four tools that had nothing to do with the question outranked the
+			// one that answered it.
 			hit := 0
 			switch {
 			case name == term:
 				hit = 12
+			case kwWords[term]:
+				hit = 9
+			case len(term) == 2:
+				// whole-word only
+				for _, part := range strings.Split(spaced, " ") {
+					if part == term {
+						hit = 8
+						break
+					}
+				}
 			case strings.Contains(spaced, term):
 				hit = 8
 			case strings.Contains(name, term):
@@ -610,24 +875,39 @@ func searchTools(tools []toolDef, query string, limit int) []searchHit {
 			if categoryMatches(cat, term) {
 				hit += 4
 			}
-			// A name or category hit is evidence about the tool. A description
-			// hit is evidence about its prose, so it scores but does not count
-			// towards the all-terms bonus below — otherwise the tools with the
-			// longest descriptions win every vague query.
+			// A name, keyword or category hit is evidence about the tool. A
+			// description hit is evidence about its prose, so it scores but does
+			// not count towards the all-terms bonus below — otherwise the tools
+			// with the longest descriptions win every vague query.
 			if hit > 0 {
 				strong++
+			} else if len(term) >= 4 && strings.Contains(desc, term) {
+				weak++
 			}
 			if strings.Contains(desc, term) {
 				hit++
 			}
 			score += hit
 		}
+
+		// A tool with no name, keyword or category hit is normally not an
+		// answer. The exception is the query that describes the tool in words
+		// none of those three happen to hold: several distinctive terms landing
+		// in one description is weak evidence, but it is evidence, and refusing
+		// it outright is what left twenty-eight tools unreachable by any
+		// phrasing at all. They enter far down the list, which is the right
+		// place for a guess — visible to an agent reading ten results, never
+		// ahead of a tool that actually matched.
 		if strong == 0 {
-			continue
+			if weak < 2 {
+				continue
+			}
+			score = weak
+		} else {
+			// Matching several terms beats matching one of them well: a query is
+			// a description of one tool, not a bag of alternatives.
+			score += strong * 3
 		}
-		// Matching several terms beats matching one of them well: a query is a
-		// description of one tool, not a bag of alternatives.
-		score += strong * 3
 		hits = append(hits, searchHit{
 			Name: t.Name, Category: cat, Risk: t.Risk.String(),
 			Description: t.Description, InputSchema: t.InputSchema, score: score,
