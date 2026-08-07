@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // Role is who said something.
@@ -173,6 +174,39 @@ func (e *Unavailable) Error() string {
 		return fmt.Sprintf("%s is unavailable: %s. %s", e.Provider, e.Reason, e.HowToFix)
 	}
 	return fmt.Sprintf("%s is unavailable: %s", e.Provider, e.Reason)
+}
+
+// Open builds a provider by name.
+//
+// The one place that knows which adapters exist, so adding one is a change here
+// and a preset, rather than a change in every caller.
+func Open(name, model string) (Provider, error) {
+	switch strings.ToLower(strings.TrimSpace(name)) {
+	case "", "anthropic":
+		return NewAnthropic(model)
+	}
+	if preset, ok := FindPreset(name); ok {
+		return NewOpenAICompat(preset, model)
+	}
+	return nil, &Unavailable{
+		Provider: name, Reason: "no such provider",
+		HowToFix: "Known: anthropic, " + strings.Join(presetIDs(), ", ") +
+			". `sentineldesk-agent providers` lists them with what each needs.",
+	}
+}
+
+func presetIDs() []string {
+	out := make([]string, 0, len(Presets))
+	for _, p := range Presets {
+		out = append(out, p.ID)
+	}
+	return out
+}
+
+// KeySourced is a provider that can say where its credential came from, which
+// is a path or an environment variable's name and never the credential.
+type KeySourced interface {
+	KeySource() string
 }
 
 // IsUnavailable reports whether an error means "not configured" rather than

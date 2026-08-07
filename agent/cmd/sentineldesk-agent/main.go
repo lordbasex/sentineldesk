@@ -44,10 +44,12 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent doctor          check the connection and what it can do
   sentineldesk-agent tools [query]   the catalogue, or a search of it
   sentineldesk-agent run "goal"      work towards a goal
+  sentineldesk-agent providers       which models can be reached, and what each needs
   sentineldesk-agent costs           what has been spent, and on what
   sentineldesk-agent history [id]    past runs, or one run in full
 
 The model:
+  --provider   anthropic | ollama | ollama-cloud | openai | openrouter
   --role       efficient | witnessed   (witnessed does the work where people can see it)
   --model      which model to use
   --max-turns  stop after this many (default 25)
@@ -71,6 +73,7 @@ func main() {
 	bin := fs.String("bin", "sentineldesk", "the sentineldesk binary, for -container")
 	timeout := fs.Duration("timeout", 90*time.Second, "how long any one step may take")
 	role := fs.String("role", "efficient", "efficient | witnessed")
+	providerName := fs.String("provider", "anthropic", "which provider (see `providers`)")
 	model := fs.String("model", "", "which model (default: the provider's)")
 	maxTurns := fs.Int("max-turns", 25, "stop a run after this many turns")
 	showVersion := fs.Bool("version", false, "print the version and exit")
@@ -104,6 +107,8 @@ func main() {
 		os.Exit(showCosts())
 	case "history":
 		os.Exit(showHistory(strings.Join(args[1:], " ")))
+	case "providers":
+		os.Exit(showProviders())
 	}
 
 	client, how, err := connect(ctx, *container, *bin, *sock)
@@ -136,7 +141,7 @@ func main() {
 		// A run is bounded by the person at the keyboard, not by the -timeout
 		// meant for one step. Ctrl-C still stops it, and stops it properly:
 		// the cancellation reaches the server and the tool in flight ends.
-		os.Exit(runGoal(ctx, client, goal, *role, *model, *maxTurns))
+		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model, *maxTurns))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -462,8 +467,8 @@ func errText(err error) string {
 // other than the operator decides what happens next, and a run whose steps are
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
-func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string, maxTurns int) int {
-	llm, err := provider.NewAnthropic(model)
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns int) int {
+	llm, err := provider.Open(providerName, model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		if provider.IsUnavailable(err) {
@@ -473,7 +478,11 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 		}
 		return 1
 	}
-	fmt.Printf("Model: %s   key: %s\n", llm.Name(), llm.KeySource())
+	source := "?"
+	if k, ok := llm.(provider.KeySourced); ok {
+		source = k.KeySource()
+	}
+	fmt.Printf("Model: %s   key: %s\n", llm.Name(), source)
 
 	tools, err := c.ListTools(ctx)
 	if err != nil {
@@ -779,4 +788,68 @@ func shortTime(rfc string) string {
 		return rfc
 	}
 	return t.Format("2006-01-02 15:04:05")
+}
+
+// --- providers --------------------------------------------------------------
+
+// showProviders lists what can be reached and what each one needs.
+//
+// It says whether a key is actually present, not merely whether one is
+// required. "You need a key" and "the key is missing" are the same sentence to
+// somebody who has already put one in the wrong place.
+func showProviders() int {
+	fmt.Printf("\033[1m%-14s %-9s %-26s %s\033[0m\n", "PROVIDER", "KEY", "DEFAULT MODEL", "CACHING")
+
+	// Anthropic is its own adapter rather than a preset: its wire format
+	// differs, and its caching is explicit.
+	anthropicKey, _ := provider.LoadKey("anthropic")
+	fmt.Printf("%-14s %-9s %-26s %s\n", "anthropic",
+		keyState(anthropicKey), provider.DefaultAnthropicModel, "explicit markers")
+
+	for _, p := range provider.Presets {
+		state := "\033[32mnot needed\033[0m"
+		if p.KeyName != "" {
+			key, _ := provider.LoadKey(p.KeyName)
+			state = keyState(key)
+		}
+		caching := "none"
+		if p.Caps.Caching {
+			caching = "automatic"
+		}
+		fmt.Printf("%-14s %-9s %-26s %s\n", p.ID, state, p.DefaultModel, caching)
+	}
+
+	fmt.Println()
+	fmt.Printf("  \033[1manthropic\033[0m     Explicit cache markers, which this runtime sets: the prompt and\n")
+	fmt.Printf("                catalogue are cached and re-read at a fraction of the rate.\n")
+	for _, p := range provider.Presets {
+		fmt.Printf("  \033[1m%-13s\033[0m %s\n", p.ID, wrap(p.Note, 64, 16))
+	}
+	fmt.Printf("\nKeys live in ~/.sentineldesk/<name>.key, chmod 600, outside any checkout.\n")
+	fmt.Printf("Example:  sentineldesk-agent --provider ollama --model qwen3:8b run \"…\"\n")
+	return 0
+}
+
+func keyState(k provider.Secret) string {
+	if k.Empty() {
+		return "\033[33mmissing\033[0m"
+	}
+	return "\033[32mpresent\033[0m"
+}
+
+// wrap breaks a note across lines, indented to line up under the first.
+func wrap(s string, width, indent int) string {
+	var out, line strings.Builder
+	for _, word := range strings.Fields(s) {
+		if line.Len()+len(word)+1 > width {
+			out.WriteString(line.String() + "\n" + strings.Repeat(" ", indent))
+			line.Reset()
+		}
+		if line.Len() > 0 {
+			line.WriteString(" ")
+		}
+		line.WriteString(word)
+	}
+	out.WriteString(line.String())
+	return out.String()
 }
