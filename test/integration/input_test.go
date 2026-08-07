@@ -104,43 +104,112 @@ func TestMouseMove(t *testing.T) {
 	}
 }
 
-// A note on what these can and cannot show.
+// clearScreen minimises everything before a test that depends on what is
+// visible.
 //
-// The obvious test for mouse_click — click a window, watch it take focus —
-// does not work in this image, and the reason is worth recording so nobody
-// spends an afternoon on it again. Clicking the client area of an xterm leaves
-// _NET_ACTIVE_WINDOW at 0x0 under this window manager, and a page in Chromium
-// counting mousedown/mouseup/click through a full-screen div registers nothing
-// at all. Both are true of xdotool at the identical coordinates, so neither is
-// about the tool: mouse_click and xdotool put the same events on the same wire.
-// It is Xvfb with no compositor and applications that do not treat synthetic
-// input as a gesture.
+// This is the fixture three earlier attempts at these tests lacked, and its
+// absence produced a confident and wrong conclusion: that clicking a window
+// could not move focus in this image, and that the tools were therefore
+// untestable that way. What was actually happening is that a full-screen
+// browser was sitting on top — first one left over from a sweep, then one the
+// investigation itself had opened — so every click landed on it. On a clear
+// desktop click-to-focus works exactly as openbox's rc.xml says it should.
 //
-// What does work is the window manager's own drag: press on a title bar, move,
-// release, and the window is somewhere else. That single effect exercises the
-// press and the release and the motion between them, so it is what the button
-// tools are tested through — a real effect, read from X, rather than an
-// observable chosen because it was easy to assert.
+// The lesson is cheaper to write down than to rediscover: a test about the
+// screen must control the screen, and "there was probably nothing in the way"
+// is not control.
+func clearScreen(t *testing.T) {
+	t.Helper()
+	// Close what is in the way rather than minimising it. "Show desktop" was
+	// the first attempt and it keeps NEW windows hidden too, so the test then
+	// opened two windows onto a desktop that was refusing to show any.
+	//
+	// The panel and the file manager are left alone: pcmanfm owns the root
+	// window in desktop mode and closing it takes the wallpaper and the icons
+	// with it.
+	X(t, `for w in $(wmctrl -l | grep -viE 'panel|pcmanfm' | cut -d' ' -f1); do wmctrl -i -c $w; done`)
+	time.Sleep(700 * time.Millisecond)
+}
+
+// twoWindows puts two windows side by side above everything, focuses the
+// second, and returns the first with a point in the middle of it.
+func twoWindows(t *testing.T, prefix string) (target string, cx, cy int) {
+	t.Helper()
+	clearScreen(t)
+	first := openWindow(t, prefix+"ONE")
+	second := openWindow(t, prefix+"TWO")
+	// Left where the window manager put them. Moving them with wmctrl -e was
+	// the last thing standing between this test and passing: a repositioned
+	// window reports a geometry that a click computed from it does not reach,
+	// and openbox places two windows apart on its own anyway.
+	shared.Call(t, "activate_window", map[string]any{"id": second})
+	time.Sleep(600 * time.Millisecond)
+
+	px, py := pointInside(t, first)
+	return first, px, py
+}
+
+// pointInside finds a screen coordinate that is really over the window, by
+// asking rather than by arithmetic.
+//
+// The arithmetic does not work here and it took a long time to accept that.
+// wmctrl -lG, xdotool getwindowgeometry and xwininfo give three different
+// origins for the same window — client, frame and something between — and a
+// point computed as "the middle" from any of them can land on the desktop:
+// measured on one window reported as 418x290 at (82,196), the points (100,250)
+// and (250,300) were over it and (291,341) was over the root. Probing settles
+// it in a few milliseconds and cannot be wrong.
+func pointInside(t *testing.T, id string) (int, int) {
+	t.Helper()
+	f := strings.Fields(X(t, "wmctrl -lG | grep %s", id))
+	if len(f) < 6 {
+		t.Fatalf("could not read the geometry of %s: %v", id, f)
+	}
+	x, y, w, h := atoi(f[2]), atoi(f[3]), atoi(f[4]), atoi(f[5])
+
+	// Whatever the desktop reports where no application is, so a candidate can
+	// be recognised as landing on nothing.
+	X(t, "xdotool mousemove 1910 1070")
+	desktop := underPointer(t)
+
+	for _, frac := range [][2]int{{4, 4}, {3, 3}, {4, 2}, {2, 4}, {8, 8}, {3, 8}} {
+		cx, cy := x+w/frac[0], y+h/frac[1]
+		X(t, "xdotool mousemove %d %d", cx, cy)
+		if got := underPointer(t); got != "" && got != desktop {
+			return cx, cy
+		}
+	}
+	t.Fatalf("no probed point inside %s was over it (geometry %d,%d %dx%d)", id, x, y, w, h)
+	return 0, 0
+}
+
+func underPointer(t *testing.T) string {
+	t.Helper()
+	out := X(t, "xdotool getmouselocation")
+	_, after, ok := strings.Cut(out, "window:")
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(after)
+}
 
 // dragWindow returns a window placed where nothing covers it, and the middle of
-// its title bar, which is the one part of the screen that reliably reacts.
+// its title bar — the part the window manager moves when it is dragged.
 func dragWindow(t *testing.T, title string) (id string, tx, ty int) {
 	t.Helper()
+	clearScreen(t)
 	id = openWindow(t, title)
 	X(t, "wmctrl -i -r %s -e 0,200,200,420,300", id)
-	X(t, "wmctrl -i -r %s -b add,above", id)
 	shared.Call(t, "activate_window", map[string]any{"id": id})
 	time.Sleep(600 * time.Millisecond)
 
 	// xwininfo's absolute origin, not wmctrl's. For a reparented window the two
-	// disagree by the frame offset, and mixing them is how three attempts at
-	// this test aimed at empty desktop: wmctrl -lG reports the client area while
-	// xwininfo reports the frame, so "twelve pixels above the origin" means the
-	// title bar in one and nothing at all in the other.
+	// disagree by the frame offset: wmctrl reports the client area while
+	// xwininfo reports the frame, so "a dozen pixels above the origin" means the
+	// title bar in one and empty desktop in the other.
 	info := X(t, "xwininfo -id %s", id)
-	fx := fieldInt(info, "Absolute upper-left X")
-	fy := fieldInt(info, "Absolute upper-left Y")
-	return id, fx + 60, fy - 12
+	return id, fieldInt(info, "Absolute upper-left X") + 60,
+		fieldInt(info, "Absolute upper-left Y") - 12
 }
 
 func atoi(s string) int {
@@ -165,39 +234,45 @@ func windowAt(t *testing.T, id string) (int, int) {
 
 func TestMouseClick(t *testing.T) {
 	control(t)
-	// What can be established out of band is that the pointer arrives exactly
-	// where it was sent and the button is delivered there. The delivery itself
-	// is what TestMouseDownAndUp shows through an effect; here the position is
-	// the assertion, because a click at the wrong coordinates is the failure
-	// that actually happens and it is invisible in the reply.
-	id, tx, ty := dragWindow(t, "CLICKWIN")
-	_ = id
+	target, cx, cy := twoWindows(t, "CLICK")
 
-	shared.Call(t, "mouse_click", map[string]any{"x": tx, "y": ty})
-
+	// The pointer is sent where it was told, and that much is checkable here.
+	shared.Call(t, "mouse_click", map[string]any{"x": cx, "y": cy})
 	got := X(t, "xdotool getmouselocation --shell | head -2 | tr '\\n' ' '")
-	want := fmt.Sprintf("X=%d Y=%d", tx, ty)
-	if !strings.Contains(got, want) {
-		t.Fatalf("clicked at (%d,%d) and the pointer ended at %q", tx, ty, got)
+	if want := fmt.Sprintf("X=%d Y=%d", cx, cy); !strings.Contains(got, want) {
+		t.Fatalf("clicked at (%d,%d) and the pointer ended at %q", cx, cy, got)
 	}
+
+	// Whether the click then moves focus is not asserted, and the reason is
+	// worth more than a passing test would be.
+	//
+	// Done by hand it works: two xterms left where openbox placed them, one
+	// focused, xdotool clicking the other, and _NET_ACTIVE_WINDOW follows. The
+	// rc.xml binds Focus and Raise to a left press in the Client context, so it
+	// should. From this harness it does not, and the failure says something
+	// specific — after the click the pointer is over the desktop window at a
+	// coordinate that was over the target moments earlier, when it was probed.
+	// Something restacks or moves between the two, and until that is understood
+	// an assertion here would be a coin toss dressed as a check.
+	//
+	// This is NOT the tool being broken: mouse_click and xdotool put identical
+	// events on the wire, compared directly at the same coordinates. The button
+	// tools are covered instead by TestMouseDrag, which needs press, motion and
+	// release to all arrive and passes every time.
+	if sameWindow(X(t, "xprop -root _NET_ACTIVE_WINDOW"), target) {
+		return
+	}
+	t.Log("the click did not move focus; see the comment above — the pointer is over " +
+		underPointer(t))
 }
 
 func TestMouseDownAndUp(t *testing.T) {
 	control(t)
 
-	// What actually goes wrong with this pair is a button that stays down.
-	// mouse_down leaves it held by design, so nothing about that call alone can
-	// be wrong; the failure is mouse_up not releasing, and its symptom is that
-	// everything afterwards behaves as a drag. So the assertion is that an
-	// ordinary drag still works once these two have run — which it cannot if
-	// the button never came up.
-	//
-	// The tempting test, assembling a drag by hand out of down, several moves
-	// and up, was tried and abandoned. It does not reliably move a window here:
-	// each step is a round trip through the stdio bridge and the window manager
-	// wants motion at something closer to input speed. mouse_drag does the same
-	// thing in-process with its own pacing and works every time, which is the
-	// argument for it existing as a tool rather than as advice to call three.
+	// The failure that matters for this pair is a button left held, because
+	// everything afterwards then behaves as a drag. Pressing and releasing and
+	// then checking an ordinary drag still works is what catches it, and does
+	// not depend on the focus behaviour above.
 	shared.Call(t, "mouse_move", map[string]any{"x": 700, "y": 500})
 	shared.Call(t, "mouse_down", map[string]any{"button": 1})
 	shared.Call(t, "mouse_up", map[string]any{"button": 1})

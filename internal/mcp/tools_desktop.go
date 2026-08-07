@@ -788,6 +788,17 @@ func (s *Server) toolKillProcess(args map[string]any) ([]map[string]any, bool) {
 	}
 	if name := argStr(args, "name"); name != "" {
 		if err := s.run("pkill", sig, "-f", name); err != nil {
+			// pkill exits 1 for "nothing matched" and non-zero for "matched and
+			// could not signal", and reporting both as nothing matched sends a
+			// caller looking for a process that is plainly running. The usual
+			// cause is ownership: this daemon is not root, and pkill only
+			// signals what its user owns.
+			if out, lookErr := s.output("pgrep", "-f", name); lookErr == nil && strings.TrimSpace(out) != "" {
+				return textContent(
+					"%q matched %d process(es) and none could be signalled — "+
+						"they belong to another user",
+					name, len(strings.Fields(out))), true
+			}
 			return textContent("no process matched %q", name), true
 		}
 		return textContent("killed processes matching %q", name), false
