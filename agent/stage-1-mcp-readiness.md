@@ -732,3 +732,197 @@ told the runtime one thing: that it did not throw. Whether it did the job is a
 separate question, and for anything producing an artifact — a file, a rendered
 page, an encoded stream — it is answerable only by opening the artifact. The
 runtime should treat "the tool returned ok" as the weakest evidence it has.
+
+## 11. The third pass: closing the runway to stage 2
+
+Five items stood between the catalogue and writing `sentineldesk-agent`. Four
+were work; the fifth was a decision. What follows is what each turned out to be
+once it was measured rather than described, because in three of the five the
+description was wrong.
+
+### 11.1 Tool discovery was worse than reported, and unmeasured
+
+The figure carried into this pass was 74% recall, and it was an estimate. The
+first honest measurement — one plain-English query per tool, phrased as the goal
+rather than as the tool — put it at **76% in the top ten, 55% in the top three,
+33% at rank one**.
+
+Twenty-eight tools were returned by *no* phrasing at all. That is not a ranking
+problem. An agent that does not already know a name cannot call it, so those
+were unreachable tools, and the fact that they had all passed the sweep only
+says the sweep called them by name.
+
+Three causes, none of them a matter of tuning:
+
+- A tool entered the results only on a name or category match; a description
+  match was discarded rather than ranked low. Defensible as a ranking rule,
+  wrong as a filter, and it is why "who else is connected" returned nothing at
+  all for `room_state`.
+- The category alias prefix test ran one way, so a query saying "application"
+  could not reach the alias "app".
+- Two-letter terms matched as substrings. "which workspace **am** I on" hit
+  every gamepad tool through the "am" in "gamepad", and four tools with nothing
+  to do with the question outranked the one that answered it.
+
+Beyond those, categories cannot choose between tools inside a family and do
+nothing at all for a tool whose own name is the obstacle. `launch_app` is the
+canonical case: "open the calculator application" returned `browser_open`,
+`terminal_open`, `shell_open` and `open_app_and_wait`, because those four hold
+the query's one distinctive word and `launch_app` holds it nowhere.
+
+Now **100% top ten, 93% top three, 82% top one**. Top ten is enforced as an
+invariant rather than a score — a tool no phrasing reaches should fail the
+build — and the other two are floors with headroom. The eight queries that land
+at rank four to seven are all *found*; pushing them higher would mean tuning the
+searcher against a corpus written in the same file, which measures only how well
+it was tuned.
+
+**For stage 2:** the runtime can rely on `tool_search` returning the right tool
+in the visible window. It should not rely on rank one. Read the ten.
+
+### 11.2 The agent can now be told things
+
+Level 1 was already done — no wait polls. But that lives *inside* the tools, and
+between two calls the agent was still blind. It could not be notified.
+
+Control is the case that forced it. An agent holding the controls can have them
+taken by a person at any moment; that is what a shared desktop is for. Until
+now it found out by having its next injection refused — a denial where there
+should have been a notice, arriving in the middle of a plan built on the
+opposite assumption. There was no way to ask, either: `room_state` answers about
+*now*, and nothing reported a transition.
+
+`subscribe_events` opens the channel: `control`, `room`, `windows`, `focus`,
+`desktop`, delivered as `notifications/sentineldesk/event`. The `control` topic
+names the transition, because `taken_from_you` is a different situation from
+`released` even though both end with somebody else driving, and an agent that
+reads only that one field behaves correctly.
+
+Subscription is a tool call rather than a capability, deliberately. The protocol
+has no negotiation for a server pushing something the client did not name, and
+a private one would have to be taught to every host. A tool is the mechanism
+already here — discoverable, filtered by policy, and silent until called, which
+is the correct default since a general-purpose host would treat an unsolicited
+notification as noise.
+
+Topics with no source on this desktop say so rather than reporting a
+subscription that will never deliver, and an unknown topic is refused: silently
+accepting one leaves the agent waiting on something that was never coming, which
+is the failure the feature exists to remove.
+
+**This also settles §5.2.** `tools/list_changed` stays unimplemented and
+undeclared — the catalogue is still static per process, and the honest answer is
+still to refresh on reconnect. The event channel does not change that, and
+adding the capability now would be declaring something that does not happen.
+
+### 11.3 Two tools that had never worked
+
+`fill_form` has been invoking `settext --name` since it was written, and
+`settext` only ever accepted `--ref`. argparse refused the call, exited 2 with an
+empty stdout, and the Go side turned the empty output into a failed field. Every
+field, every time. The submit button had the same problem. **The tool had never
+filled anything**, and the sweep recorded it as degraded for an unrelated
+reason — Chromium's unimplemented `EditableText` — which is how it survived
+two full passes.
+
+Underneath that was the gap this pass set out to close: GTK does not name an
+entry after the caption beside it. The caption is a separate object joined by a
+`LABELLED_BY` relation, so a form reading "Name:" on screen has an entry whose
+own name is empty, and a match by name lands on the half that cannot be typed
+into. The bridge follows the relation now, and `settext` prefers an editable
+candidate when a label matches more than one thing.
+
+`check_errors` had the same shape of blindness. A toolkit puts the message in a
+child label, so `zenity --error --text=…` produces a dialog whose name is the
+title and whose text is empty. Only the dialog element's own name and text were
+read, so the only error boxes it caught were the ones that repeated the word
+"error" in their *title* — and an application that titles its error box with its
+own name, which is most of them, was invisible.
+
+Both are verified against the container, not asserted: a GTK entry reports its
+label through the relation, `settext --name` writes to it, reading back returns
+what was written, and an error dialog titled "Archiver" with the failure in its
+body is now found and its message returned.
+
+### 11.4 The `gst-launch` child stays, and the docs were wrong
+
+The contradiction was real and it was in the documentation. Four places spawn a
+`gst-launch` child — two screenshot paths, the recorder, and the roomless
+`start_restream` fallback — and the README and CLAUDE.md both said GStreamer
+never runs as one.
+
+The claim is true of the live pipeline and wrong about the side ones, and the
+asymmetry is deliberate rather than left over. Those pipelines are assembled
+from what a caller asked for — a codec, a container, a bitrate, a URL — and
+`start_recording` is an MCP tool, so those parameters come from an agent. A
+combination this host cannot satisfy, or a disk that fills halfway through, ends
+the child and nothing else. In-process, the same fault would be in the address
+space serving every viewer, and a recording nobody is watching would take down
+the stream they are. It is the same reasoning that makes `-mcp-stdio` a separate
+process.
+
+The docs now say which is which and why. The code was not churned to match a
+sentence that was too short.
+
+### 11.5 Perception: the budget, measured
+
+The instruction for stage 2 was to budget for perception being the ceiling.
+Measuring it produced something more useful than a warning.
+
+Against a desktop with a terminal open, best of three, on the running container:
+
+| | latency | returned | ≈ context |
+|---|---|---|---|
+| `get_active_window` | 30 ms | 127 chars | ~31 tokens |
+| `list_windows` | 30 ms | 629 chars | ~157 tokens |
+| `screenshot_region` 640×480 | 31 ms | PNG | ~410 tokens (vision) |
+| `screenshot` full 1920×1080 | 68 ms | 30 KB PNG | ~2,800 tokens (vision) |
+| `ui_tree` depth 4 | 190 ms | 7.7 KB | ~1,900 tokens |
+| `ui_find` one role | 758 ms | 34 chars | **~8 tokens** |
+| `ui_diff` | 768 ms | 1.9 KB | ~481 tokens |
+| `read_screen_text` | 770 ms | 625 chars | ~156 tokens |
+| `ui_tree` depth 12 | 774 ms | 82 KB | **~20,400 tokens** |
+
+The finding is that **latency and context cost are almost uncorrelated**.
+`ui_find` and a full `ui_tree` cost the same 770 ms and differ by a factor of
+2,500 in tokens. The expensive-to-run calls are not the expensive-to-return
+ones, and a runtime that optimises for either number alone will get the other
+badly wrong.
+
+What follows for the design:
+
+- **Never walk the tree to look around.** A full `ui_tree` is a fifth of a small
+  model's context for one glance. It is a debugging tool and a last resort, not
+  a perception primitive.
+- **Pay the walk once, ask a narrow question.** The ~770 ms is the cost of
+  traversing AT-SPI at depth, and it is charged whether eight tokens come back
+  or twenty thousand. `ui_find` is the right default.
+- **The cheap-to-run calls are cheap to return too.** `list_windows` and
+  `get_active_window` are 30 ms and a hundred-odd tokens. Orientation should
+  start there and descend, not start with a screenshot.
+- **A screenshot is not the expensive option.** Full-screen vision is ~2,800
+  tokens against `ui_tree`'s 20,400, and it arrives in 68 ms rather than 774.
+  Where the accessibility tree is thin — Chromium, a canvas, a video — the
+  picture is both faster and cheaper, which is the opposite of the assumption
+  that led to an accessibility-first design.
+
+That last point is the one worth carrying forward. Accessibility-first is right
+when the tree is *good*, because it is exact and it is small. It is not right
+because it is cheap.
+
+### 11.6 What is still open, deliberately
+
+- **§5.4, catalogue metadata** (`idempotent`, `handles_credentials`,
+  `external_side_effect`, `default_timeout`, `result_compaction`) — unchanged
+  and still correct: add them when the overlay needs them. Building a
+  speculative table with twelve unused fields first is how the risk maps went
+  wrong.
+- **§5.5, the declared protocol version.** `2024-11-05` predates the tool
+  annotations this server already sends. Still a decision, not work, and it
+  should be made deliberately rather than drifted into.
+- **`docs/tool-sweep.*`** are stale against this pass.
+- **`docs/architecture.png`** still says 106 tools; the catalogue is 118.
+- **`tool_search` rank one at 82%** — good enough to build on, not good enough
+  to trust blindly.
+
+None of these blocks starting the runtime.
