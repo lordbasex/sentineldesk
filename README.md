@@ -273,10 +273,21 @@ its own dependencies but cannot fetch the thing that fetches it. (`sudo` too, if
 you will not be root; `ca-certificates` arrives with `curl` and needs no
 naming.)
 
+All of it runs **as root** — packages, `/etc`, a service. Become root with
+`sudo su` (or `su -` where the account cannot sudo) and the prompt turns from
+`$` into `#`, or leave `sudo` in the command and stay where you are. Run it as
+an ordinary user and it stops on the first line and prints both ways back at
+you, rather than failing halfway through.
+
 ```bash
 apt update && apt install -y curl        # and sudo, if you need it
 curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh | sudo bash -s auto
 ```
+
+It ends with a summary of what it just did: the version, **every** address that
+machine answers on — a Raspberry Pi on Ethernet and Wi-Fi at once has more than
+one, and only the reader knows which their laptop can reach — the generated
+login, the file it lives in, and where the guide is.
 
 `auto` picks Docker when it is present and a native systemd install otherwise;
 `docker` or `native` chooses explicitly. A second word picks the variant, and
@@ -294,7 +305,10 @@ self-signed means nobody vouched for it; put Caddy in front or set
 release over the old one, rewrites the configuration, restarts the service, and
 says which way it moved — `updated: v1.1.2 → v1.1.3`, or `reinstalled …
 (unchanged)`. Credentials and anything else in `/etc/sentineldesk/env` are left
-alone, because that file is only written when it is not already there.
+alone, because that file is only written when it is not already there — and the
+closing summary reads the login back out of it rather than out of what it
+generated, so a re-run prints the current one. That is how to recover a password
+nobody wrote down.
 
 Native installs take `--user NAME` to run the desktop as an account that already
 exists, instead of creating a dedicated one. On a Raspberry Pi that is usually

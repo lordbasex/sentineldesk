@@ -85,7 +85,32 @@ while [ $# -gt 0 ]; do
 done
 
 # --- preconditions -----------------------------------------------------------
-[ "$(id -u)" = 0 ] || die "run as root: sudo $0 ${MODE:-}"
+#
+# "run as root" is a complete answer only to somebody who already knows what
+# that means. Whoever is reading this is following a guide on a fresh Raspberry
+# Pi, so the refusal spells out the two ways forward and gives the exact line to
+# paste for each — including the piped one, because that is the command the
+# guide hands out and `$0` under `curl | bash` is the useless string `bash`.
+if [ "$(id -u)" != 0 ]; then
+  printf '\033[31m✗\033[0m %s\n' "this installer needs root: it installs packages, writes to /etc" >&2
+  printf '  %s\n' "and registers a service, and none of that is possible as a normal user." >&2
+  cat >&2 <<EOF
+
+  Either become root first —
+
+      sudo su
+      curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | bash -s ${MODE:-auto}
+
+  — or leave sudo in the command and stay where you are:
+
+      curl -fsSL https://raw.githubusercontent.com/$REPO/main/install.sh | sudo bash -s ${MODE:-auto}
+
+  Both do exactly the same thing. If this script is already on disk, that is
+  \`sudo $0 ${MODE:-auto}\`.
+
+EOF
+  exit 1
+fi
 
 # Caught here rather than three minutes later in Caddy's retry loop, because
 # "I have a public IP" is exactly why people reach for this flag. ACME validates
@@ -197,23 +222,65 @@ host_addresses() {
     || true
 }
 
-# The address to print at the end. Reads the scheme back from what was actually
-# configured rather than assuming: an existing /etc/sentineldesk/env is left
-# untouched by design, so a machine installed before TLS became the default is
-# still on http:// and should be told so.
-desktop_url() {
-  # Caddy answers on 443 under the name it was given, and the backend is no
-  # longer reachable directly — so that name IS the address.
+# Where the login lives, which is not the same file in the two modes. Both are
+# mode 600 and both are read back rather than remembered — see env_value.
+env_file() {
+  if [ "$MODE" = docker ]; then echo "$OPT/.env"; else echo /etc/sentineldesk/env; fi
+}
+
+# Read a key back out of it instead of carrying the generated value around,
+# because on a re-install nothing is generated at all: the file is written once
+# and then belongs to whoever operates the machine. The closing summary still
+# has to print the login the browser is about to ask for.
+#
+# awk rather than `sed | head`, because `head` closing the pipe early makes the
+# left-hand side fail and this script runs under `set -o pipefail` — a password
+# read would then take the whole install down on its last line.
+env_value() {
+  local f; f=$(env_file)
+  [ -r "$f" ] || return 0
+  awk -F= -v k="$1" '$1 == k { sub(/^[^=]*=/, ""); print; exit }' "$f"
+}
+
+# The scheme to print. Read back from what was actually configured rather than
+# assumed, and the two modes disagree on what "unset" means, which is why this
+# is not one grep: the compose file written below passes TLS_SELFSIGNED=1 unless
+# .env overrides it, while a native install has nothing in front of the binary
+# and the binary's own default is off. So an env file written before TLS became
+# the default is still on http:// and should be told so.
+desktop_scheme() {
+  local f; f=$(env_file)
+  if [ "$MODE" = docker ]; then
+    if [ -r "$f" ] && grep -q '^TLS_SELFSIGNED=0' "$f"; then echo http; else echo https; fi
+    return
+  fi
+  if [ -r "$f" ] && grep -q '^TLS_SELFSIGNED=1' "$f"; then echo https; else echo http; fi
+}
+
+# Every address this machine answers on, not just the first one. Whoever
+# installed this is on a Raspberry Pi over SSH and will open the desktop from a
+# laptop, and the machine may well be on Ethernet and Wi-Fi at once with a
+# Docker bridge beside them — guessing which of those the laptop can reach is
+# not something the installer can do, so it lists them all and lets the reader
+# pick. Same discovery as host_addresses(), which is what went into the
+# certificate, so every URL here is one the certificate names.
+desktop_urls() {
+  # Caddy answers on 443 under the name it was given, and the backend is
+  # confined to the loopback — so that name IS the address, and the only one.
   if [ -n "$TLS_DOMAIN" ]; then
     echo "https://$TLS_DOMAIN"
     return
   fi
-  local scheme=https ip
-  ip=$(hostname -I 2>/dev/null | awk '{print $1}')
-  if [ "$MODE" = native ] && [ -r /etc/sentineldesk/env ]; then
-    grep -q '^TLS_SELFSIGNED=1' /etc/sentineldesk/env || scheme=http
-  fi
-  echo "$scheme://${ip:-localhost}:8080"
+  local scheme ip; scheme=$(desktop_scheme)
+  hostname -I 2>/dev/null | tr ' ' '\n' | grep -vE '^(127\.|::1|$)' | while read -r ip; do
+    case "$ip" in
+      *:*) printf '%s://[%s]:8080\n' "$scheme" "$ip" ;;   # a literal IPv6 needs brackets in a URL
+      *)   printf '%s://%s:8080\n'   "$scheme" "$ip" ;;
+    esac
+  done
+  # Last, and always: on a machine with a desktop of its own this is the one
+  # that works, and it is the fallback when hostname -I finds nothing.
+  printf '%s://localhost:8080\n' "$scheme"
 }
 
 # --- what was here before ----------------------------------------------------
@@ -252,6 +319,89 @@ report_version() {
   else
     say "updated: $PREV_VERSION  →  $now"
   fi
+}
+
+# --- the closing summary ------------------------------------------------------
+#
+# An install prints several minutes of apt output, and the two lines that
+# actually matter — where to go and what to type when it asks who you are —
+# used to be somewhere up in that scroll. This says them once, at the end, in
+# full, on the assumption that the reader is following the guide and has no
+# idea where a generated password would otherwise be found.
+#
+# English only, like every other line this script prints: it is one voice, and a
+# half-translated installer is worse than an untranslated one.
+GUIDE_URL="https://lordbasex.github.io/sentineldesk/docs/guide/"
+
+rule() { printf '\033[90m  %s\033[0m\n' "──────────────────────────────────────────────────────────────────"; }
+
+summary() {
+  local version="$1" f user pass urls
+  f=$(env_file)
+  user=$(env_value AUTH_USER)
+  pass=$(env_value AUTH_PASS)
+  urls=$(desktop_urls)
+
+  printf '\n'
+  rule
+  # The version can be missing — in Docker mode it comes from asking a container
+  # that was created seconds ago, and that can time out. Say the rest anyway
+  # rather than printing a sentence with a hole in it.
+  if [ -n "$version" ]; then
+    printf '\033[32m  SentinelDesk %s is installed and running.\033[0m\n\n' "$version"
+  else
+    printf '\033[32m  SentinelDesk is installed and running.\033[0m\n\n'
+  fi
+
+  if [ "$(printf '%s\n' "$urls" | wc -l)" -gt 1 ]; then
+    echo "  Open it in a browser — every address below reaches this machine, so"
+    echo "  use whichever one the computer you are sitting at can see:"
+  else
+    echo "  Open it in a browser:"
+  fi
+  echo
+  printf '%s\n' "$urls" | sed 's/^/    * /'
+  echo
+
+  # Both empty is a legal configuration (an open desktop) and has to read as a
+  # deliberate one here, not as a summary that failed to find the password.
+  if [ -n "$user" ] && [ -n "$pass" ]; then
+    echo "  Sign in with the login generated for this machine:"
+    echo
+    printf '    user      %s\n' "$user"
+    printf '    password  %s\n' "$pass"
+    echo
+    printf '  Both are kept in %s, which only root can read.\n' "$f"
+    echo "  Change them there and restart to use a login of your own."
+  else
+    echo "  This desktop has NO login: AUTH_USER and AUTH_PASS are empty in"
+    printf '  %s, so anyone who can reach the addresses above is in.\n' "$f"
+    echo "  Set both and restart before this machine is on an untrusted network."
+  fi
+  echo
+
+  if [ -z "$TLS_DOMAIN" ] && [ "$(desktop_scheme)" = https ]; then
+    echo "  The certificate is self-signed, so the browser will warn about it the"
+    echo "  first time on each machine. That is expected — continue past the"
+    echo "  warning. The guide explains how to make the warning go away."
+    echo
+  fi
+
+  if [ "$MODE" = docker ]; then
+    echo "  Manage it:"
+    printf '    docker compose -p sentineldesk -f %s/docker-compose.yml ps\n' "$OPT"
+    printf '    docker compose -p sentineldesk -f %s/docker-compose.yml logs -f\n' "$OPT"
+  else
+    echo "  Manage it:"
+    echo "    systemctl status sentineldesk"
+    echo "    journalctl -u sentineldesk -f"
+  fi
+  echo
+  printf '  User guide: %s\n' "$GUIDE_URL"
+  echo
+  echo "  Thank you for installing SentinelDesk."
+  rule
+  printf '\n'
 }
 
 
@@ -433,7 +583,7 @@ TURN_USER=webrtc
 TURN_PASS=$(head -c9 /dev/urandom | base64 | tr -d '/+=')
 EOF
     chmod 600 "$OPT/.env"
-    say "credentials generated in $OPT/.env (user admin, password $pass)"
+    say "credentials generated in $OPT/.env"
   fi
 
   # The gamepad needs /dev/uinput and the VPN needs /dev/net/tun, and they go in
@@ -512,8 +662,8 @@ EOF
     i=$((i + 1))
   done
   report_version "$now"
-  say "SentinelDesk is up: $(desktop_url)"
-  say "credentials: $OPT/.env · full compose reference: $OPT/deploy/"
+  say "full compose reference: $OPT/deploy/"
+  summary "$now"
 }
 
 # =============================================================================
@@ -772,7 +922,7 @@ TLS_DIR=$DESKTOP_HOME/.tls
 TLS_HOSTS=$(host_addresses)
 EOF
     chmod 600 /etc/sentineldesk/env
-    say "credentials generated in /etc/sentineldesk/env (user admin, password $pass)"
+    say "credentials generated in /etc/sentineldesk/env"
   fi
 
   # Who the desktop runs as, in a file of its own and rewritten on every
@@ -885,9 +1035,9 @@ EOF
   # process running while printing "SentinelDesk is up". Re-running is the
   # update path, so it has to end with the new version actually running.
   systemctl restart sentineldesk.service
-  say "SentinelDesk is up: $(desktop_url)"
-  say "credentials: /etc/sentineldesk/env"
-  say "service:     systemctl status sentineldesk · journalctl -u sentineldesk -f"
+  # Asked of the binary that is now installed, not of PREV_VERSION: this runs
+  # after the restart, so it is the version actually serving.
+  summary "$("$BIN" -version 2>/dev/null | sed 's/^sentineldesk //')"
 }
 
 # --- go ----------------------------------------------------------------------

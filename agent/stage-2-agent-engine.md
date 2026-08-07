@@ -419,3 +419,95 @@ unproven loop hides failures instead of surfacing them.
 
 Steps 2 through 5 each end with tests that run against the container, so there
 is never a point where the engine is believed to work rather than known to.
+
+---
+
+## 8. Later: teaching a workflow by demonstration
+
+Not stage 2. Recorded here because two decisions belong in the *server*, and one
+of them is hard to add afterwards.
+
+The goal: a person does a task once — "create an invoice and email it" — and the
+system produces a skill the agent can then run, using the whole MCP catalogue.
+The same idea as teaching a browser assistant a workflow, on a whole desktop.
+
+### 8.1 Why it fits what is already here
+
+More than incidentally.
+
+- **`Visibility` is the same axis, run backwards.** It exists so the agent can
+  act the way a person would when somebody is watching. Teaching is the person
+  acting while the system watches. One concept, two directions.
+- **The action log is already the right shape.** `task_id`, `goal`, tool,
+  arguments, result — that is a demonstration trace, and it exists because §12.3
+  wanted an audit. The two turn out to be the same record.
+- **The output format is decided.** A taught workflow is a `SKILL.md` (§3.9), so
+  it is portable, reviewable, diffable and editable by hand rather than an opaque
+  blob. A person can correct what the agent learned.
+- **The room already knows who is driving**, which is where a demonstration
+  starts and stops.
+
+### 8.2 The asymmetry to close
+
+| | what is recorded |
+|---|---|
+| the agent acts | MCP → the trail: tool, arguments, result, task, goal |
+| a person acts | DataChannel → XTEST → **nothing** but pixels in the video |
+
+We record perfectly what the agent did and nothing of what a person did.
+Teaching needs the second.
+
+The tap itself is not the problem: `Session.handleInput` in
+`internal/stream/session.go` is already a single chokepoint — one switch, after
+the `IsController` gate, where every injection happens. A hook there is local.
+
+### 8.3 The decision that is hard to add later
+
+**A trace of raw input is worthless.** "Click at 847,392" breaks the moment a
+window moves, a font changes, or the screen resizes. What a skill needs is
+"clicked the button named *New Invoice* in GnuCash" — and that has to be
+resolved **at the instant of the click**, because a second later the interface
+has moved on. It cannot be recovered afterwards from a video or a coordinate
+log.
+
+Our tool for that today is `ui_find`, at ~770 ms, because it walks the whole
+AT-SPI tree. That is unusable in a path carrying up to 120 events a second.
+
+The primitive is **`getAccessibleAtPoint`** — AT-SPI's point lookup on the
+Component interface, `O(depth)` rather than `O(tree)`. Verified present in the
+container and never used by this project. Chromium's `elementFromPoint` is the
+same thing for a page, and `cdpClick` already uses it.
+
+**It pays rent now, which is what makes this a decision rather than speculation.**
+A point-to-element tool collapses *screenshot → `ui_tree` → guess which element*
+into one round trip, and §3.3 is explicit that round trips are the cost that
+matters. The agent looks at a screenshot, sees a button, and needs its ref;
+today that costs a full tree walk and ~20,400 tokens.
+
+So: add it as a tool because it is useful, and teaching inherits it.
+
+### 8.4 The decision that is irreversible
+
+Recording what a person does on a shared desktop captures keystrokes.
+**Keystrokes include passwords.**
+
+This has to be settled before any tap exists, because "we will filter it later"
+is exactly how this goes wrong:
+
+- Teaching mode is **explicit, bounded and never on by default**.
+- The tap is **absent unless teaching is active**, not present and filtered. A
+  filter is one bug away from a keylogger; an absent code path is not.
+- Everyone in the room is shown that it is on, the way a restream is. A person
+  who did not notice cannot have consented.
+- A demonstration is reviewable before it becomes a skill. The artifact is
+  markdown for this reason among others.
+
+### 8.5 What not to build yet
+
+The recorder, segmentation into steps, generalising one run into a skill,
+turning coordinates into intent. All of it waits until the engine exists and
+there is something to teach.
+
+Our own convention applies: extra layers and generality for imagined inputs are
+defects, not rigor. Two primitives and one privacy rule are what this section is
+for; the rest is a later stage.

@@ -297,18 +297,34 @@ docker run -d --name sentineldesk … sentineldesk:full</code></pre>
   abaixo <em>começa</em> com ele — o instalador sabe buscar as próprias
   dependências, mas não aquilo de que precisa para buscar o instalador:</p>
 
-<pre><code># como root
+  <p>Tudo isto precisa rodar <b>como root</b> — instala pacotes, escreve em
+  <code>/etc</code> e registra um serviço. Se você entrou com um usuário comum,
+  vire root primeiro; o prompt muda de <code>$</code> para <code>#</code>, e
+  esse <code>#</code> é como você sabe que deu certo:</p>
+
+<pre><code>sudo su          # ou: su -    numa máquina cujo usuário não pode usar sudo
+
+# e agora sim, com o prompt terminando em #
 apt update &amp;&amp; apt install -y curl
 
-# e sudo também, se você não for rodar como root
+# o próprio sudo, se esta máquina não o tiver
 apt install -y sudo</code></pre>
 
   <p><code>ca-certificates</code> vem junto com o <code>curl</code> e não precisa
   ser nomeado; sem ele o download por HTTPS falharia. Todo o resto de que o
   instalador precisa ele instala sozinho.</p>
 
-<pre><code>curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
+<pre><code># como root
+curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
+  | bash -s auto
+
+# ou a partir de um usuário comum, deixando o sudo fazer
+curl -fsSL https://raw.githubusercontent.com/lordbasex/sentineldesk/main/install.sh \
   | sudo bash -s auto</code></pre>
+
+  <p>As duas são a mesma instalação; use a que corresponde ao prompt à sua
+  frente. Se rodar sem root, ele para na hora e imprime as duas linhas de volta
+  em vez de falhar no meio do caminho.</p>
 
   <p><code>auto</code> escolhe Docker onde ele já está instalado e uma instalação
   nativa com systemd caso contrário. Diga qual você quer, e acrescente a variante
@@ -348,9 +364,18 @@ sudo ./install.sh docker full    # a imagem maior</code></pre>
   ninguém deu fé — veja <a href="#cert-trust">confiar nele</a>. Defina
   <code>TLS_SELFSIGNED=0</code> para HTTP simples numa rede confiável.</p>
 
-  <p>As credenciais são geradas na primeira instalação e impressas uma vez. Ficam
-  em <code>/etc/sentineldesk/env</code> numa instalação nativa e em
-  <code>/opt/sentineldesk/.env</code> numa Docker.</p>
+  <p>O instalador termina com tudo o que é preciso para usar o que ele acabou de
+  instalar: a versão, <b>todos</b> os endereços em que esta máquina responde —
+  um Raspberry Pi ligado por Ethernet e Wi-Fi ao mesmo tempo tem mais de um, e
+  só você sabe qual o seu notebook alcança — e o login para digitar ali.</p>
+
+  <p>As credenciais são geradas na primeira instalação e ficam em
+  <code>/etc/sentineldesk/env</code> numa instalação nativa e em
+  <code>/opt/sentineldesk/.env</code> numa Docker, em ambos os casos legíveis
+  apenas pelo root. Esse arquivo é escrito uma vez e depois é seu: mude ali o
+  usuário e a senha e reinicie. O resumo final o lê de volta em vez de lembrar o
+  que gerou, então rodar o instalador de novo imprime as credenciais atuais —
+  que é também como recuperar uma que ninguém anotou.</p>
 
   <h4 id="install-machine-cert">Um certificado que ninguém precise ignorar</h4>
 
