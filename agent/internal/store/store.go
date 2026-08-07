@@ -108,6 +108,8 @@ CREATE TABLE IF NOT EXISTS runs (
   calls         INTEGER DEFAULT 0,
   input_tokens  INTEGER DEFAULT 0,
   output_tokens INTEGER DEFAULT 0,
+  cache_write   INTEGER DEFAULT 0,
+  cache_read    INTEGER DEFAULT 0,
   status        TEXT,
   answer        TEXT
 );
@@ -128,7 +130,19 @@ CREATE TABLE IF NOT EXISTS turns (
   -- line in the bill is these schemas re-sent every turn, and "we made it
   -- cheaper" needs a number from before.
   tools_offered INTEGER,
-  tools_bytes   INTEGER
+  tools_bytes   INTEGER,
+  -- The prose part of the turn: the system prompt and the conversation. Kept
+  -- because the catalogue's real cost is derived by subtracting this from the
+  -- input count the provider reported, and that is far more honest than
+  -- dividing schema bytes by four. JSON schemas tokenize badly — braces,
+  -- quotes, field names — so the byte estimate said the catalogue was 56% of a
+  -- turn when subtraction says 99%.
+  prose_chars   INTEGER,
+  -- Billed at a different rate because of caching. Separate columns because a
+  -- cache that quietly stopped matching produces the same answers at ten times
+  -- the price, and folding these into input_tokens would hide exactly that.
+  cache_write   INTEGER DEFAULT 0,
+  cache_read    INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS calls (
@@ -152,9 +166,64 @@ CREATE INDEX IF NOT EXISTS calls_by_run ON calls(run_id);
 CREATE INDEX IF NOT EXISTS runs_by_start ON runs(started_at);
 `
 
+// addedColumns are columns that arrived after the first version of the schema.
+//
+// CREATE TABLE IF NOT EXISTS creates a table and then does nothing forever, so
+// a database made last week keeps last week's columns and every query naming a
+// new one fails — which is how `history` broke the moment caching was recorded.
+// Adding a column to the schema string is therefore only half the change; the
+// other half is here.
+//
+// SQLite has no ADD COLUMN IF NOT EXISTS, so this asks what exists first. Order
+// does not matter and repeating is harmless, which is what makes it safe to run
+// on every open.
+var addedColumns = []struct{ table, column, decl string }{
+	{"turns", "prose_chars", "INTEGER"},
+	{"turns", "cache_write", "INTEGER DEFAULT 0"},
+	{"turns", "cache_read", "INTEGER DEFAULT 0"},
+	{"runs", "cache_write", "INTEGER DEFAULT 0"},
+	{"runs", "cache_read", "INTEGER DEFAULT 0"},
+}
+
 func (d *DB) migrate() error {
-	_, err := d.sql.Exec(schema)
-	return err
+	if _, err := d.sql.Exec(schema); err != nil {
+		return err
+	}
+	for _, c := range addedColumns {
+		has, err := d.hasColumn(c.table, c.column)
+		if err != nil {
+			return err
+		}
+		if has {
+			continue
+		}
+		if _, err := d.sql.Exec(
+			fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s %s", c.table, c.column, c.decl)); err != nil {
+			return fmt.Errorf("adding %s.%s: %w", c.table, c.column, err)
+		}
+	}
+	return nil
+}
+
+func (d *DB) hasColumn(table, column string) (bool, error) {
+	rows, err := d.sql.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var dflt any
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
+			return false, err
+		}
+		if name == column {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
 }
 
 // --- writing ------------------------------------------------------------------
@@ -183,16 +252,19 @@ func (d *DB) StartRun(task, goal, model, role string) (*Run, error) {
 
 // Turn is everything about one exchange with the model.
 type Turn struct {
-	N            int
-	Elapsed      time.Duration
-	System       string
-	Request      any // the messages sent, stored as JSON
-	Response     any // the assistant's reply, stored as JSON
-	Stop         string
-	InputTokens  int
-	OutputTokens int
-	ToolsOffered int
-	ToolsBytes   int
+	N                int
+	Elapsed          time.Duration
+	System           string
+	Request          any // the messages sent, stored as JSON
+	Response         any // the assistant's reply, stored as JSON
+	Stop             string
+	InputTokens      int
+	OutputTokens     int
+	ToolsOffered     int
+	ToolsBytes       int
+	ProseChars       int
+	CacheWriteTokens int
+	CacheReadTokens  int
 }
 
 // RecordTurn stores one exchange, in full.
@@ -205,11 +277,13 @@ type Turn struct {
 func (r *Run) RecordTurn(t Turn) error {
 	_, err := r.db.sql.Exec(
 		`INSERT INTO turns (run_id, n, at, elapsed_ms, system, request, response,
-		                    stop, input_tokens, output_tokens, tools_offered, tools_bytes)
-		 VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+		                    stop, input_tokens, output_tokens, tools_offered, tools_bytes,
+		                    prose_chars, cache_write, cache_read)
+		 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
 		r.ID, t.N, now(), t.Elapsed.Milliseconds(), t.System,
 		asJSON(t.Request), asJSON(t.Response), t.Stop,
-		t.InputTokens, t.OutputTokens, t.ToolsOffered, t.ToolsBytes)
+		t.InputTokens, t.OutputTokens, t.ToolsOffered, t.ToolsBytes, t.ProseChars,
+		t.CacheWriteTokens, t.CacheReadTokens)
 	return err
 }
 
@@ -239,11 +313,12 @@ func (r *Run) RecordCall(c Call) error {
 }
 
 // Finish closes the record.
-func (r *Run) Finish(status, answer string, turns, calls, in, out int) error {
+func (r *Run) Finish(status, answer string, turns, calls, in, out, cw, cr int) error {
 	_, err := r.db.sql.Exec(
 		`UPDATE runs SET ended_at=?, status=?, answer=?, turns=?, calls=?,
-		                 input_tokens=?, output_tokens=? WHERE id=?`,
-		now(), status, answer, turns, calls, in, out, r.ID)
+		                 input_tokens=?, output_tokens=?, cache_write=?, cache_read=?
+		 WHERE id=?`,
+		now(), status, answer, turns, calls, in, out, cw, cr, r.ID)
 	return err
 }
 
@@ -257,13 +332,14 @@ type RunSummary struct {
 	StartedAt              string
 	Turns, Calls           int
 	InputTokens, OutTokens int
+	CacheWrite, CacheRead  int
 }
 
 // Recent returns the last n runs, newest first.
 func (d *DB) Recent(n int) ([]RunSummary, error) {
 	rows, err := d.sql.Query(
 		`SELECT id, task, goal, model, role, COALESCE(status,'running'), started_at,
-		        turns, calls, input_tokens, output_tokens
+		        turns, calls, input_tokens, output_tokens, cache_write, cache_read
 		 FROM runs ORDER BY id DESC LIMIT ?`, n)
 	if err != nil {
 		return nil, err
@@ -273,7 +349,8 @@ func (d *DB) Recent(n int) ([]RunSummary, error) {
 	for rows.Next() {
 		var r RunSummary
 		if err := rows.Scan(&r.ID, &r.Task, &r.Goal, &r.Model, &r.Role, &r.Status,
-			&r.StartedAt, &r.Turns, &r.Calls, &r.InputTokens, &r.OutTokens); err != nil {
+			&r.StartedAt, &r.Turns, &r.Calls, &r.InputTokens, &r.OutTokens,
+			&r.CacheWrite, &r.CacheRead); err != nil {
 			return nil, err
 		}
 		out = append(out, r)
@@ -286,12 +363,14 @@ type Totals struct {
 	Model                  string
 	Runs, Turns, Calls     int
 	InputTokens, OutTokens int
+	CacheWrite, CacheRead  int
 }
 
 func (d *DB) Totals() ([]Totals, error) {
 	rows, err := d.sql.Query(
 		`SELECT model, COUNT(*), COALESCE(SUM(turns),0), COALESCE(SUM(calls),0),
-		        COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0)
+		        COALESCE(SUM(input_tokens),0), COALESCE(SUM(output_tokens),0),
+		        COALESCE(SUM(cache_write),0), COALESCE(SUM(cache_read),0)
 		 FROM runs GROUP BY model ORDER BY SUM(input_tokens) DESC`)
 	if err != nil {
 		return nil, err
@@ -301,7 +380,7 @@ func (d *DB) Totals() ([]Totals, error) {
 	for rows.Next() {
 		var t Totals
 		if err := rows.Scan(&t.Model, &t.Runs, &t.Turns, &t.Calls,
-			&t.InputTokens, &t.OutTokens); err != nil {
+			&t.InputTokens, &t.OutTokens, &t.CacheWrite, &t.CacheRead); err != nil {
 			return nil, err
 		}
 		out = append(out, t)
@@ -314,18 +393,44 @@ func (d *DB) Totals() ([]Totals, error) {
 type CatalogueCost struct {
 	Turns        int
 	AvgOffered   float64
-	AvgBytes     float64
 	AvgInputToks float64
+
+	// AvgProseToks is the system prompt and the conversation, estimated at four
+	// characters per token — a fair rate for prose.
+	AvgProseToks float64
+
+	// AvgCatalogueToks is what is left once the prose is taken out. Derived by
+	// subtraction rather than estimated from schema bytes, because that
+	// estimate was wrong by a factor of two in the direction that flatters us:
+	// it put the catalogue at 56% of a turn when the truth is 99%.
+	AvgCatalogueToks float64
+}
+
+// Share is how much of a turn's input is catalogue.
+func (c CatalogueCost) Share() float64 {
+	if c.AvgInputToks <= 0 {
+		return 0
+	}
+	return c.AvgCatalogueToks / c.AvgInputToks
 }
 
 func (d *DB) CatalogueCost() (CatalogueCost, error) {
 	var c CatalogueCost
+	var avgProseChars float64
 	err := d.sql.QueryRow(
-		`SELECT COUNT(*), COALESCE(AVG(tools_offered),0), COALESCE(AVG(tools_bytes),0),
-		        COALESCE(AVG(input_tokens),0)
+		`SELECT COUNT(*), COALESCE(AVG(tools_offered),0), COALESCE(AVG(input_tokens),0),
+		        COALESCE(AVG(prose_chars),0)
 		 FROM turns WHERE tools_offered > 0`).
-		Scan(&c.Turns, &c.AvgOffered, &c.AvgBytes, &c.AvgInputToks)
-	return c, err
+		Scan(&c.Turns, &c.AvgOffered, &c.AvgInputToks, &avgProseChars)
+	if err != nil {
+		return c, err
+	}
+	c.AvgProseToks = avgProseChars / 4
+	c.AvgCatalogueToks = c.AvgInputToks - c.AvgProseToks
+	if c.AvgCatalogueToks < 0 {
+		c.AvgCatalogueToks = 0
+	}
+	return c, nil
 }
 
 // TurnDetail is one exchange, for reading back.

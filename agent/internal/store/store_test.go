@@ -52,7 +52,7 @@ func TestARunRoundTrips(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("%v", err)
 	}
-	if err := run.Finish("finished", "done", 4, 4, 78159, 387); err != nil {
+	if err := run.Finish("finished", "done", 4, 4, 78159, 387, 0, 0); err != nil {
 		t.Fatalf("%v", err)
 	}
 
@@ -96,8 +96,12 @@ func TestTheSystemPromptIsKept(t *testing.T) {
 func TestTheCatalogueCostIsMeasurable(t *testing.T) {
 	db := open(t)
 	run, _ := db.StartRun("t", "g", "m", "efficient")
-	_ = run.RecordTurn(Turn{N: 1, ToolsOffered: 120, ToolsBytes: 67649, InputTokens: 38814})
-	_ = run.RecordTurn(Turn{N: 2, ToolsOffered: 120, ToolsBytes: 67649, InputTokens: 39345})
+	// The real numbers from a run: nineteen thousand input tokens for a turn
+	// whose conversation was nine hundred characters.
+	_ = run.RecordTurn(Turn{N: 1, ToolsOffered: 120, ToolsBytes: 43190,
+		InputTokens: 19303, ProseChars: 900})
+	_ = run.RecordTurn(Turn{N: 2, ToolsOffered: 120, ToolsBytes: 43190,
+		InputTokens: 19511, ProseChars: 1524})
 
 	c, err := db.CatalogueCost()
 	if err != nil {
@@ -106,9 +110,11 @@ func TestTheCatalogueCostIsMeasurable(t *testing.T) {
 	if c.Turns != 2 || c.AvgOffered != 120 {
 		t.Errorf("catalogue cost came back as %+v", c)
 	}
-	// The share it takes of a turn is the number to move.
-	if share := (c.AvgBytes / 4) / c.AvgInputToks; share < 0.3 {
-		t.Errorf("the catalogue is %.0f%% of a turn, which does not match the measurement", share*100)
+	// Derived by subtraction, not from schema bytes. The byte estimate put this
+	// at 56%, which flattered us by a factor of two — JSON schemas tokenise far
+	// worse than prose does.
+	if share := c.Share(); share < 0.95 {
+		t.Errorf("the catalogue is %.0f%% of a turn; the measured runs say ~99%%", share*100)
 	}
 }
 
@@ -145,5 +151,56 @@ func TestAnUnknownModelIsNotFree(t *testing.T) {
 	// A point release inherits its family rather than falling to zero.
 	if _, known := p.Estimated("claude-sonnet-5-20260801", 1000, 1000); !known {
 		t.Error("a dated model id lost its family's rate")
+	}
+}
+
+// TestAnOlderDatabaseGainsNewColumns.
+//
+// CREATE TABLE IF NOT EXISTS creates a table and then does nothing forever, so
+// a database made before a column existed keeps its old shape and every query
+// naming the new one fails. It broke `history` the moment caching was recorded,
+// on a database that was two hours old.
+func TestAnOlderDatabaseGainsNewColumns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "old.db")
+
+	// A database from before caching: the original schema, by hand.
+	first, err := Open(path)
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if _, err := first.sql.Exec(
+		`DROP TABLE turns;
+		 CREATE TABLE turns (
+		   id INTEGER PRIMARY KEY AUTOINCREMENT, run_id INTEGER, n INTEGER,
+		   at TEXT, elapsed_ms INTEGER, system TEXT, request TEXT, response TEXT,
+		   stop TEXT, input_tokens INTEGER, output_tokens INTEGER,
+		   tools_offered INTEGER, tools_bytes INTEGER)`); err != nil {
+		t.Fatalf("%v", err)
+	}
+	first.Close()
+
+	// Opening it again has to bring it up to date rather than leave it broken.
+	db, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopening an older database: %v", err)
+	}
+	defer db.Close()
+
+	run, err := db.StartRun("t", "g", "m", "efficient")
+	if err != nil {
+		t.Fatalf("%v", err)
+	}
+	if err := run.RecordTurn(Turn{N: 1, CacheReadTokens: 18898, ProseChars: 900}); err != nil {
+		t.Fatalf("writing a column the old schema lacked: %v", err)
+	}
+	// And every read path works, which is what actually broke.
+	if _, err := db.Turns(run.ID); err != nil {
+		t.Errorf("Turns: %v", err)
+	}
+	if _, err := db.Recent(5); err != nil {
+		t.Errorf("Recent: %v", err)
+	}
+	if _, err := db.Totals(); err != nil {
+		t.Errorf("Totals: %v", err)
 	}
 }

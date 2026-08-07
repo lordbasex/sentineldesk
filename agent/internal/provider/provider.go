@@ -74,6 +74,23 @@ type Request struct {
 	Messages  []Message
 	Tools     []Tool
 	MaxTokens int
+
+	// CacheStable says the system prompt and the tool catalogue will be
+	// byte-identical on the next turn of this conversation, so a provider that
+	// can cache them should.
+	//
+	// A hint about the SHAPE of the request rather than an instruction to any
+	// particular API, because there is no standard here and there is not going
+	// to be one. Anthropic wants explicit markers on the blocks to cache;
+	// OpenAI caches long prefixes automatically and wants nothing; Gemini wants
+	// a cached-content object with its own lifetime; a local model has a KV
+	// cache and none of the above. What they all reward is the same thing —
+	// the stable part first, unchanged — so that is what gets expressed here
+	// and each adapter does what its provider understands.
+	//
+	// It is a hint and never a promise. A provider that ignores it is correct,
+	// just more expensive.
+	CacheStable bool
 }
 
 // StopReason is why the model stopped.
@@ -99,6 +116,32 @@ type Response struct {
 	Stop       StopReason
 	InputToks  int
 	OutputToks int
+
+	// CacheWriteToks and CacheReadToks are tokens the provider billed at a
+	// different rate because of caching: written into a cache this turn, or
+	// read from one.
+	//
+	// Reported separately rather than folded into InputToks because they are
+	// priced differently, and because they are the only honest way to know
+	// whether caching is working. A cache that silently stopped matching would
+	// otherwise look exactly like a cache that was never there — the same
+	// answers, quietly at ten times the price.
+	CacheWriteToks int
+	CacheReadToks  int
+}
+
+// Capabilities is what a provider can actually do, so the runtime can report
+// honestly instead of assuming.
+type Capabilities struct {
+	// Caching says a repeated prefix will be billed at a reduced rate.
+	Caching bool
+
+	// CachingIsExplicit distinguishes "we mark the blocks" from "it happens by
+	// itself". It changes nothing the loop does and it changes what a
+	// diagnostic can promise: with automatic caching there is nothing to
+	// verify, and with explicit caching a marker in the wrong place is a
+	// silent doubling of the bill.
+	CachingIsExplicit bool
 }
 
 // Provider is a model that can be asked for the next turn.
@@ -108,6 +151,9 @@ type Provider interface {
 
 	// Complete asks for one turn. It does not loop; the loop is the caller's.
 	Complete(ctx context.Context, req Request) (Response, error)
+
+	// Capabilities describes what this one supports.
+	Capabilities() Capabilities
 }
 
 // Unavailable is what a provider with no key returns.

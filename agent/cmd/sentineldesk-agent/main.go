@@ -532,7 +532,8 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 		status = "interrupted"
 	}
 	if run != nil {
-		_ = run.Finish(status, res.Answer, res.Turns, res.Calls, res.InputToks, res.OutputToks)
+		_ = run.Finish(status, res.Answer, res.Turns, res.Calls,
+			res.InputToks, res.OutputToks, res.CacheWriteToks, res.CacheReadToks)
 	}
 
 	fmt.Printf("\n─────\n")
@@ -545,12 +546,18 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 		fmt.Println(res.Answer)
 		fmt.Println()
 	}
-	fmt.Printf("%s · %d turns · %d calls · %v · %d in / %d out tokens\n",
+	fmt.Printf("%s · %d turns · %d calls · %v · %s in / %s out tokens\n",
 		status, res.Turns, res.Calls, time.Since(started).Round(time.Second),
-		res.InputToks, res.OutputToks)
+		comma(res.InputToks), comma(res.OutputToks))
+	if res.CacheWriteToks > 0 || res.CacheReadToks > 0 {
+		fmt.Printf("cache: %s written, \033[32m%s read\033[0m "+
+			"(read tokens are billed at a fraction of the rest)\n",
+			comma(res.CacheWriteToks), comma(res.CacheReadToks))
+	}
 	if run != nil {
 		pricing := store.LoadPricing()
-		if cost, known := pricing.Estimated(llm.Name(), res.InputToks, res.OutputToks); known {
+		if cost, known := pricing.EstimatedWithCache(llm.Name(),
+			res.InputToks, res.OutputToks, res.CacheWriteToks, res.CacheReadToks); known {
 			fmt.Printf("est. cost: USD %.4f   ·   history: sentineldesk-agent history %d\n",
 				cost, run.ID)
 		} else {
@@ -628,7 +635,8 @@ func showCosts() int {
 	var grandCost float64
 	unpriced := false
 	for _, t := range totals {
-		cost, known := pricing.Estimated(t.Model, t.InputTokens, t.OutTokens)
+		cost, known := pricing.EstimatedWithCache(t.Model, t.InputTokens, t.OutTokens,
+			t.CacheWrite, t.CacheRead)
 		money := fmt.Sprintf("%10.4f", cost)
 		if !known {
 			money = "         ?"
@@ -656,14 +664,15 @@ func showCosts() int {
 	// The number the tool-selection work has to move, which is the reason half
 	// of this table exists.
 	if c, err := db.CatalogueCost(); err == nil && c.Turns > 0 {
-		share := 0.0
-		if c.AvgInputToks > 0 {
-			share = (c.AvgBytes / 4) / c.AvgInputToks * 100
-		}
 		fmt.Printf("\n\033[1mWhat the catalogue costs\033[0m\n")
-		fmt.Printf("  %.0f tools offered per turn, ~%s tokens of schema\n",
-			c.AvgOffered, comma(int(c.AvgBytes/4)))
-		fmt.Printf("  ~%.0f%% of every turn's input, re-sent each time\n", share)
+		fmt.Printf("  %.0f tools per turn  ·  ~%s tokens  ·  \033[1m%.0f%% of every turn's input\033[0m\n",
+			c.AvgOffered, comma(int(c.AvgCatalogueToks)), c.Share()*100)
+		fmt.Printf("  the conversation itself is ~%s tokens; the rest is schema, re-sent each turn\n",
+			comma(int(c.AvgProseToks)))
+		if cost, known := pricing.Estimated(totals[0].Model,
+			int(c.AvgCatalogueToks)*c.Turns, 0); known {
+			fmt.Printf("  \033[33m~USD %.4f of what is above was spent re-sending it\033[0m\n", cost)
+		}
 	}
 
 	fmt.Printf("\n%s\n", db.Path())
@@ -692,7 +701,8 @@ func showHistory(arg string) int {
 		fmt.Printf("\033[1m%4s %-20s %-11s %5s %5s %10s %9s  %s\033[0m\n",
 			"ID", "WHEN", "STATUS", "TURNS", "CALLS", "TOKENS", "EST. USD", "GOAL")
 		for _, r := range runs {
-			cost, _ := pricing.Estimated(r.Model, r.InputTokens, r.OutTokens)
+			cost, _ := pricing.EstimatedWithCache(r.Model, r.InputTokens, r.OutTokens,
+				r.CacheWrite, r.CacheRead)
 			fmt.Printf("%4d %-20s %-11s %5d %5d %10s %9.4f  %s\n",
 				r.ID, shortTime(r.StartedAt), r.Status, r.Turns, r.Calls,
 				comma(r.InputTokens+r.OutTokens), cost, trunc(r.Goal, 44))

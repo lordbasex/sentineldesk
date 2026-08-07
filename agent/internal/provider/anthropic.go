@@ -83,6 +83,10 @@ func NewAnthropic(model string) (*Anthropic, error) {
 
 func (a *Anthropic) Name() string { return "anthropic/" + a.model }
 
+func (a *Anthropic) Capabilities() Capabilities {
+	return Capabilities{Caching: true, CachingIsExplicit: true}
+}
+
 // KeySource says where the key came from. Safe to print: it is a path or the
 // name of an environment variable, never the key.
 func (a *Anthropic) KeySource() string { return a.key.Source() }
@@ -122,14 +126,27 @@ type antTool struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	InputSchema json.RawMessage `json:"input_schema"`
+	Cache       *antCache       `json:"cache_control,omitempty"`
+}
+
+// antCache marks a breakpoint: everything from the start of the request up to
+// and including the marked block is cached together.
+//
+// So exactly one marker is needed and it goes on the LAST tool — the tools
+// array is the end of the stable prefix, and marking every tool would ask for
+// a hundred and twenty separate cache entries of one schema each.
+type antCache struct {
+	Type string `json:"type"`
 }
 
 type antResponse struct {
 	Content    []antContent `json:"content"`
 	StopReason string       `json:"stop_reason"`
 	Usage      struct {
-		Input  int `json:"input_tokens"`
-		Output int `json:"output_tokens"`
+		Input      int `json:"input_tokens"`
+		Output     int `json:"output_tokens"`
+		CacheWrite int `json:"cache_creation_input_tokens"`
+		CacheRead  int `json:"cache_read_input_tokens"`
 	} `json:"usage"`
 	Error *struct {
 		Type    string `json:"type"`
@@ -155,6 +172,16 @@ func (a *Anthropic) Complete(ctx context.Context, req Request) (Response, error)
 		body.Tools = append(body.Tools, antTool{
 			Name: t.Name, Description: t.Description, InputSchema: schema,
 		})
+	}
+	// One marker, on the last tool. It caches everything before it — the system
+	// prompt and the whole catalogue — which is the part that repeats
+	// unchanged and is ninety-eight per cent of what a turn costs.
+	//
+	// Nothing after it is marked, deliberately: the conversation grows every
+	// turn, so caching it would write a new entry each time and pay the write
+	// premium for something read once.
+	if req.CacheStable && len(body.Tools) > 0 {
+		body.Tools[len(body.Tools)-1].Cache = &antCache{Type: "ephemeral"}
 	}
 	for _, m := range req.Messages {
 		body.Messages = append(body.Messages, toAnthropic(m))
@@ -272,6 +299,7 @@ func fromAnthropic(out antResponse) (Response, error) {
 	return Response{
 		Message: msg, Stop: stop,
 		InputToks: out.Usage.Input, OutputToks: out.Usage.Output,
+		CacheWriteToks: out.Usage.CacheWrite, CacheReadToks: out.Usage.CacheRead,
 	}, nil
 }
 

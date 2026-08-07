@@ -47,6 +47,12 @@ func NewScripted(turns ...Response) *Scripted { return &Scripted{turns: turns} }
 
 func (s *Scripted) Name() string { return "scripted" }
 
+// Capabilities claims caching so a test can check the loop asks for it. It
+// caches nothing, which is the point: the loop must not depend on the answer.
+func (s *Scripted) Capabilities() Capabilities {
+	return Capabilities{Caching: true, CachingIsExplicit: true}
+}
+
 func (s *Scripted) Complete(_ context.Context, req Request) (Response, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

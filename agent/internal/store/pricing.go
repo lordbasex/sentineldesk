@@ -38,10 +38,24 @@ import (
 )
 
 // Rate is dollars per million tokens.
+//
+// CacheWrite and CacheRead are multipliers on Input, not absolute prices,
+// because that is how every provider that offers caching expresses it and
+// because a multiplier survives a change to the base rate. Zero means "use the
+// default multiplier"; the defaults are estimates like everything else here.
 type Rate struct {
-	Input  float64 `json:"input"`
-	Output float64 `json:"output"`
+	Input      float64 `json:"input"`
+	Output     float64 `json:"output"`
+	CacheWrite float64 `json:"cache_write_multiplier,omitempty"`
+	CacheRead  float64 `json:"cache_read_multiplier,omitempty"`
 }
+
+// Writing to a cache costs a little more than a plain input token; reading from
+// one costs much less. Both are estimates and both are overridable.
+const (
+	defaultCacheWriteMultiplier = 1.25
+	defaultCacheReadMultiplier  = 0.10
+)
 
 // defaultRates is keyed by a substring of the model id, longest match first, so
 // a new point release inherits its family's rate instead of falling to zero and
@@ -95,6 +109,11 @@ func (p Pricing) Source() string { return p.source }
 // report a day's work as free, which is the worst possible way to be wrong
 // about a bill.
 func (p Pricing) Estimated(model string, in, out int) (float64, bool) {
+	return p.EstimatedWithCache(model, in, out, 0, 0)
+}
+
+// EstimatedWithCache prices a turn including whatever caching did to it.
+func (p Pricing) EstimatedWithCache(model string, in, out, cacheWrite, cacheRead int) (float64, bool) {
 	model = strings.ToLower(model)
 	best, bestLen, found := Rate{}, 0, false
 	for key, rate := range p.rates {
@@ -105,5 +124,17 @@ func (p Pricing) Estimated(model string, in, out int) (float64, bool) {
 	if !found {
 		return 0, false
 	}
-	return float64(in)/1e6*best.Input + float64(out)/1e6*best.Output, true
+	write := best.CacheWrite
+	if write == 0 {
+		write = defaultCacheWriteMultiplier
+	}
+	read := best.CacheRead
+	if read == 0 {
+		read = defaultCacheReadMultiplier
+	}
+	total := float64(in)/1e6*best.Input +
+		float64(out)/1e6*best.Output +
+		float64(cacheWrite)/1e6*best.Input*write +
+		float64(cacheRead)/1e6*best.Input*read
+	return total, true
 }

@@ -125,6 +125,11 @@ type Result struct {
 	Interrupted bool
 
 	InputToks, OutputToks int
+
+	// What caching did. Kept apart from InputToks because they are billed
+	// differently, and because a cache that stopped matching looks exactly like
+	// one that was never there unless these are counted.
+	CacheWriteToks, CacheReadToks int
 }
 
 // Runner holds what a run needs.
@@ -190,13 +195,20 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 
 		started := time.Now()
 		system := r.systemPrompt()
-		req := provider.Request{System: system, Messages: messages, Tools: tools}
+		// The system prompt and the catalogue do not change across a run, and
+		// they are ninety-eight per cent of what a turn costs. Saying so lets a
+		// provider that can cache them do it; one that cannot ignores the hint
+		// and is merely more expensive.
+		req := provider.Request{System: system, Messages: messages, Tools: tools,
+			CacheStable: true}
 		reply, err := r.opts.Model.Complete(ctx, req)
 		if err != nil {
 			return res, err
 		}
 		res.InputToks += reply.InputToks
 		res.OutputToks += reply.OutputToks
+		res.CacheWriteToks += reply.CacheWriteToks
+		res.CacheReadToks += reply.CacheReadToks
 
 		// Recorded before anything is done with the answer, so a turn that ends
 		// in an interruption is still on the record. The catalogue's size goes
@@ -207,7 +219,9 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 			N: turn, Elapsed: time.Since(started), System: system,
 			Request: messages, Response: reply.Message, Stop: string(reply.Stop),
 			InputTokens: reply.InputToks, OutputTokens: reply.OutputToks,
+			CacheWriteTokens: reply.CacheWriteToks, CacheReadTokens: reply.CacheReadToks,
 			ToolsOffered: len(tools), ToolsBytes: toolBytes(tools),
+			ProseChars: len(system) + jsonLen(messages),
 		})
 
 		if reply.Message.Text != "" {
@@ -384,6 +398,15 @@ func (r *Runner) recordCall(c store.Call) {
 // toolBytes is what the catalogue costs on the wire. An approximation of what
 // the provider will charge for it, and an exact measure of what changed when
 // the offered set changes, which is the question it exists to answer.
+// jsonLen is how much conversation was sent, for the same subtraction.
+func jsonLen(v any) int {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return 0
+	}
+	return len(raw)
+}
+
 func toolBytes(tools []provider.Tool) int {
 	n := 0
 	for _, t := range tools {
