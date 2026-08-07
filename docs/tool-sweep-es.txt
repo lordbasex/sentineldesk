@@ -1,5 +1,5 @@
 SentinelDesk — cada herramienta llamada contra un escritorio real
-Ejecutado el 07 de agosto de 2026, 07:02 contra sentineldesk v1.2.7 (9828087) · build 20260806-231042
+Ejecutado el 07 de agosto de 2026, 07:29 contra sentineldesk v1.2.8 (06300a9) · build 20260807-072104
 
 Generado por tools/tool-sweep.py. La tabla resumen, con la misma
 numeración, está en docs/tool-sweep.md.
@@ -19,11 +19,11 @@ Result: {
   "display": ":0",
   "encoder": "auto",
   "joystick": true,
-  "memory_used": "2458/7833 MB",
+  "memory_used": "2344/7833 MB",
   "recording": false,
   "resolution": "1920x1080",
   "restreaming": false,
-  "uptime": "07:02:06 up 18:56,  0 users,  load average: 4.66, 4.76, 4.14",
+  "uptime": "07:29:09 up 19:23,  0 users,  load average: 3.18, 4.50, 4.33",
   "window_manager": "Openbox"
 }
 
@@ -66,7 +66,7 @@ Cómo llevarla más lejos:
 tool: #3   [ok]
 screenshot: Capturar la pantalla entera como PNG
 Argumentos enviados: ninguno
-Result: [image saved: /tmp/mcp-screenshot-1786096926192.png]
+Result: [image saved: /tmp/mcp-screenshot-1786098550414.png]
 
 Qué hizo:
   Capturó el framebuffer de forma nativa por desktop.GrabScreenshotPNG y devolvió PNG,
@@ -86,7 +86,7 @@ Cómo llevarla más lejos:
 tool: #4   [ok]
 screenshot_region: Capturar un rectángulo en vez de la pantalla entera
 Argumentos enviados: {"height": 200, "width": 320, "x": 0, "y": 0}
-Result: [image saved: /tmp/mcp-screenshot_region-1786096926224.png]
+Result: [image saved: /tmp/mcp-screenshot_region-1786098550494.png]
 
 Qué hizo:
   Recortó en el momento de capturar en vez de traer la pantalla y cortarla, así el
@@ -127,8 +127,8 @@ tool: #6   [ok]
 read_screen_text: Pasar la pantalla a texto con OCR
 Argumentos enviados: {"lang": "eng"}
 Result: {
-  "elements": 153,
-  "text": "panel\nChromium\n07:02\nsentineldesk@134dcd53d3a8: /\nsweep.html - Chromium\nsweep.html\nNew Tab\nMinimize\nRestore\nClose\nTab search\nBack\nForward\nReload\nHome\nWork\nFile\nfile:///tmp/sweep.html\nAddress and search bar\nBookmark this tab\nRestore pages?\nBookmarks\nSaved Tab Groups\nTab groups\nDebian.org\nLatest News\nHelp\nSeparator\nInfobar Container\nInfobar\nChromium didn't shut down correctly.\nYou are using an unsupported command-line flag: --no-sandbox. Stability and security will suffer.\nclicked\nsweep\nGo\nEdit\nTabs\nsentineldesk@134dcd53d3a8:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@134dcd53d3a8:/$\nTerminal",
+  "elements": 27,
+  "text": "panel\n07:29",
   "via": "accessibility"
 }
 
@@ -187,8 +187,8 @@ tool: #8   [ok]
 get_mouse_position: Dónde está el puntero ahora
 Argumentos enviados: ninguno
 Result: {
-  "x": 360,
-  "y": 340
+  "x": 960,
+  "y": 540
 }
 
 Qué hizo:
@@ -205,14 +205,8 @@ tool: #9   [ok]
 get_active_window: Qué ventana tiene el foco
 Argumentos enviados: ninguno
 Result: {
-  "id": "0x01e00003",
-  "desktop": 0,
-  "x": 0,
-  "y": 36,
-  "w": 1920,
-  "h": 1044,
-  "class": "Chromium",
-  "title": "sweep.html - Chromium"
+  "active": null,
+  "note": "no window currently has focus"
 }
 
 Qué hizo:
@@ -253,46 +247,6 @@ Result: [
     "h": 1080,
     "class": "Pcmanfm",
     "title": "pcmanfm"
-  },
-  {
-    "id": "0x01a00003",
-    "desktop": 0,
-    "x": 632,
-    "y": 353,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
-  },
-  {
-    "id": "0x01e00003",
-    "desktop": 0,
-    "x": 0,
-    "y": 36,
-    "w": 1920,
-    "h": 1044,
-    "class": "Chromium",
-    "title": "sweep.html - Chromium"
-  },
-  {
-    "id": "0x01a00059",
-    "desktop": 0,
-    "x": 1,
-    "y": 643,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
-  },
-  {
-    "id": "0x01a000a5",
-    "desktop": 0,
-    "x": 1263,
-    "y": 643,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
   }
 ]
 
@@ -359,7 +313,7 @@ Argumentos enviados: {"filter": "python"}
 Result: [
   {
     "command": "/usr/bin/python3 /usr/bin/supervisord -c /etc/supervisor/supervisord.conf",
-    "cpu": "0.0",
+    "cpu": "0.1",
     "mem": "0.3",
     "name": "supervisord",
     "pid": 1
@@ -444,7 +398,7 @@ Result: {
     }
   ],
   "matched": 6,
-  "of": 902
+  "of": 894
 }
 
 Qué hizo:
@@ -584,7 +538,7 @@ Argumentos enviados: ninguno
 Result: {
   "mute": false,
   "sink": "sentineldesk",
-  "volume": "Volume: front-left: 39321 /  60% / -13.31 dB,   front-right: 39321 /  60% / -13.31 dB"
+  "volume": "Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB"
 }
 
 Qué hizo:
@@ -603,28 +557,8 @@ tool: #17   [ok]
 check_errors: Cualquier diálogo de error o alerta que haya en pantalla
 Argumentos enviados: ninguno
 Result: {
-  "dialogs": [
-    {
-      "ref": "3/0/0/0/5/3/0",
-      "role": "alert",
-      "text": "￼￼￼￼￼",
-      "title": "Infobar"
-    },
-    {
-      "ref": "3/0/1",
-      "role": "alert",
-      "text": "￼",
-      "title": "Restore pages?"
-    },
-    {
-      "ref": "3/1",
-      "role": "alert",
-      "text": "￼",
-      "title": "Restore pages?"
-    }
-  ],
-  "errors_on_screen": true,
-  "hint": "use ui_click with the ref of a button to dismiss one, after reading what it says"
+  "errors_on_screen": false,
+  "note": "nothing is reporting a failure. This only sees graphical dialogs — a command that failed silently in a terminal shows up in terminal_read, and a program that died at launch in the stderr that launch_app returns."
 }
 
 Qué hizo:
@@ -664,10 +598,10 @@ tool: #19   [ok]
 wait_for_idle: Esperar a que la pantalla deje de cambiar y la CPU se calme
 Argumentos enviados: {"ignore_cpu": true, "quiet_ms": 400, "timeout_ms": 4000}
 Result: {
-  "cpu_percent": 0,
+  "cpu_percent": 4,
   "idle": true,
   "reason": "the screen went still and the CPU settled",
-  "waited_ms": 0
+  "waited_ms": 401
 }
 
 Qué hizo:
@@ -872,30 +806,30 @@ Result: {
   "count": 3,
   "entries": [
     {
-      "time": "2026-08-07T07:02:11.475-03:00",
+      "time": "2026-08-07T07:29:13.151-03:00",
       "tool": "wait",
       "args": "{\"ms\":50}",
       "ok": true,
       "ms": 50,
-      "conn": 12,
+      "conn": 7,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-07T07:02:11.539-03:00",
+      "time": "2026-08-07T07:29:13.218-03:00",
       "tool": "wait_for_idle",
       "args": "{\"ignore_cpu\":true,\"quiet_ms\":400,\"timeout_ms\":4000}",
       "ok": true,
-      "ms": 0,
-      "conn": 12,
+      "ms": 401,
+      "conn": 7,
       "client": "mcp-cli 1.0"
     },
     {
-      "time": "2026-08-07T07:02:11.572-03:00",
+      "time": "2026-08-07T07:29:13.647-03:00",
       "tool": "tool_search",
       "args": "{\"limit\":5,\"query\":\"give someone remote access over ssh\"}",
       "ok": true,
       "ms": 0,
-      "conn": 12,
+      "conn": 7,
       "client": "mcp-cli 1.0"
     }
   ]
@@ -930,14 +864,14 @@ Result: {
       "controller": false,
       "id": "u1",
       "name": "Viewer 1",
-      "seconds": 27933
+      "seconds": 132
     },
     {
       "agent": true,
       "controller": false,
       "id": "agent",
       "name": "AI agent",
-      "seconds": 322
+      "seconds": 0
     }
   ],
   "you_have_control": false
@@ -1196,7 +1130,7 @@ Result: {
   "as_root": false,
   "command": "xterm -T SWEEPWIN -e sleep 600",
   "note": "still running after 700 ms. A window may take longer to appear — use wait_for_window, or open_app_and_wait next time.",
-  "pid": 99289,
+  "pid": 817,
   "running": true
 }
 
@@ -1222,7 +1156,7 @@ Argumentos enviados: {"match": "SWEEPWIN", "timeout_ms": 15000}
 Result: {
   "class": "XTerm",
   "found": true,
-  "id": "0x0180000c",
+  "id": "0x01a0000c",
   "title": "SWEEPWIN"
 }
 
@@ -1273,50 +1207,10 @@ Result: [
     "title": "pcmanfm"
   },
   {
-    "id": "0x01a00003",
-    "desktop": 0,
-    "x": 632,
-    "y": 353,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
-  },
-  {
-    "id": "0x01e00003",
-    "desktop": 0,
-    "x": 0,
-    "y": 36,
-    "w": 1920,
-    "h": 1044,
-    "class": "Chromium",
-    "title": "sweep.html - Chromium"
-  },
-  {
-    "id": "0x01a00059",
-    "desktop": 0,
-    "x": 1,
-    "y": 643,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
-  },
-  {
-    "id": "0x01a000a5",
-    "desktop": 0,
-    "x": 1263,
-    "y": 643,
-    "w": 656,
-    "h": 436,
-    "class": "Lxterminal",
-    "title": "sentineldesk@134dcd53d3a8: /"
-  },
-  {
-    "id": "0x0180000c",
-    "desktop": 0,
-    "x": 1,
-    "y": 64,
+    "id": "0x01a0000c",
+    "desktop": 2,
+    "x": 718,
+    "y": 413,
     "w": 484,
     "h": 316,
     "class": "XTerm",
@@ -1340,10 +1234,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #37   [ok]
+tool: #37   [ok]   [efecto verificado fuera de MCP]
 activate_window: Enfocar y traer al frente una ventana por id
-Argumentos enviados: {"id": "0x0180000c"}
-Result: activated window 0x0180000c
+Argumentos enviados: {"id": "0x01a0000c"}
+Result: activated window 0x01a0000c
 
 Qué hizo:
   Enfocó y trajo al frente una ventana con un mensaje de cliente _NET_ACTIVE_WINDOW.
@@ -1360,13 +1254,13 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #38   [ok]
 window_properties: Las propiedades X crudas de una ventana
-Argumentos enviados: {"id": "0x0180000c"}
+Argumentos enviados: {"id": "0x01a0000c"}
 Result: {
   "WM_CLASS": [
     "xterm",
     "XTerm"
   ],
-  "WM_CLIENT_MACHINE": "134dcd53d3a8",
+  "WM_CLIENT_MACHINE": "56a758a8a6f5",
   "WM_COMMAND": [
     "{ \"/usr/bin/xterm",
     "-T",
@@ -1404,14 +1298,14 @@ Result: {
     "_NET_WM_ACTION_BELOW",
     "_OB_WM_ACTION_UNDECORATE"
   ],
-  "_NET_WM_DESKTOP": 0,
+  "_NET_WM_DESKTOP": 2,
   "_NET_WM_ICON_GEOMETRY": [
-    "948",
+    "140",
     "2",
     "200",
     "32"
   ],
-  "_NET_WM_PID": 99290,
+  "_NET_WM_PID": 818,
   "_NET_WM_STATE": "",
   "_NET_WM_VISIBLE_ICON_NAME": "SWEEPWIN",
   "_NET_WM_VISIBLE_NAME": "SWEEPWIN",
@@ -1443,18 +1337,9 @@ xwininfo: Window id: 0x21f (the root window) (has no name)
 
   Root window id: 0x21f (the root window) (has no name)
   Parent window id: 0x0 (none)
-     33 children:
-     0x2800001 (has no name): ()  1x1+0+0  +0+0
-     0x60000a (has no name): ()  73x61+400+300  +400+300
-     0x600006 (has no name): ()  75x61+1916+141  +1916+141
-     0x2000003 "chromium": ("chromium" "Chromium")  200x200+0+0  +0+0
-        1 child:
-        0x2000004 (has no name): ()  1x1+-1+-1  +-1+-1
-     0x1e00005 (has no name): ()  1x1+0+0  +0+0
-     0x2000001 "chromium": ("chromium" "Chromium")  10x10+10+10  +10+10
-     0x1e00000 "Chromium clipboard": ()  10x10+-100+-100  +-100+-100
-     0x1a00009 (has no name): ()  1x1+-1+-1  +-1+-1
-     0x1a00001 "lxterminal": ("lxterminal" "Lxterminal")  10x10+10+10  +10+10
+     22 children:
+     0x1800001 (has no name): ()  1x1+0+0  +0+0
+     0x600002 (has no name): ()  73x61+400+300  +400+300
      0xc0000e (has no name): ()  1x1+-1+-1  +-1+-1
      0xc0000a "lxpanel": ()  10x10+-100+-100  +-100+-100
      0xa00009 (has no name): ()  1x1+-1+-1  +-1+-1
@@ -1576,439 +1461,93 @@ xwininfo: Window id: 0x21f (the root window) (has no name)
            1 child:
            0x400177 (has no name): ()  1920x36+0+0  +0+0
      0x400170 (has no name): ()  1x1+0+0  +0+0
-     0x4007bb (has no name): ()  486x345+0+36  +0+36
+     0x400225 (has no name): ()  486x345+717+385  +717+385
         56 children:
-        0x180000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +1+64
+        0x1a0000c "SWEEPWIN": ("xterm" "XTerm")  484x316+1+28  +718+413
            1 child:
-           0x1800018 (has no name): ()  484x316+0+0  +1+64
-        0x400807 (has no name): ()  1x1+0+0  +0+36
-        0x400806 (has no name): ()  1x1+0+0  +0+36
-        0x400805 (has no name): ()  1x1+0+0  +0+36
-        0x400804 (has no name): ()  1x1+0+0  +0+36
-        0x400803 (has no name): ()  1x1+0+0  +0+36
-        0x400802 (has no name): ()  1x1+0+0  +0+36
-        0x400801 (has no name): ()  1x1+0+0  +0+36
-        0x400800 (has no name): ()  1x1+0+0  +0+36
-        0x4007ff (has no name): ()  1x1+0+0  +0+36
-        0x4007fe (has no name): ()  1x1+0+0  +0+36
-        0x4007fd (has no name): ()  1x1+0+0  +0+36
-        0x4007fc (has no name): ()  1x1+0+0  +0+36
-        0x4007fb (has no name): ()  1x1+0+0  +0+36
-        0x4007fa (has no name): ()  1x1+0+0  +0+36
-        0x4007f9 (has no name): ()  1x1+0+0  +0+36
-        0x4007f8 (has no name): ()  1x1+0+0  +0+36
-        0x4007f7 (has no name): ()  1x1+0+0  +0+36
-        0x4007f6 (has no name): ()  1x1+0+0  +0+36
-        0x4007f5 (has no name): ()  1x1+0+0  +0+36
-        0x4007f4 (has no name): ()  1x1+0+0  +0+36
-        0x4007f3 (has no name): ()  1x1+0+0  +0+36
-        0x4007f2 (has no name): ()  1x1+0+0  +0+36
-        0x4007f1 (has no name): ()  1x1+0+0  +0+36
-        0x4007f0 (has no name): ()  1x1+0+0  +0+36
-        0x4007ef (has no name): ()  1x1+0+0  +0+36
-        0x4007ee (has no name): ()  1x1+0+0  +0+36
-        0x4007ed (has no name): ()  1x1+0+0  +0+36
-        0x4007ec (has no name): ()  1x1+0+0  +0+36
-        0x4007eb (has no name): ()  1x1+0+0  +0+36
-        0x4007ea (has no name): ()  1x1+0+0  +0+36
-        0x4007e9 (has no name): ()  1x1+0+0  +0+36
-        0x4007e8 (has no name): ()  1x1+0+0  +0+36
-        0x4007e7 (has no name): ()  26x1+459+344  +459+380
-        0x4007e6 (has no name): ()  1x1+0+0  +0+36
-        0x4007e5 (has no name): ()  1x25+485+320  +485+356
-        0x4007e4 (has no name): ()  26x1+1+344  +1+380
-        0x4007e3 (has no name): ()  1x1+0+0  +0+36
-        0x4007e2 (has no name): ()  1x25+0+320  +0+356
-        0x4007e1 (has no name): ()  432x1+27+344  +27+380
-        0x4007e0 (has no name): ()  1x1+0+0  +0+36
-        0x4007db (has no name): ()  1x1+0+0  +0+36
+           0x1a00018 (has no name): ()  484x316+0+0  +718+413
+        0x400271 (has no name): ()  1x1+0+0  +717+385
+        0x400270 (has no name): ()  1x1+0+0  +717+385
+        0x40026f (has no name): ()  1x1+0+0  +717+385
+        0x40026e (has no name): ()  1x1+0+0  +717+385
+        0x40026d (has no name): ()  1x1+0+0  +717+385
+        0x40026c (has no name): ()  1x1+0+0  +717+385
+        0x40026b (has no name): ()  1x1+0+0  +717+385
+        0x40026a (has no name): ()  1x1+0+0  +717+385
+        0x400269 (has no name): ()  1x1+0+0  +717+385
+        0x400268 (has no name): ()  1x1+0+0  +717+385
+        0x400267 (has no name): ()  1x1+0+0  +717+385
+        0x400266 (has no name): ()  1x1+0+0  +717+385
+        0x400265 (has no name): ()  1x1+0+0  +717+385
+        0x400264 (has no name): ()  1x1+0+0  +717+385
+        0x400263 (has no name): ()  1x1+0+0  +717+385
+        0x400262 (has no name): ()  1x1+0+0  +717+385
+        0x400261 (has no name): ()  1x1+0+0  +717+385
+        0x400260 (has no name): ()  1x1+0+0  +717+385
+        0x40025f (has no name): ()  1x1+0+0  +717+385
+        0x40025e (has no name): ()  1x1+0+0  +717+385
+        0x40025d (has no name): ()  1x1+0+0  +717+385
+        0x40025c (has no name): ()  1x1+0+0  +717+385
+        0x40025b (has no name): ()  1x1+0+0  +717+385
+        0x40025a (has no name): ()  1x1+0+0  +717+385
+        0x400259 (has no name): ()  1x1+0+0  +717+385
+        0x400258 (has no name): ()  1x1+0+0  +717+385
+        0x400257 (has no name): ()  1x1+0+0  +717+385
+        0x400256 (has no name): ()  1x1+0+0  +717+385
+        0x400255 (has no name): ()  1x1+0+0  +717+385
+        0x400254 (has no name): ()  1x1+0+0  +717+385
+        0x400253 (has no name): ()  1x1+0+0  +717+385
+        0x400252 (has no name): ()  1x1+0+0  +717+385
+        0x400251 (has no name): ()  26x1+459+344  +1176+729
+        0x400250 (has no name): ()  1x1+0+0  +717+385
+        0x40024f (has no name): ()  1x25+485+320  +1202+705
+        0x40024e (has no name): ()  26x1+1+344  +718+729
+        0x40024d (has no name): ()  1x1+0+0  +717+385
+        0x40024c (has no name): ()  1x25+0+320  +717+705
+        0x40024b (has no name): ()  432x1+27+344  +744+729
+        0x40024a (has no name): ()  1x1+0+0  +717+385
+        0x400245 (has no name): ()  1x1+0+0  +717+385
            4 children:
-           0x4007df (has no name): ()  1x1+0+0  +0+36
-           0x4007de (has no name): ()  1x1+0+0  +0+36
-           0x4007dd (has no name): ()  1x1+0+0  +0+36
-           0x4007dc (has no name): ()  1x1+0+0  +0+36
-        0x4007d3 (has no name): ()  1x295+485+26  +485+62
-        0x4007d2 (has no name): ()  1x295+0+26  +0+62
-        0x4007cc (has no name): ()  484x1+1+27  +1+63
-        0x4007cb (has no name): ()  1x25+485+1  +485+37
-        0x4007ca (has no name): ()  26x1+460+0  +460+36
-        0x4007c9 (has no name): ()  26x1+0+0  +0+36
-        0x4007c8 (has no name): ()  434x1+26+0  +26+36
-        0x4007c7 (has no name): ()  1x25+0+1  +0+37
-        0x4007c6 (has no name): ()  484x26+1+1  +1+37
+           0x400249 (has no name): ()  1x1+0+0  +717+385
+           0x400248 (has no name): ()  1x1+0+0  +717+385
+           0x400247 (has no name): ()  1x1+0+0  +717+385
+           0x400246 (has no name): ()  1x1+0+0  +717+385
+        0x40023d (has no name): ()  1x295+485+26  +1202+411
+        0x40023c (has no name): ()  1x295+0+26  +717+411
+        0x400236 (has no name): ()  484x1+1+27  +718+412
+        0x400235 (has no name): ()  1x25+485+1  +1202+386
+        0x400234 (has no name): ()  26x1+460+0  +1177+385
+        0x400233 (has no name): ()  26x1+0+0  +717+385
+        0x400232 (has no name): ()  434x1+26+0  +743+385
+        0x400231 (has no name): ()  1x25+0+1  +717+386
+        0x400230 (has no name): ()  484x26+1+1  +718+386
            12 children:
-           0x4007da (has no name): ()  12x12+415+7  +416+44
-           0x4007d9 (has no name): ()  14x14+11+6  +12+43
-           0x4007d8 (has no name): ()  12x12+0+0  +1+37
-           0x4007d7 (has no name): ()  12x12+0+0  +1+37
-           0x4007d6 (has no name): ()  12x12+461+7  +462+44
-           0x4007d5 (has no name): ()  12x12+438+7  +439+44
-           0x4007d4 (has no name): ()  368x14+36+6  +37+43
-           0x4007d1 (has no name): ()  11x26+473+0  +474+37
-           0x4007d0 (has no name): ()  25x7+459+0  +460+37
-           0x4007cf (has no name): ()  11x26+0+0  +1+37
-           0x4007ce (has no name): ()  25x7+0+0  +1+37
-           0x4007cd (has no name): ()  434x7+25+0  +26+37
-        0x4007c1 (has no name): ()  1x1+0+0  +0+36
+           0x400244 (has no name): ()  12x12+415+7  +1133+393
+           0x400243 (has no name): ()  14x14+11+6  +729+392
+           0x400242 (has no name): ()  12x12+0+0  +718+386
+           0x400241 (has no name): ()  12x12+0+0  +718+386
+           0x400240 (has no name): ()  12x12+461+7  +1179+393
+           0x40023f (has no name): ()  12x12+438+7  +1156+393
+           0x40023e (has no name): ()  368x14+36+6  +754+392
+           0x40023b (has no name): ()  11x26+473+0  +1191+386
+           0x40023a (has no name): ()  25x7+459+0  +1177+386
+           0x400239 (has no name): ()  11x26+0+0  +718+386
+           0x400238 (has no name): ()  25x7+0+0  +718+386
+           0x400237 (has no name): ()  434x7+25+0  +743+386
+        0x40022b (has no name): ()  1x1+0+0  +717+385
            2 children:
-           0x4007c3 (has no name): ()  1x1+0+0  +0+36
-           0x4007c2 (has no name): ()  1x1+0+0  +0+36
-        0x4007c0 (has no name): ()  1x1+0+0  +0+36
+           0x40022d (has no name): ()  1x1+0+0  +717+385
+           0x40022c (has no name): ()  1x1+0+0  +717+385
+        0x40022a (has no name): ()  1x1+0+0  +717+385
            1 child:
-           0x4007c5 (has no name): ()  1x1+0+0  +0+36
-        0x4007bf (has no name): ()  1x1+0+0  +0+36
-        0x4007be (has no name): ()  1x1+0+0  +0+36
+           0x40022f (has no name): ()  1x1+0+0  +717+385
+        0x400229 (has no name): ()  1x1+0+0  +717+385
+        0x400228 (has no name): ()  1x1+0+0  +717+385
            1 child:
-           0x4007c4 (has no name): ()  1x1+0+0  +0+36
-        0x4007bc (has no name): ()  484x316+1+28  +1+64
+           0x40022e (has no name): ()  1x1+0+0  +717+385
+        0x400226 (has no name): ()  484x316+1+28  +718+413
            1 child:
-           0x4007bd (has no name): ()  484x316+0+0  +1+64
-     0x40032b (has no name): ()  1920x1044+0+36  +0+36
-        56 children:
-        0x1e00003 "sweep.html - Chromium": ("chromium" "Chromium")  1920x1044+0+0  +0+36
-        0x400377 (has no name): ()  1x1+0+0  +0+36
-        0x400376 (has no name): ()  1x1+0+0  +0+36
-        0x400375 (has no name): ()  1x1+0+0  +0+36
-        0x400374 (has no name): ()  1x1+0+0  +0+36
-        0x400373 (has no name): ()  1x1+0+0  +0+36
-        0x400372 (has no name): ()  1x1+0+0  +0+36
-        0x400371 (has no name): ()  1x1+0+0  +0+36
-        0x400370 (has no name): ()  1x1+0+0  +0+36
-        0x40036f (has no name): ()  1x1+0+0  +0+36
-        0x40036e (has no name): ()  1x1+0+0  +0+36
-        0x40036d (has no name): ()  1x1+0+0  +0+36
-        0x40036c (has no name): ()  1x1+0+0  +0+36
-        0x40036b (has no name): ()  1x1+0+0  +0+36
-        0x40036a (has no name): ()  1x1+0+0  +0+36
-        0x400369 (has no name): ()  1x1+0+0  +0+36
-        0x400368 (has no name): ()  1x1+0+0  +0+36
-        0x400367 (has no name): ()  1x1+0+0  +0+36
-        0x400366 (has no name): ()  1x1+0+0  +0+36
-        0x400365 (has no name): ()  1x1+0+0  +0+36
-        0x400364 (has no name): ()  1x1+0+0  +0+36
-        0x400363 (has no name): ()  1x1+0+0  +0+36
-        0x400362 (has no name): ()  1x1+0+0  +0+36
-        0x400361 (has no name): ()  1x1+0+0  +0+36
-        0x400360 (has no name): ()  1x1+0+0  +0+36
-        0x40035f (has no name): ()  1x1+0+0  +0+36
-        0x40035e (has no name): ()  1x1+0+0  +0+36
-        0x40035d (has no name): ()  1x1+0+0  +0+36
-        0x40035c (has no name): ()  1x1+0+0  +0+36
-        0x40035b (has no name): ()  1x1+0+0  +0+36
-        0x40035a (has no name): ()  1x1+0+0  +0+36
-        0x400359 (has no name): ()  1x1+0+0  +0+36
-        0x400358 (has no name): ()  1x1+0+0  +0+36
-        0x400357 (has no name): ()  1x1+0+0  +0+36
-        0x400356 (has no name): ()  1x1+0+0  +0+36
-        0x400355 (has no name): ()  1x1+0+0  +0+36
-        0x400354 (has no name): ()  1x1+0+0  +0+36
-        0x400353 (has no name): ()  1x1+0+0  +0+36
-        0x400352 (has no name): ()  1x1+0+0  +0+36
-        0x400351 (has no name): ()  1x1+0+0  +0+36
-        0x400350 (has no name): ()  1x1+0+0  +0+36
-        0x40034b (has no name): ()  1x1+0+0  +0+36
-           4 children:
-           0x40034f (has no name): ()  1x1+0+0  +0+36
-           0x40034e (has no name): ()  1x1+0+0  +0+36
-           0x40034d (has no name): ()  1x1+0+0  +0+36
-           0x40034c (has no name): ()  1x1+0+0  +0+36
-        0x400343 (has no name): ()  1x1+0+0  +0+36
-        0x400342 (has no name): ()  1x1+0+0  +0+36
-        0x40033c (has no name): ()  1x1+0+0  +0+36
-        0x40033b (has no name): ()  1x1+0+0  +0+36
-        0x40033a (has no name): ()  1x1+0+0  +0+36
-        0x400339 (has no name): ()  1x1+0+0  +0+36
-        0x400338 (has no name): ()  1x1+0+0  +0+36
-        0x400337 (has no name): ()  1x1+0+0  +0+36
-        0x400336 (has no name): ()  1x1+0+0  +0+36
-           12 children:
-           0x40034a (has no name): ()  12x12+0+0  +0+36
-           0x400349 (has no name): ()  14x14+0+0  +0+36
-           0x400348 (has no name): ()  12x12+0+0  +0+36
-           0x400347 (has no name): ()  12x12+0+0  +0+36
-           0x400346 (has no name): ()  12x12+0+0  +0+36
-           0x400345 (has no name): ()  12x12+0+0  +0+36
-           0x400344 (has no name): ()  1x1+0+0  +0+36
-           0x400341 (has no name): ()  11x26+0+0  +0+36
-           0x400340 (has no name): ()  25x7+0+0  +0+36
-           0x40033f (has no name): ()  11x26+0+0  +0+36
-           0x40033e (has no name): ()  25x7+0+0  +0+36
-           0x40033d (has no name): ()  1x1+0+0  +0+36
-        0x400331 (has no name): ()  1x1+0+0  +0+36
-           2 children:
-           0x400333 (has no name): ()  1x1+0+0  +0+36
-           0x400332 (has no name): ()  1x1+0+0  +0+36
-        0x400330 (has no name): ()  1x1+0+0  +0+36
-           1 child:
-           0x400335 (has no name): ()  1x1+0+0  +0+36
-        0x40032f (has no name): ()  1x1+0+0  +0+36
-        0x40032e (has no name): ()  1x1+0+0  +0+36
-           1 child:
-           0x400334 (has no name): ()  1x1+0+0  +0+36
-        0x40032c (has no name): ()  1920x1044+0+0  +0+36
-           1 child:
-           0x40032d (has no name): ()  1920x1044+0+0  +0+36
-     0x4006cd (has no name): ()  658x465+1262+615  +1262+615
-        56 children:
-        0x1a000a5 "sentineldesk@134dcd53d3a8: /": ("lxterminal" "Lxterminal")  656x436+1+28  +1263+643
-           1 child:
-           0x1a000a6 (has no name): ()  1x1+-1+-1  +1262+642
-        0x400719 (has no name): ()  1x1+0+0  +1262+615
-        0x400718 (has no name): ()  1x1+0+0  +1262+615
-        0x400717 (has no name): ()  1x1+0+0  +1262+615
-        0x400716 (has no name): ()  1x1+0+0  +1262+615
-        0x400715 (has no name): ()  1x1+0+0  +1262+615
-        0x400714 (has no name): ()  1x1+0+0  +1262+615
-        0x400713 (has no name): ()  1x1+0+0  +1262+615
-        0x400712 (has no name): ()  1x1+0+0  +1262+615
-        0x400711 (has no name): ()  1x1+0+0  +1262+615
-        0x400710 (has no name): ()  1x1+0+0  +1262+615
-        0x40070f (has no name): ()  1x1+0+0  +1262+615
-        0x40070e (has no name): ()  1x1+0+0  +1262+615
-        0x40070d (has no name): ()  1x1+0+0  +1262+615
-        0x40070c (has no name): ()  1x1+0+0  +1262+615
-        0x40070b (has no name): ()  1x1+0+0  +1262+615
-        0x40070a (has no name): ()  1x1+0+0  +1262+615
-        0x400709 (has no name): ()  1x1+0+0  +1262+615
-        0x400708 (has no name): ()  1x1+0+0  +1262+615
-        0x400707 (has no name): ()  1x1+0+0  +1262+615
-        0x400706 (has no name): ()  1x1+0+0  +1262+615
-        0x400705 (has no name): ()  1x1+0+0  +1262+615
-        0x400704 (has no name): ()  1x1+0+0  +1262+615
-        0x400703 (has no name): ()  1x1+0+0  +1262+615
-        0x400702 (has no name): ()  1x1+0+0  +1262+615
-        0x400701 (has no name): ()  1x1+0+0  +1262+615
-        0x400700 (has no name): ()  1x1+0+0  +1262+615
-        0x4006ff (has no name): ()  1x1+0+0  +1262+615
-        0x4006fe (has no name): ()  1x1+0+0  +1262+615
-        0x4006fd (has no name): ()  1x1+0+0  +1262+615
-        0x4006fc (has no name): ()  1x1+0+0  +1262+615
-        0x4006fb (has no name): ()  1x1+0+0  +1262+615
-        0x4006fa (has no name): ()  1x1+0+0  +1262+615
-        0x4006f9 (has no name): ()  26x1+631+464  +1893+1079
-        0x4006f8 (has no name): ()  1x1+0+0  +1262+615
-        0x4006f7 (has no name): ()  1x25+657+440  +1919+1055
-        0x4006f6 (has no name): ()  26x1+1+464  +1263+1079
-        0x4006f5 (has no name): ()  1x1+0+0  +1262+615
-        0x4006f4 (has no name): ()  1x25+0+440  +1262+1055
-        0x4006f3 (has no name): ()  604x1+27+464  +1289+1079
-        0x4006f2 (has no name): ()  1x1+0+0  +1262+615
-        0x4006ed (has no name): ()  1x1+0+0  +1262+615
-           4 children:
-           0x4006f1 (has no name): ()  1x1+0+0  +1262+615
-           0x4006f0 (has no name): ()  1x1+0+0  +1262+615
-           0x4006ef (has no name): ()  1x1+0+0  +1262+615
-           0x4006ee (has no name): ()  1x1+0+0  +1262+615
-        0x4006e5 (has no name): ()  1x415+657+26  +1919+641
-        0x4006e4 (has no name): ()  1x415+0+26  +1262+641
-        0x4006de (has no name): ()  656x1+1+27  +1263+642
-        0x4006dd (has no name): ()  1x25+657+1  +1919+616
-        0x4006dc (has no name): ()  26x1+632+0  +1894+615
-        0x4006db (has no name): ()  26x1+0+0  +1262+615
-        0x4006da (has no name): ()  606x1+26+0  +1288+615
-        0x4006d9 (has no name): ()  1x25+0+1  +1262+616
-        0x4006d8 (has no name): ()  656x26+1+1  +1263+616
-           12 children:
-           0x4006ec (has no name): ()  12x12+587+7  +1850+623
-           0x4006eb (has no name): ()  14x14+11+6  +1274+622
-           0x4006ea (has no name): ()  12x12+0+0  +1263+616
-           0x4006e9 (has no name): ()  12x12+0+0  +1263+616
-           0x4006e8 (has no name): ()  12x12+633+7  +1896+623
-           0x4006e7 (has no name): ()  12x12+610+7  +1873+623
-           0x4006e6 (has no name): ()  540x14+36+6  +1299+622
-           0x4006e3 (has no name): ()  11x26+645+0  +1908+616
-           0x4006e2 (has no name): ()  25x7+631+0  +1894+616
-           0x4006e1 (has no name): ()  11x26+0+0  +1263+616
-           0x4006e0 (has no name): ()  25x7+0+0  +1263+616
-           0x4006df (has no name): ()  606x7+25+0  +1288+616
-        0x4006d3 (has no name): ()  1x1+0+0  +1262+615
-           2 children:
-           0x4006d5 (has no name): ()  1x1+0+0  +1262+615
-           0x4006d4 (has no name): ()  1x1+0+0  +1262+615
-        0x4006d2 (has no name): ()  1x1+0+0  +1262+615
-           1 child:
-           0x4006d7 (has no name): ()  1x1+0+0  +1262+615
-        0x4006d1 (has no name): ()  1x1+0+0  +1262+615
-        0x4006d0 (has no name): ()  1x1+0+0  +1262+615
-           1 child:
-           0x4006d6 (has no name): ()  1x1+0+0  +1262+615
-        0x4006ce (has no name): ()  656x436+1+28  +1263+643
-           1 child:
-           0x4006cf (has no name): ()  656x436+0+0  +1263+643
-     0x400473 (has no name): ()  658x465+0+615  +0+615
-        56 children:
-        0x1a00059 "sentineldesk@134dcd53d3a8: /": ("lxterminal" "Lxterminal")  656x436+1+28  +1+643
-           1 child:
-           0x1a0005a (has no name): ()  1x1+-1+-1  +0+642
-        0x4004bf (has no name): ()  1x1+0+0  +0+615
-        0x4004be (has no name): ()  1x1+0+0  +0+615
-        0x4004bd (has no name): ()  1x1+0+0  +0+615
-        0x4004bc (has no name): ()  1x1+0+0  +0+615
-        0x4004bb (has no name): ()  1x1+0+0  +0+615
-        0x4004ba (has no name): ()  1x1+0+0  +0+615
-        0x4004b9 (has no name): ()  1x1+0+0  +0+615
-        0x4004b8 (has no name): ()  1x1+0+0  +0+615
-        0x4004b7 (has no name): ()  1x1+0+0  +0+615
-        0x4004b6 (has no name): ()  1x1+0+0  +0+615
-        0x4004b5 (has no name): ()  1x1+0+0  +0+615
-        0x4004b4 (has no name): ()  1x1+0+0  +0+615
-        0x4004b3 (has no name): ()  1x1+0+0  +0+615
-        0x4004b2 (has no name): ()  1x1+0+0  +0+615
-        0x4004b1 (has no name): ()  1x1+0+0  +0+615
-        0x4004b0 (has no name): ()  1x1+0+0  +0+615
-        0x4004af (has no name): ()  1x1+0+0  +0+615
-        0x4004ae (has no name): ()  1x1+0+0  +0+615
-        0x4004ad (has no name): ()  1x1+0+0  +0+615
-        0x4004ac (has no name): ()  1x1+0+0  +0+615
-        0x4004ab (has no name): ()  1x1+0+0  +0+615
-        0x4004aa (has no name): ()  1x1+0+0  +0+615
-        0x4004a9 (has no name): ()  1x1+0+0  +0+615
-        0x4004a8 (has no name): ()  1x1+0+0  +0+615
-        0x4004a7 (has no name): ()  1x1+0+0  +0+615
-        0x4004a6 (has no name): ()  1x1+0+0  +0+615
-        0x4004a5 (has no name): ()  1x1+0+0  +0+615
-        0x4004a4 (has no name): ()  1x1+0+0  +0+615
-        0x4004a3 (has no name): ()  1x1+0+0  +0+615
-        0x4004a2 (has no name): ()  1x1+0+0  +0+615
-        0x4004a1 (has no name): ()  1x1+0+0  +0+615
-        0x4004a0 (has no name): ()  1x1+0+0  +0+615
-        0x40049f (has no name): ()  26x1+631+464  +631+1079
-        0x40049e (has no name): ()  1x1+0+0  +0+615
-        0x40049d (has no name): ()  1x25+657+440  +657+1055
-        0x40049c (has no name): ()  26x1+1+464  +1+1079
-        0x40049b (has no name): ()  1x1+0+0  +0+615
-        0x40049a (has no name): ()  1x25+0+440  +0+1055
-        0x400499 (has no name): ()  604x1+27+464  +27+1079
-        0x400498 (has no name): ()  1x1+0+0  +0+615
-        0x400493 (has no name): ()  1x1+0+0  +0+615
-           4 children:
-           0x400497 (has no name): ()  1x1+0+0  +0+615
-           0x400496 (has no name): ()  1x1+0+0  +0+615
-           0x400495 (has no name): ()  1x1+0+0  +0+615
-           0x400494 (has no name): ()  1x1+0+0  +0+615
-        0x40048b (has no name): ()  1x415+657+26  +657+641
-        0x40048a (has no name): ()  1x415+0+26  +0+641
-        0x400484 (has no name): ()  656x1+1+27  +1+642
-        0x400483 (has no name): ()  1x25+657+1  +657+616
-        0x400482 (has no name): ()  26x1+632+0  +632+615
-        0x400481 (has no name): ()  26x1+0+0  +0+615
-        0x400480 (has no name): ()  606x1+26+0  +26+615
-        0x40047f (has no name): ()  1x25+0+1  +0+616
-        0x40047e (has no name): ()  656x26+1+1  +1+616
-           12 children:
-           0x400492 (has no name): ()  12x12+587+7  +588+623
-           0x400491 (has no name): ()  14x14+11+6  +12+622
-           0x400490 (has no name): ()  12x12+0+0  +1+616
-           0x40048f (has no name): ()  12x12+0+0  +1+616
-           0x40048e (has no name): ()  12x12+633+7  +634+623
-           0x40048d (has no name): ()  12x12+610+7  +611+623
-           0x40048c (has no name): ()  540x14+36+6  +37+622
-           0x400489 (has no name): ()  11x26+645+0  +646+616
-           0x400488 (has no name): ()  25x7+631+0  +632+616
-           0x400487 (has no name): ()  11x26+0+0  +1+616
-           0x400486 (has no name): ()  25x7+0+0  +1+616
-           0x400485 (has no name): ()  606x7+25+0  +26+616
-        0x400479 (has no name): ()  1x1+0+0  +0+615
-           2 children:
-           0x40047b (has no name): ()  1x1+0+0  +0+615
-           0x40047a (has no name): ()  1x1+0+0  +0+615
-        0x400478 (has no name): ()  1x1+0+0  +0+615
-           1 child:
-           0x40047d (has no name): ()  1x1+0+0  +0+615
-        0x400477 (has no name): ()  1x1+0+0  +0+615
-        0x400476 (has no name): ()  1x1+0+0  +0+615
-           1 child:
-           0x40047c (has no name): ()  1x1+0+0  +0+615
-        0x400474 (has no name): ()  656x436+1+28  +1+643
-           1 child:
-           0x400475 (has no name): ()  656x436+0+0  +1+643
-     0x4002ba (has no name): ()  658x465+631+325  +631+325
-        56 children:
-        0x1a00003 "sentineldesk@134dcd53d3a8: /": ("lxterminal" "Lxterminal")  656x436+1+28  +632+353
-           1 child:
-           0x1a00004 (has no name): ()  1x1+-1+-1  +631+352
-        0x400306 (has no name): ()  1x1+0+0  +631+325
-        0x400305 (has no name): ()  1x1+0+0  +631+325
-        0x400304 (has no name): ()  1x1+0+0  +631+325
-        0x400303 (has no name): ()  1x1+0+0  +631+325
-        0x400302 (has no name): ()  1x1+0+0  +631+325
-        0x400301 (has no name): ()  1x1+0+0  +631+325
-        0x400300 (has no name): ()  1x1+0+0  +631+325
-        0x4002ff (has no name): ()  1x1+0+0  +631+325
-        0x4002fe (has no name): ()  1x1+0+0  +631+325
-        0x4002fd (has no name): ()  1x1+0+0  +631+325
-        0x4002fc (has no name): ()  1x1+0+0  +631+325
-        0x4002fb (has no name): ()  1x1+0+0  +631+325
-        0x4002fa (has no name): ()  1x1+0+0  +631+325
-        0x4002f9 (has no name): ()  1x1+0+0  +631+325
-        0x4002f8 (has no name): ()  1x1+0+0  +631+325
-        0x4002f7 (has no name): ()  1x1+0+0  +631+325
-        0x4002f6 (has no name): ()  1x1+0+0  +631+325
-        0x4002f5 (has no name): ()  1x1+0+0  +631+325
-        0x4002f4 (has no name): ()  1x1+0+0  +631+325
-        0x4002f3 (has no name): ()  1x1+0+0  +631+325
-        0x4002f2 (has no name): ()  1x1+0+0  +631+325
-        0x4002f1 (has no name): ()  1x1+0+0  +631+325
-        0x4002f0 (has no name): ()  1x1+0+0  +631+325
-        0x4002ef (has no name): ()  1x1+0+0  +631+325
-        0x4002ee (has no name): ()  1x1+0+0  +631+325
-        0x4002ed (has no name): ()  1x1+0+0  +631+325
-        0x4002ec (has no name): ()  1x1+0+0  +631+325
-        0x4002eb (has no name): ()  1x1+0+0  +631+325
-        0x4002ea (has no name): ()  1x1+0+0  +631+325
-        0x4002e9 (has no name): ()  1x1+0+0  +631+325
-        0x4002e8 (has no name): ()  1x1+0+0  +631+325
-        0x4002e7 (has no name): ()  1x1+0+0  +631+325
-        0x4002e6 (has no name): ()  26x1+631+464  +1262+789
-        0x4002e5 (has no name): ()  1x1+0+0  +631+325
-        0x4002e4 (has no name): ()  1x25+657+440  +1288+765
-        0x4002e3 (has no name): ()  26x1+1+464  +632+789
-        0x4002e2 (has no name): ()  1x1+0+0  +631+325
-        0x4002e1 (has no name): ()  1x25+0+440  +631+765
-        0x4002e0 (has no name): ()  604x1+27+464  +658+789
-        0x4002df (has no name): ()  1x1+0+0  +631+325
-        0x4002da (has no name): ()  1x1+0+0  +631+325
-           4 children:
-           0x4002de (has no name): ()  1x1+0+0  +631+325
-           0x4002dd (has no name): ()  1x1+0+0  +631+325
-           0x4002dc (has no name): ()  1x1+0+0  +631+325
-           0x4002db (has no name): ()  1x1+0+0  +631+325
-        0x4002d2 (has no name): ()  1x415+657+26  +1288+351
-        0x4002d1 (has no name): ()  1x415+0+26  +631+351
-        0x4002cb (has no name): ()  656x1+1+27  +632+352
-        0x4002ca (has no name): ()  1x25+657+1  +1288+326
-        0x4002c9 (has no name): ()  26x1+632+0  +1263+325
-        0x4002c8 (has no name): ()  26x1+0+0  +631+325
-        0x4002c7 (has no name): ()  606x1+26+0  +657+325
-        0x4002c6 (has no name): ()  1x25+0+1  +631+326
-        0x4002c5 (has no name): ()  656x26+1+1  +632+326
-           12 children:
-           0x4002d9 (has no name): ()  12x12+587+7  +1219+333
-           0x4002d8 (has no name): ()  14x14+11+6  +643+332
-           0x4002d7 (has no name): ()  12x12+0+0  +632+326
-           0x4002d6 (has no name): ()  12x12+0+0  +632+326
-           0x4002d5 (has no name): ()  12x12+633+7  +1265+333
-           0x4002d4 (has no name): ()  12x12+610+7  +1242+333
-           0x4002d3 (has no name): ()  540x14+36+6  +668+332
-           0x4002d0 (has no name): ()  11x26+645+0  +1277+326
-           0x4002cf (has no name): ()  25x7+631+0  +1263+326
-           0x4002ce (has no name): ()  11x26+0+0  +632+326
-           0x4002cd (has no name): ()  25x7+0+0  +632+326
-           0x4002cc (has no name): ()  606x7+25+0  +657+326
-        0x4002c0 (has no name): ()  1x1+0+0  +631+325
-           2 children:
-           0x4002c2 (has no name): ()  1x1+0+0  +631+325
-           0x4002c1 (has no name): ()  1x1+0+0  +631+325
-        0x4002bf (has no name): ()  1x1+0+0  +631+325
-           1 child:
-           0x4002c4 (has no name): ()  1x1+0+0  +631+325
-        0x4002be (has no name): ()  1x1+0+0  +631+325
-        0x4002bd (has no name): ()  1x1+0+0  +631+325
-           1 child:
-           0x4002c3 (has no name): ()  1x1+0+0  +631+325
-        0x4002bb (has no name): ()  656x436+1+28  +632+353
-           1 child:
-           0x4002bc (has no name): ()  656x436+0+0  +632+353
+           0x400227 (has no name): ()  484x316+0+0  +718+413
      0x4001c2 (has no name): ()  1920x1080+0+0  +0+0
         56 children:
         0xa00003 "pcmanfm": ("pcmanfm" "Pcmanfm")  1920x1080+0+0  +0+0
@@ -2112,7 +1651,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #40   [ok]   [efecto verificado fuera de MCP]
 move_window: Mover una ventana a una posición
-Argumentos enviados: {"id": "0x0180000c", "x": 120, "y": 120}
+Argumentos enviados: {"id": "0x01a0000c", "x": 120, "y": 120}
 Result: moved
 
 Qué hizo:
@@ -2130,7 +1669,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 tool: #41   [ok]   [efecto verificado fuera de MCP]
 resize_window: Redimensionar una ventana
-Argumentos enviados: {"height": 400, "id": "0x0180000c", "width": 640}
+Argumentos enviados: {"height": 400, "id": "0x01a0000c", "width": 640}
 Result: resized
 
 Qué hizo:
@@ -2144,9 +1683,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #42   [ok]
+tool: #42   [ok]   [efecto verificado fuera de MCP]
 minimize_window: Minimizar una ventana
-Argumentos enviados: {"id": "0x0180000c"}
+Argumentos enviados: {"id": "0x01a0000c"}
 Result: minimized
 
 Qué hizo:
@@ -2162,25 +1701,27 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #43   [ok]
-restore_window: Restaurar una ventana minimizada
-Argumentos enviados: {"id": "0x0180000c"}
-Result: restored
+tool: #43   [ok]   [efecto verificado fuera de MCP]
+activate_window: Bring the minimised window back
+Argumentos enviados: {"id": "0x01a0000c"}
+Result: activated window 0x01a0000c
 
 Qué hizo:
-  Sacó los dos estados de maximizado.
+  Enfocó y trajo al frente una ventana con un mensaje de cliente _NET_ACTIVE_WINDOW.
 
 Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  La inversa correcta, y no intenta recordar una geometría que el gestor de ventanas
-  ya tiene.
+  Pedirle al gestor de ventanas en vez de levantar la ventana a sus espaldas, que es
+  lo que la hace funcionar con un gestor que reparenta y decora. El mensaje lleva una
+  indicación de origen, así que las reglas de robo de foco tratan a un agente como a
+  cualquier cosa que pidió el usuario.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #44   [ok]
+tool: #44   [ok]   [efecto verificado fuera de MCP]
 maximize_window: Maximizar una ventana
-Argumentos enviados: {"id": "0x0180000c"}
+Argumentos enviados: {"id": "0x01a0000c"}
 Result: maximized
 
 Qué hizo:
@@ -2196,9 +1737,25 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #45   [ok]
+tool: #45   [ok]   [efecto verificado fuera de MCP]
+restore_window: Un-maximise a window back to its previous size
+Argumentos enviados: {"id": "0x01a0000c"}
+Result: restored
+
+Qué hizo:
+  Sacó los dos estados de maximizado.
+
+Puntaje del método: 5/5  ●●●●●
+
+Cómo llevarla más lejos:
+  La inversa correcta, y no intenta recordar una geometría que el gestor de ventanas
+  ya tiene.
+----------------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------------------
+tool: #46   [ok]   [efecto verificado fuera de MCP]
 fullscreen_window: Poner una ventana en pantalla completa
-Argumentos enviados: {"id": "0x0180000c"}
+Argumentos enviados: {"id": "0x01a0000c"}
 Result: toggled fullscreen
 
 Qué hizo:
@@ -2213,10 +1770,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #46   [ok]
+tool: #47   [ok]
 window_set_state: Cambiar un estado EWMH como 'above'
-Argumentos enviados: {"action": "add", "id": "0x0180000c", "state": "above"}
-Result: add above en 0x0180000c
+Argumentos enviados: {"action": "add", "id": "0x01a0000c", "state": "above"}
+Result: add above en 0x01a0000c
 
 Qué hizo:
   Fijó un estado EWMH — above, below, sticky, shaded, skip_taskbar y el resto — con un
@@ -2232,9 +1789,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #47   [ok]
+tool: #48   [ok]
 set_window_desktop: Mandar una ventana a un escritorio virtual
-Argumentos enviados: {"desktop": 0, "id": "0x0180000c"}
+Argumentos enviados: {"desktop": 0, "id": "0x01a0000c"}
 Result: moved to desktop
 
 Qué hizo:
@@ -2248,7 +1805,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #48   [ok]
+tool: #49   [ok]
 switch_desktop: Cambiar a otro escritorio virtual
 Argumentos enviados: {"desktop": 0}
 Result: switched desktop
@@ -2265,9 +1822,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #49   [ok]   [efecto verificado fuera de MCP]
+tool: #50   [ok]   [efecto verificado fuera de MCP]
 close_window: Cerrar la ventana que abrió el barrido
-Argumentos enviados: {"id": "0x0180000c"}
+Argumentos enviados: {"id": "0x01a0000c"}
 Result: closed window
 
 Qué hizo:
@@ -2289,7 +1846,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #50   [ok]
+tool: #51   [ok]
 terminal_open: Abrir una terminal que una persona pueda mirar
 Argumentos enviados: ninguno
 Result: {
@@ -2312,14 +1869,14 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #51   [ok]
+tool: #52   [ok]   [efecto verificado fuera de MCP]
 terminal_run: Tipear un comando en esa terminal y esperar el prompt
-Argumentos enviados: {"command": "echo sweep-terminal-ok", "timeout_ms": 30000}
+Argumentos enviados: {"command": "echo sweep-terminal-ok > /tmp/sweep-terminal.txt", "timeout_ms": 30000}
 Result: {
-  "command": "echo sweep-terminal-ok",
+  "command": "echo sweep-terminal-ok \u003e /tmp/sweep-terminal.txt",
   "exit_code": 0,
   "finished": true,
-  "output": "echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@134dcd53d3a8:/$",
+  "output": "echo sweep-terminal-ok \u003e /tmp/sweep-terminal.txt\nsentineldesk@56a758a8a6f5:/$",
   "succeeded": true
 }
 
@@ -2340,14 +1897,14 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #52   [ok]
+tool: #53   [ok]
 terminal_read: Leer lo que muestra la terminal
 Argumentos enviados: {"lines": 10}
 Result: {
-  "last_command": "echo sweep-terminal-ok",
+  "last_command": "echo sweep-terminal-ok \u003e /tmp/sweep-terminal.txt",
   "last_exit_code": 0,
   "last_succeeded": true,
-  "text": "sentineldesk@134dcd53d3a8:/$ echo sweep-terminal-ok\nsweep-terminal-ok\nsentineldesk@134dcd53d3a8:/$"
+  "text": "sentineldesk@56a758a8a6f5:/$ echo sweep-terminal-ok \u003e /tmp/sweep-terminal.txt\nsentineldesk@56a758a8a6f5:/$"
 }
 
 Qué hizo:
@@ -2368,7 +1925,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #53   [ok]   [efecto verificado fuera de MCP]
+tool: #54   [ok]   [efecto verificado fuera de MCP]
 write_file: Escribir un archivo, opcionalmente como root
 Argumentos enviados: {"content": "sentineldesk sweep\n", "path": "/tmp/sweep.txt"}
 Result: wrote 19 bytes to /tmp/sweep.txt
@@ -2387,7 +1944,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #54   [ok]   [efecto verificado fuera de MCP]
+tool: #55   [ok]   [efecto verificado fuera de MCP]
 read_file: Leer el archivo de vuelta
 Argumentos enviados: {"path": "/tmp/sweep.txt"}
 Result: sentineldesk sweep
@@ -2406,25 +1963,19 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #55   [ok]
+tool: #56   [ok]
 list_directory: Listar un directorio
 Argumentos enviados: {"path": "/tmp"}
 Result: [
   {
-    "modified": "2026-08-06T23:16:36-03:00",
+    "modified": "2026-08-07T07:26:59-03:00",
     "name": ".X0-lock",
     "size": 11,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:36-03:00",
+    "modified": "2026-08-07T07:26:59-03:00",
     "name": ".X11-unix",
-    "size": 4096,
-    "type": "dir"
-  },
-  {
-    "modified": "2026-08-07T06:56:56-03:00",
-    "name": "org.chromium.Chromium.kseTv2",
     "size": 4096,
     "type": "dir"
   },
@@ -2435,43 +1986,31 @@ Result: [
     "type": "dir"
   },
   {
-    "modified": "2026-08-07T07:02:20-03:00",
+    "modified": "2026-08-07T07:29:20-03:00",
     "name": "sentineldesk-rc",
-    "size": 25,
+    "size": 51,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:35-03:00",
+    "modified": "2026-08-07T07:26:58-03:00",
     "name": "supervisor.sock",
     "size": 0,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:35-03:00",
+    "modified": "2026-08-07T07:26:58-03:00",
     "name": "supervisord.pid",
     "size": 2,
     "type": "file"
   },
   {
-    "modified": "2026-08-07T07:01:01-03:00",
-    "name": "sweep-down.txt",
-    "size": 19,
+    "modified": "2026-08-07T07:29:20-03:00",
+    "name": "sweep-terminal.txt",
+    "size": 18,
     "type": "file"
   },
   {
-    "modified": "2026-08-07T07:01:01-03:00",
-    "name": "sweep-up.txt",
-    "size": 19,
-    "type": "file"
-  },
-  {
-    "modified": "2026-08-07T07:00:46-03:00",
-    "name": "sweep.html",
-    "size": 148,
-    "type": "file"
-  },
-  {
-    "modified": "2026-08-07T07:02:22-03:00",
+    "modified": "2026-08-07T07:29:22-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
@@ -2494,10 +2033,10 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #56   [ok]
+tool: #57   [ok]
 browser_open: Arrancar Chromium con DevTools y esperar a que responda
 Argumentos enviados: {"url": "file:///tmp/sweep.html"}
-Result: loaded file:///tmp/sweep.html
+Result: browser open with CDP (1 tabs), file:///tmp/sweep.html loaded
 
 Qué hizo:
   Arrancó Chromium con el puerto de depuración, sondeó hasta que CDP respondió, y
@@ -2519,7 +2058,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #57   [ok]
+tool: #58   [ok]
 browser_wait_for: Esperar a que exista un selector CSS
 Argumentos enviados: {"selector": "#t", "timeout_ms": 15000}
 Result: #t appeared
@@ -2545,12 +2084,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #58   [ok]
+tool: #59   [ok]
 browser_tabs: Listar las pestañas abiertas
 Argumentos enviados: ninguno
 Result: [
   {
-    "id": "2DC04267670620BD4FBEC8D6954A12C9",
+    "id": "1C74D569749B18178F81DE1F9C6E5970",
     "title": "sweep.html",
     "url": "file:///tmp/sweep.html"
   }
@@ -2568,7 +2107,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #59   [ok]
+tool: #60   [ok]
 browser_goto: Navegar en la pestaña actual
 Argumentos enviados: {"url": "file:///tmp/sweep.html"}
 Result: loaded file:///tmp/sweep.html
@@ -2592,7 +2131,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #60   [ok]
+tool: #61   [ok]
 browser_text: Leer el texto visible de la página
 Argumentos enviados: {"max_chars": 200}
 Result: Sweep
@@ -2610,7 +2149,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #61   [ok]
+tool: #62   [ok]
 browser_type: Escribir en un campo por selector
 Argumentos enviados: {"selector": "#i", "text": "sweep"}
 Result: typed into #i
@@ -2637,7 +2176,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #62   [ok]
+tool: #63   [ok]
 browser_click: Hacer clic en un elemento por selector
 Argumentos enviados: {"selector": "#b"}
 Result: clicked #b
@@ -2662,7 +2201,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #63   [ok]
+tool: #64   [ok]
 browser_eval: Evaluar JavaScript contra el DOM real
 Argumentos enviados: {"expression": "document.getElementById('t').textContent"}
 Result: clicked
@@ -2685,11 +2224,11 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #64   [ok]
+tool: #65   [ok]
 ui_tree: Leer el escritorio como estructura en vez de como píxeles
 Argumentos enviados: {"interactive": true, "limit": 40}
 Result: {
-  "count": 373,
+  "count": 286,
   "elements": [
     {
       "name": "lxpanel",
@@ -2782,9 +2321,9 @@ Result: {
       ],
       "center_x": 240,
       "center_y": 18,
-      "description": "sentineldesk@134dcd53d3a8: /",
+      "description": "sentineldesk@56a758a8a6f5: /",
       "height": 32,
-      "name": "sentineldesk@134dcd53d3a8: /",
+      "name": "sentineldesk@56a758a8a6f5: /",
       "ref": "0/0/0/5/1/0",
       "role": "toggle button",
       "state": [
@@ -2817,70 +2356,10 @@ Result: {
       "y": 2
     },
     {
-      "actions": [
-        "click"
-      ],
-      "center_x": 644,
-      "center_y": 18,
-      "description": "sentineldesk@134dcd53d3a8: /",
-      "height": 32,
-      "name": "sentineldesk@134dcd53d3a8: /",
-      "ref": "0/0/0/5/1/2",
-      "role": "toggle button",
-      "state": [
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "width": 200,
-      "x": 544,
-      "y": 2
-    },
-    {
-      "actions": [
-        "click"
-      ],
-      "center_x": 846,
-      "center_y": 18,
-      "description": "sentineldesk@134dcd53d3a8: /",
-      "height": 32,
-      "name": "sentineldesk@134dcd53d3a8: /",
-      "ref": "0/0/0/5/1/3",
-      "role": "toggle button",
-      "state": [
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "width": 200,
-      "x": 746,
-      "y": 2
-    },
-    {
-      "actions": [
-        "click"
-      ],
-      "center_x": 1048,
-      "center_y": 18,
-      "description": "sentineldesk@134dcd53d3a8: /",
-      "height": 32,
-      "name": "sentineldesk@134dcd53d3a8: /",
-      "ref": "0/0/0/5/1/4",
-      "role": "toggle button",
-      "state": [
-        "enabled",
-        "visible",
-        "showing"
-      ],
-      "width": 200,
-      "x": 948,
-      "y": 2
-    },
-    {
       "center_x": 1892,
       "center_y": 18,
       "height": 36,
-      "name": "07:02",
+      "name": "07:29",
       "ref": "0/0/0/9/0/0",
       "role": "label",
       "state": [
@@ -2888,7 +2367,7 @@ Result: {
         "visible",
         "showing"
       ],
-      "text": "07:02",
+      "text": "07:29",
       "width": 44,
       "x": 1870,
       "y": 0
@@ -2921,7 +2400,7 @@ Result: {
       "center_x": 960,
       "center_y": 557,
       "height": 465,
-      "name": "sentineldesk@134dcd53d3a8: /",
+      "name": "sentineldesk@56a758a8a6f5: /",
       "ref": "2/0",
       "role": "frame",
       "state": [
@@ -3347,6 +2826,55 @@ Result: {
       "width": 1,
       "x": -2147483648,
       "y": -2147483648
+    },
+    {
+      "center_x": -2147483648,
+      "center_y": -2147483648,
+      "height": 1,
+      "name": "Empty",
+      "ref": "2/0/0/0/3/2",
+      "role": "menu item",
+      "width": 1,
+      "x": -2147483648,
+      "y": -2147483648
+    },
+    {
+      "center_x": -2,
+      "center_y": -2,
+      "height": -1,
+      "name": "",
+      "ref": "2/0/0/1/0",
+      "role": "page tab",
+      "state": [
+        "selected",
+        "enabled",
+        "visible",
+        "showing"
+      ],
+      "width": -1,
+      "x": -1,
+      "y": -1
+    },
+    {
+      "actions": [
+        "menu"
+      ],
+      "center_x": 953,
+      "center_y": 584,
+      "description": "sentineldesk@56a758a8a6f5: /",
+      "height": 410,
+      "name": "Terminal",
+      "ref": "2/0/0/1/0/0/0",
+      "role": "terminal",
+      "state": [
+        "enabled",
+        "visible",
+        "showing"
+      ],
+      "text": "sentineldesk@56a758a8a6f5:/$ echo sweep-terminal-ok \u003e /tmp/sweep-terminal.txt\nsentineldesk@56a758a8a6f5:/$",
+      "width": 642,
+      "x": 632,
+      "y": 379
     }
   ]
 }
@@ -3366,7 +2894,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #65   [ok]
+tool: #66   [ok]
 ui_find: Encontrar elementos por rol, nombre o texto
 Argumentos enviados: {"limit": 20}
 Result: {
@@ -3701,7 +3229,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #66   [ok]
+tool: #67   [ok]
 ui_find: Encontrar los campos editables, para escribir en uno por ref
 Argumentos enviados: {"limit": 5, "role": "entry"}
 Result: {
@@ -3770,7 +3298,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #67   [ok]
+tool: #68   [ok]
 ui_wait_for: Esperar a que exista un elemento que coincida
 Argumentos enviados: {"role": "frame", "timeout_ms": 6000}
 Result: {
@@ -3811,7 +3339,7 @@ Result: {
       "center_x": 960,
       "center_y": 557,
       "height": 465,
-      "name": "sentineldesk@134dcd53d3a8: /",
+      "name": "sentineldesk@56a758a8a6f5: /",
       "ref": "2/0",
       "role": "frame",
       "state": [
@@ -3853,12 +3381,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #68   [ok]
+tool: #69   [ok]
 ui_diff: Sólo lo que cambió en el árbol desde la última llamada
 Argumentos enviados: {"reset": true}
 Result: {
   "baseline": true,
-  "nodes": 443,
+  "nodes": 320,
   "note": "first call: the reference snapshot was stored; the next one returns only the changes"
 }
 
@@ -3876,7 +3404,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #69   [ok]
+tool: #70   [ok]
 ui_get_text: Leer el texto de un elemento por ref, sin OCR
 Argumentos enviados: {"ref": "0"}
 Result: {
@@ -3897,7 +3425,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #70   [ok]
+tool: #71   [ok]
 ui_focus: Darle el foco del teclado a un campo editable
 Argumentos enviados: {"ref": "3/0/0/0/5/1/0/5/2"}
 Result: {
@@ -3917,7 +3445,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #71   [degradado — lo explica el entorno]
+tool: #72   [degradado — lo explica el entorno]
 ui_set_text: Escribir directo en un campo por ref, sin tipear
 Argumentos enviados: {"ref": "3/0/0/0/5/1/0/5/2", "text": "sentineldesk-sweep"}
 Result: the element is not editable
@@ -3939,7 +3467,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #72   [ok]
+tool: #73   [ok]
 ui_click: Invocar la acción de un elemento directamente, sin usar el puntero
 Argumentos enviados: {"ref": "3/0/0/0/5/1/0/5/2"}
 Result: {
@@ -3968,7 +3496,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #73   [ok]
+tool: #74   [ok]   [efecto verificado fuera de MCP]
 set_volume: Fijar el volumen, o silenciar
 Argumentos enviados: {"percent": 60}
 Result: volume 60%
@@ -3986,7 +3514,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #74   [ok]
+tool: #75   [ok]
 get_audio_state: Leer de vuelta el volumen y el estado de silencio
 Argumentos enviados: ninguno
 Result: {
@@ -4012,10 +3540,10 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #75   [ok]
+tool: #76   [ok]   [efecto verificado fuera de MCP]
 start_recording: Grabar la pantalla a un archivo en paralelo al stream en vivo
 Argumentos enviados: {"audio": false, "container": "mp4", "fps": 15}
-Result: recording to /home/sentineldesk/Recordings/rec-20260807-070228.mp4
+Result: recording to /home/sentineldesk/Recordings/rec-20260807-072927.mp4
 
 Qué hizo:
   Arrancó una grabación lanzando gst-launch-1.0 en su propio grupo de procesos,
@@ -4049,12 +3577,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #76   [ok]
+tool: #77   [ok]
 get_recording_status: Si hay una grabación corriendo, y cuánto pesa
 Argumentos enviados: ninguno
 Result: {
   "container": "mp4",
-  "path": "/home/sentineldesk/Recordings/rec-20260807-070228.mp4",
+  "path": "/home/sentineldesk/Recordings/rec-20260807-072927.mp4",
   "recording": true,
   "seconds": 0,
   "size_bytes": 0
@@ -4074,7 +3602,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #77   [ok]
+tool: #78   [ok]
 wait: Dejar que la grabación junte un segundo de video
 Argumentos enviados: {"ms": 1200}
 Result: waited 1200 ms
@@ -4093,12 +3621,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #78   [ok]   [efecto verificado fuera de MCP]
+tool: #79   [ok]   [efecto verificado fuera de MCP]
 stop_recording: Parar y cerrar el archivo correctamente
 Argumentos enviados: ninguno
 Result: {
-  "path": "/home/sentineldesk/Recordings/rec-20260807-070228.mp4",
-  "size_bytes": 75005
+  "path": "/home/sentineldesk/Recordings/rec-20260807-072927.mp4",
+  "size_bytes": 62795
 }
 
 Qué hizo:
@@ -4120,7 +3648,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #79   [ok]
+tool: #80   [ok]
 list_recordings: Las grabaciones que hay en disco
 Argumentos enviados: ninguno
 Result: [
@@ -4148,6 +3676,21 @@ Result: [
     "modified": "2026-08-07T07:02:29-03:00",
     "path": "/home/sentineldesk/Recordings/rec-20260807-070228.mp4",
     "size_bytes": 75005
+  },
+  {
+    "modified": "2026-08-07T07:12:28-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260807-071226.mp4",
+    "size_bytes": 59994
+  },
+  {
+    "modified": "2026-08-07T07:14:24-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260807-071422.mp4",
+    "size_bytes": 64522
+  },
+  {
+    "modified": "2026-08-07T07:29:28-03:00",
+    "path": "/home/sentineldesk/Recordings/rec-20260807-072927.mp4",
+    "size_bytes": 62795
   }
 ]
 
@@ -4163,7 +3706,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #80   [ok]
+tool: #81   [ok]
 start_restream: Mandar el encode en vivo a un destino externo
 Argumentos enviados: {"platform": "udp", "url": "udp://127.0.0.1:9999"}
 Result: streaming to udp (udp://•••, audio=true) — reusing the live encode, no second capture
@@ -4183,7 +3726,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #81   [ok]
+tool: #82   [ok]
 list_restreams: Dónde se está publicando el escritorio ahora
 Argumentos enviados: ninguno
 Result: udp → udp://127.0.0.1:9999 (audio=true, 0s)
@@ -4200,7 +3743,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #82   [ok]
+tool: #83   [ok]
 stop_restream: Dejar de publicar
 Argumentos enviados: ninguno
 Result: stopped 1 destination(s)
@@ -4222,7 +3765,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #83   [ok]
+tool: #84   [ok]
 gamepad_button: Apretar o soltar un botón por índice W3C
 Argumentos enviados: {"down": true, "index": 0}
 Result: button 0 down
@@ -4240,7 +3783,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #84   [ok]
+tool: #85   [ok]
 gamepad_tap: Apretar y soltar un botón
 Argumentos enviados: {"hold_ms": 40, "index": 0}
 Result: tapped button 0
@@ -4257,7 +3800,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #85   [ok]
+tool: #86   [ok]
 gamepad_axis: Mover un eje del stick
 Argumentos enviados: {"axis": 0, "value": 0.5}
 Result: axis 0 = 0.50
@@ -4273,7 +3816,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #86   [ok]
+tool: #87   [ok]
 gamepad_state: Fijar todos los botones y ejes en una sola llamada
 Argumentos enviados: {"axes": [0, 0, 0, 0], "buttons": [0, 0, 0, 0]}
 Result: gamepad state applied
@@ -4294,11 +3837,11 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #87   [ok]
+tool: #88   [ok]
 shell_open: Abrir una sesión de shell que sobrevive entre llamadas
 Argumentos enviados: {"shell": "/bin/bash"}
 Result: {
-  "id": "sh4",
+  "id": "sh1",
   "shell": "/bin/bash",
   "user": ""
 }
@@ -4315,12 +3858,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #88   [ok]
+tool: #89   [ok]   [efecto verificado fuera de MCP]
 shell_exec: Correr un comando en esa sesión y esperarlo
-Argumentos enviados: {"command": "echo sweep-shell-ok", "id": "sh4", "timeout_ms": 10000}
+Argumentos enviados: {"command": "echo sweep-shell-ok > /tmp/sweep-shell.txt", "id": "sh1", "timeout_ms": 10000}
 Result: {
   "completed": true,
-  "output": "sweep-shell-ok"
+  "output": ""
 }
 
 Qué hizo:
@@ -4337,10 +3880,10 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #89   [ok]
+tool: #90   [ok]
 shell_input: Mandar teclas crudas, sin esperar
-Argumentos enviados: {"enter": true, "id": "sh4", "text": "echo second"}
-Result: sent 12 bytes
+Argumentos enviados: {"enter": true, "id": "sh1", "text": "echo second > /tmp/sweep-input.txt"}
+Result: sent 35 bytes
 
 Qué hizo:
   Mandó teclas crudas a una sesión sin esperar.
@@ -4355,7 +3898,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #90   [ok]
+tool: #91   [ok]
 wait: Darle un momento a la shell para que produzca salida
 Argumentos enviados: {"ms": 400}
 Result: waited 400 ms
@@ -4374,12 +3917,11 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #91   [ok]
+tool: #92   [ok]
 shell_read: Leer y limpiar lo que produjo la sesión
-Argumentos enviados: {"id": "sh4"}
-Result: echo second
-second
-sentineldesk@134dcd53d3a8:/$
+Argumentos enviados: {"id": "sh1"}
+Result: echo second > /tmp/sweep-input.txt
+sentineldesk@56a758a8a6f5:/$
 
 Qué hizo:
   Leyó y limpió todo lo que produjo la sesión desde la última lectura.
@@ -4393,13 +3935,13 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #92   [ok]
+tool: #93   [ok]
 shell_list: Las sesiones de shell abiertas
 Argumentos enviados: ninguno
 Result: [
   {
     "alive": true,
-    "id": "sh4",
+    "id": "sh1",
     "pending": 0,
     "seconds": 1,
     "user": ""
@@ -4418,9 +3960,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #93   [ok]
+tool: #94   [ok]   [efecto verificado fuera de MCP]
 shell_close: Terminar la sesión
-Argumentos enviados: {"id": "sh4"}
+Argumentos enviados: {"id": "sh1"}
 Result: session closed
 
 Qué hizo:
@@ -4440,7 +3982,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #94   [ok]
+tool: #95   [ok]
 run_command: Correr un comando de shell y devolver stdout, stderr y código de salida
 Argumentos enviados: {"command": "echo sweep-run-ok && uname -s", "timeout_ms": 10000}
 Result: {
@@ -4467,7 +4009,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #95   [ok]
+tool: #96   [ok]
 sudo_status: Si esta imagen tiene sudo sin contraseña
 Argumentos enviados: ninguno
 Result: {
@@ -4496,16 +4038,17 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #96   [ok]
+tool: #97   [ok]
 search_packages: Buscar en apt sin instalar nada
 Argumentos enviados: {"limit": 3, "query": "openssh-server"}
 Result: {
   "count": 2,
+  "note": "the apt index was empty, so apt-get update was run",
   "query": "openssh-server",
   "results": [
     {
       "description": "secure shell (SSH) server, for secure access from remote machines",
-      "installed": "1:10.0p1-7+deb13u4",
+      "installed": "",
       "package": "openssh-server"
     },
     {
@@ -4529,7 +4072,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #97   [ok]
+tool: #98   [ok]
 service_control: Preguntarle a supervisord por los servicios del escritorio
 Argumentos enviados: {"action": "status"}
 Result: {
@@ -4538,7 +4081,7 @@ Result: {
   "exit_code": 3,
   "service": "all",
   "stderr": "",
-  "stdout": "at-spi                           RUNNING   pid 41, uptime 7:45:57\ndbus-session                     RUNNING   pid 39, uptime 7:45:57\ndesktop-init                     EXITED    Aug 06 11:16 PM\nlxpanel                          RUNNING   pid 47, uptime 7:45:57\nopenbox                          RUNNING   pid 42, uptime 7:45:57\npcmanfm-desktop                  RUNNING   pid 44, uptime 7:45:57\npulseaudio                       RUNNING   pid 40, uptime 7:45:57\nsentineldesk                     RUNNING   pid 51, uptime 7:45:57\nwallpaper-rotate                 EXITED    Aug 07 06:57 AM\nxvfb                             RUNNING   pid 38, uptime 7:45:57\n"
+  "stdout": "at-spi                           RUNNING   pid 41, uptime 0:02:34\ndbus-session                     RUNNING   pid 39, uptime 0:02:34\ndesktop-init                     EXITED    Aug 07 07:26 AM\nlxpanel                          RUNNING   pid 47, uptime 0:02:34\nopenbox                          RUNNING   pid 42, uptime 0:02:34\npcmanfm-desktop                  RUNNING   pid 44, uptime 0:02:34\npulseaudio                       RUNNING   pid 40, uptime 0:02:34\nsentineldesk                     RUNNING   pid 52, uptime 0:02:34\nwallpaper-rotate                 EXITED    Aug 07 07:28 AM\nxvfb                             RUNNING   pid 38, uptime 0:02:34\n"
 }
 
 Qué hizo:
@@ -4555,7 +4098,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #98   [ok]
+tool: #99   [ok]   [efecto verificado fuera de MCP]
 install_packages: Instalar un paquete con apt, reportando progreso
 Argumentos enviados: {"packages": ["openssh-server"], "timeout_ms": 300000, "update": true}
 Result: {
@@ -4564,7 +4107,7 @@ Result: {
   "installed": {
     "openssh-server": "1:10.0p1-7+deb13u4"
   },
-  "log": "Reading package lists...\nBuilding dependency tree...\nReading state information...\nSuggested packages:\n  molly-guard monkeysphere ssh-askpass ufw\nRecommended packages:\n  ncurses-term xauth\nThe following NEW packages will be installed:\n  openssh-server\n0 upgraded, 1 newly installed, 0 to remove and 2 not upgraded.\nNeed to get 602 kB of archives.\nAfter this operation, 3511 kB of additional disk space will be used.\nGet:1 http://deb.debian.org/debian trixie/main amd64 openssh-server amd64 1:10.0p1-7+deb13u4 [602 kB]\nPreconfiguring packages ...\nFetched 602 kB in 0s (15.3 MB/s)\nSelecting previously unselected package openssh-server.\r\n(Reading database ... \r(Reading database ... 5%\r(Reading database ... 10%\r(Reading database ... 15%\r(Reading database ... 20%\r(Reading database ... 25%\r(Reading database ... 30%\r(Reading database ... 35%\r(Reading database ... 40%\r(Reading database ... 45%\r(Reading database ... 50%\r(Reading database ... 55%\r(Reading database ... 60%\r(Reading database ... 65%\r(Reading database ... 70%\r(Reading database ... 75%\r(Reading database ... 80%\r(Reading database ... 85%\r(Reading database ... 90%\r(Reading database ... 95%\r(Reading database ... 100%\r(Reading database ... 142956 files and directories currently installed.)\r\nPreparing to unpack .../openssh-server_1%3a10.0p1-7+deb13u4_amd64.deb ...\r\nUnpacking openssh-server (1:10.0p1-7+deb13u4) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of restart.\r\nProcessing triggers for man-db (2.13.1-1) ...\r",
+  "log": "…\nSetting up openssh-sftp-server (1:10.0p1-7+deb13u4) ...\r\nSetting up libtext-wrapi18n-perl (0.06-10) ...\r\nSetting up sensible-utils (0.0.25) ...\r\nSetting up libwtmpdb0:amd64 (0.73.0-3+deb13u1) ...\r\nSetting up ucf (3.0052) ...\r\nSetting up openssh-server (1:10.0p1-7+deb13u4) ...\r\nCreating config file /etc/ssh/sshd_config with new version\r\nCreating SSH2 RSA key; this may take some time ...\r\n3072 SHA256:OzLDdLHopGLrn3L3ySfO0HhGh2PQmaQ5TVpk5AC49zw root@56a758a8a6f5 (RSA)\r\nCreating SSH2 ECDSA key; this may take some time ...\r\n256 SHA256:8rWBpZI1OAX7XkQuTkW8kIA4r5/eEMKvtbbPzsreV6Y root@56a758a8a6f5 (ECDSA)\r\nCreating SSH2 ED25519 key; this may take some time ...\r\n256 SHA256:LWWADpbF0hHxZWlC1fuB5EMRNXAejKhOJhyQBjbhP0I root@56a758a8a6f5 (ED25519)\r\nCreating user 'sshd' (sshd user) with UID 995 and GID 65534.\r\r\nrunit: ssh: start action denied by policy-rc.d\r\ninvoke-rc.d: could not determine current runlevel\r\ninvoke-rc.d: policy-rc.d denied execution of start.\r\nCreated symlink '/etc/systemd/system/sshd.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/multi-user.target.wants/ssh.service' → '/usr/lib/systemd/system/ssh.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/sshd@.service.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nCreated symlink '/etc/systemd/system/ssh.socket.wants/sshd-keygen.service' → '/usr/lib/systemd/system/sshd-keygen.service'.\r\r\nProcessing triggers for man-db (2.13.1-1) ...\r\nProcessing triggers for libc-bin (2.41-12+deb13u3) ...\r",
   "stderr": ""
 }
 
@@ -4586,7 +4129,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #99   [ok]
+tool: #100   [ok]
 ssh_keygen: Generar un par de claves para el usuario del escritorio
 Argumentos enviados: {"comment": "sweep", "path": "/home/sentineldesk/.ssh/sweep", "type": "ed25519"}
 Result: {
@@ -4607,10 +4150,18 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #100   [ok]
+tool: #101   [ok]
 ssh_list: Las sesiones SSH abiertas
 Argumentos enviados: ninguno
-Result: null
+Result: [
+  {
+    "host": "172.18.0.4:22",
+    "id": "ssh1",
+    "seconds": 98,
+    "tunnels": 0,
+    "user": "sweeper"
+  }
+]
 
 Qué hizo:
   Listó las sesiones SSH abiertas.
@@ -4623,12 +4174,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #101   [ok]
+tool: #102   [ok]
 ssh_connect: Abrir una sesión SSH contra un host
 Argumentos enviados: {"host": "127.0.0.1", "key_path": "/home/sentineldesk/.ssh/sweep", "user": "sentineldesk"}
 Result: {
   "host": "127.0.0.1:22",
-  "id": "ssh4",
+  "id": "ssh2",
   "user": "sentineldesk"
 }
 
@@ -4646,9 +4197,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #102   [ok]
+tool: #103   [ok]
 ssh_exec: Correr un comando en el host remoto
-Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh4", "timeout_sec": 20}
+Argumentos enviados: {"command": "echo sweep-ssh-ok", "id": "ssh2", "timeout_sec": 20}
 Result: {
   "exit_code": 0,
   "stderr": "",
@@ -4668,9 +4219,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #103   [ok]
+tool: #104   [ok]
 ssh_upload: Mandar un archivo por SFTP
-Argumentos enviados: {"id": "ssh4", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh2", "local": "/tmp/sweep.txt", "remote": "/tmp/sweep-up.txt"}
 Result: uploaded 19 bytes to /tmp/sweep-up.txt
 
 Qué hizo:
@@ -4686,9 +4237,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #104   [ok]
+tool: #105   [ok]
 ssh_download: Traer un archivo por SFTP
-Argumentos enviados: {"id": "ssh4", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
+Argumentos enviados: {"id": "ssh2", "local": "/tmp/sweep-down.txt", "remote": "/tmp/sweep-up.txt"}
 Result: downloaded 19 bytes to /tmp/sweep-down.txt
 
 Qué hizo:
@@ -4701,66 +4252,84 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #105   [ok]
+tool: #106   [ok]
 ssh_list_remote: Listar un directorio en el host remoto
-Argumentos enviados: {"id": "ssh4", "path": "/tmp"}
+Argumentos enviados: {"id": "ssh2", "path": "/tmp"}
 Result: [
   {
-    "modified": "2026-08-07T07:02:38-03:00",
+    "modified": "2026-08-07T07:29:38-03:00",
     "name": "sweep-down.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:35-03:00",
+    "modified": "2026-08-07T07:26:58-03:00",
     "name": "supervisor.sock",
     "size": 0,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:35-03:00",
+    "modified": "2026-08-07T07:26:58-03:00",
     "name": "supervisord.pid",
     "size": 2,
     "type": "file"
   },
   {
-    "modified": "2026-08-07T07:02:22-03:00",
+    "modified": "2026-08-07T07:29:22-03:00",
     "name": "sweep.html",
     "size": 148,
     "type": "file"
   },
   {
-    "modified": "2026-08-07T07:02:31-03:00",
-    "name": "sentineldesk-rc",
-    "size": 14,
+    "modified": "2026-08-07T07:29:30-03:00",
+    "name": "sweep-input.txt",
+    "size": 7,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:36-03:00",
+    "modified": "2026-08-07T07:29:30-03:00",
+    "name": "sentineldesk-rc",
+    "size": 37,
+    "type": "file"
+  },
+  {
+    "modified": "2026-08-07T07:26:59-03:00",
     "name": ".X0-lock",
     "size": 11,
     "type": "file"
   },
   {
-    "modified": "2026-08-07T07:02:38-03:00",
+    "modified": "2026-08-07T07:29:22-03:00",
+    "name": "org.chromium.Chromium.yBAhic",
+    "size": 4096,
+    "type": "dir"
+  },
+  {
+    "modified": "2026-08-07T07:29:30-03:00",
+    "name": "sweep-shell.txt",
+    "size": 15,
+    "type": "file"
+  },
+  {
+    "modified": "2026-08-07T07:29:38-03:00",
     "name": "sweep-up.txt",
     "size": 19,
     "type": "file"
   },
   {
-    "modified": "2026-08-06T23:16:36-03:00",
+    "modified": "2026-08-07T07:26:59-03:00",
     "name": ".X11-unix",
     "size": 4096,
     "type": "dir"
   },
   {
-    "modified": "2026-08-07T06:56:56-03:00",
-    "name": "org.chromium.Chromium.kseTv2",
-    "size": 4096,
-    "type": "dir"
+    "modified": "2026-08-07T07:29:20-03:00",
+    "name": "sweep-terminal.txt",
+    "size": 18,
+    "type": "file"
   },
   {
-    "modified": "2026-08-07T07:02:22-03:00",
+    "modified": "2026-08-07T07:29:22-03:00",
     "name": "sweep.txt",
     "size": 19,
     "type": "file"
@@ -4784,32 +4353,44 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #106   [ok]
+tool: #107   [ok]
 ssh_tunnel_local: Reenviar un puerto local hacia el lado remoto
-Argumentos enviados: {"id": "ssh4", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
+Argumentos enviados: {"id": "ssh2", "local_addr": "127.0.0.1:18080", "remote_addr": "127.0.0.1:8080"}
 Result: {
   "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)",
-  "tunnel_id": "ssh4-l1"
+  "tunnel_id": "ssh2-l1"
 }
 
 Qué hizo:
-  Reenvió un puerto local al lado remoto por la sesión.
+  Abrió un puerto local cuyo tráfico sale por el lado remoto, después de preguntarle
+  al servidor si va a transportarlo.
 
 Puntaje del método: 5/5  ●●●●●
 
 Cómo llevarla más lejos:
-  Un canal reenviado real, administrado y cerrable, no un ssh -L en segundo plano que
-  después nadie encuentra. El túnel pertenece a la sesión y muere con ella.
+  Validado contra un host realmente remoto y no contra el escritorio hablándose a sí
+  mismo, que era la única forma de que esto apareciera: un banner leído por el puerto
+  reenviado volvió siendo el del sshd del peer, y cerrar el túnel cerró el listener.
+  Esa corrida encontró además lo que la autoconexión esconde. Un servidor con
+  AllowTcpForwarding no —el default en Alpine entre otros— niega el canal, y la
+  negativa recién llega cuando alguien se conecta, momento en que la herramienta ya
+  devolvió un id de túnel y abrió un puerto. El error del dial se descartaba dentro
+  del bucle de accept, así que quien llamaba tenía un túnel de apariencia sana que
+  tiraba cada conexión sin decir nada. Ahora pregunta una vez antes de abrir nada y
+  rechaza con el motivo del propio servidor, mientras que una conexión meramente
+  rechazada sí crea el túnel: que el servicio todavía no esté arriba es una razón
+  corriente para abrir el forward antes, y ese veredicto puede cambiar; una negativa
+  de política no. Los fallos posteriores quedan y los reporta ssh_tunnels.
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #107   [ok]
+tool: #108   [ok]
 ssh_tunnels: Los túneles abiertos en esta sesión
-Argumentos enviados: {"id": "ssh4"}
+Argumentos enviados: {"id": "ssh2"}
 Result: [
   {
     "connections": 0,
-    "id": "ssh4-l1",
+    "id": "ssh2-l1",
     "kind": "local",
     "spec": "127.0.0.1:18080 → 127.0.0.1:8080 (via 127.0.0.1:22)"
   }
@@ -4826,12 +4407,12 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #108   [ok]
+tool: #109   [ok]
 ssh_tunnel_remote: Reenviar un puerto remoto de vuelta hacia acá
-Argumentos enviados: {"id": "ssh4", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
+Argumentos enviados: {"id": "ssh2", "local_addr": "127.0.0.1:8080", "remote_addr": "127.0.0.1:18081"}
 Result: {
   "spec": "127.0.0.1:22:127.0.0.1:18081 → 127.0.0.1:8080 (reverse)",
-  "tunnel_id": "ssh4-r2"
+  "tunnel_id": "ssh2-r2"
 }
 
 Qué hizo:
@@ -4845,9 +4426,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #109   [ok]
+tool: #110   [ok]
 ssh_tunnel_close: Cerrar un túnel por id
-Argumentos enviados: {"id": "ssh4", "tunnel_id": "ssh4-l1"}
+Argumentos enviados: {"id": "ssh2", "tunnel_id": "ssh2-l1"}
 Result: tunnel closed
 
 Qué hizo:
@@ -4861,9 +4442,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #110   [ok]
+tool: #111   [ok]
 ssh_copy_id: Instalar la clave pública en el host remoto
-Argumentos enviados: {"id": "ssh4", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
+Argumentos enviados: {"id": "ssh2", "key_path": "/home/sentineldesk/.ssh/sweep.pub"}
 Result: key installed on sentineldesk@127.0.0.1:22: installed
 
 Qué hizo:
@@ -4879,9 +4460,9 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #111   [ok]
+tool: #112   [ok]
 ssh_disconnect: Terminar la sesión SSH
-Argumentos enviados: {"id": "ssh4"}
+Argumentos enviados: {"id": "ssh2"}
 Result: SSH session closed
 
 Qué hizo:
@@ -4899,14 +4480,14 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #112   [ok]
+tool: #113   [ok]   [efecto verificado fuera de MCP]
 snapshot_create: Un punto de restauración: el home más la lista de paquetes instalados
 Argumentos enviados: {"name": "sweep", "note": "created by tool-sweep"}
 Result: {
   "created": "sweep",
   "note": "created by tool-sweep",
   "path": "/home/sentineldesk/.sentineldesk-snapshots/sweep.tar.gz",
-  "size": 67467091
+  "size": 65656177
 }
 
 Qué hizo:
@@ -4926,17 +4507,17 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #113   [ok]
+tool: #114   [ok]
 snapshot_list: Los snapshots que hay en disco
 Argumentos enviados: ninguno
 Result: {
   "dir": "/home/sentineldesk/.sentineldesk-snapshots",
   "snapshots": [
     {
-      "created": "2026-08-07T07:02:43-03:00",
+      "created": "2026-08-07T07:29:44-03:00",
       "name": "sweep",
       "note": "created by tool-sweep",
-      "size": 67467091
+      "size": 65656177
     }
   ]
 }
@@ -4952,7 +4533,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #114   [no ejecutada]
+tool: #115   [no ejecutada]
 snapshot_restore: Volver el home al estado de un snapshot
 Argumentos enviados: ninguno
 Result: sobrescribiría el home real; la única herramienta que el barrido no puede hacer segura contra algo creado por él mismo
@@ -4973,7 +4554,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #115   [ok]
+tool: #116   [ok]   [efecto verificado fuera de MCP]
 snapshot_delete: Borrar un snapshot
 Argumentos enviados: {"name": "sweep"}
 Result: {
@@ -4996,7 +4577,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #116   [degradado — lo explica el entorno]
+tool: #117   [degradado — lo explica el entorno]
 fill_form: Completar varios campos por nombre accesible y enviar
 Argumentos enviados: {"fields": {"Address and search bar": "sentineldesk-sweep"}, "submit": false}
 Result: {
@@ -5032,7 +4613,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #117   [ok]
+tool: #118   [ok]   [efecto verificado fuera de MCP]
 set_resolution: Cambiar la resolución sin reiniciar nada
 Argumentos enviados: {"height": 900, "width": 1600}
 Result: {
@@ -5053,7 +4634,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #118   [ok]
+tool: #119   [ok]
 get_screen_info: Confirmar la geometría nueva
 Argumentos enviados: ninguno
 Result: {
@@ -5075,7 +4656,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #119   [ok]
+tool: #120   [ok]   [efecto verificado fuera de MCP]
 set_resolution: Volver la resolución a como estaba
 Argumentos enviados: {"height": 1080, "width": 1920}
 Result: {
@@ -5096,16 +4677,16 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #120   [ok]
+tool: #121   [ok]
 open_app_and_wait: Lanzar, esperar la ventana y enfocarla, en una sola llamada
 Argumentos enviados: {"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL", "timeout_ms": 20000}
 Result: {
   "opened": true,
-  "waited_ms": 916,
+  "waited_ms": 943,
   "window": {
-    "id": "0x0180000c",
+    "id": "0x0280000c",
     "desktop": 0,
-    "x": 1291,
+    "x": 2,
     "y": 92,
     "w": 484,
     "h": 316,
@@ -5127,7 +4708,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #121   [ok]   [efecto verificado fuera de MCP]
+tool: #122   [ok]   [efecto verificado fuera de MCP]
 kill_process: Matar por nombre un proceso que arrancó el barrido
 Argumentos enviados: {"force": false, "name": "sleep 300"}
 Result: killed processes matching "sleep 300"
@@ -5145,7 +4726,7 @@ Cómo llevarla más lejos:
 ----------------------------------------------------------------------------------------
 
 ----------------------------------------------------------------------------------------
-tool: #122   [ok]
+tool: #123   [ok]
 remove_packages: Sacar el paquete que instaló el barrido
 Argumentos enviados: {"packages": ["openssh-server"], "purge": false}
 Result: {
@@ -5172,7 +4753,7 @@ Cómo llevarla más lejos:
 ========================================================================================
 
 ----------------------------------------------------------------------------------------
-tool: #123   [ok]
+tool: #124   [ok]
 release_control: Devolverle el escritorio a quienes están mirando
 Argumentos enviados: ninguno
 Result: control released — the controls are free for whoever claims them next

@@ -41,6 +41,15 @@ type sshTunnel struct {
 	closers []io.Closer
 	stop    chan struct{}
 	conns   int
+	// lastErr is why the most recent connection through this tunnel failed.
+	//
+	// A local forward cannot know at creation whether the server will allow it:
+	// the listener opens here, and the refusal only arrives when something
+	// connects and the channel request is denied. Without recording it, the
+	// tool reports a tunnel id, the port listens, and every connection dies
+	// without a word — which is what an sshd with AllowTcpForwarding no
+	// produces, and it is the default on some distributions.
+	lastErr error
 	mu      sync.Mutex
 }
 
@@ -299,6 +308,30 @@ func (s *SSHSession) newTunnelID(kind string) string {
 // equivalent of ssh -L. Anything arriving at localAddr comes out on the remote
 // side — the way to reach a service only the remote host can see.
 func (s *SSHSession) TunnelLocal(localAddr string, remoteAddr string) (*sshTunnel, error) {
+	// Ask the server once, before opening anything, whether it will carry this
+	// at all — and refuse only for the answer that can never change.
+	//
+	// A server with AllowTcpForwarding no (the default on some distributions,
+	// Alpine among them) denies the channel outright, and that verdict holds
+	// for the whole session: a tunnel created against it can only ever accept
+	// connections and drop them. Failing here turns a tunnel id handed back for
+	// something that will never work into an error naming the reason.
+	//
+	// A refused connection is a different matter and is NOT fatal: the service
+	// on the far side may simply not be up yet, and opening the forward before
+	// starting the thing it points at is ordinary. That case creates the tunnel
+	// and lets the caller find out through ssh_tunnels.
+	if probe, err := s.client.Dial("tcp", remoteAddr); err != nil {
+		if strings.Contains(err.Error(), "administratively prohibited") ||
+			strings.Contains(err.Error(), "forwarding") {
+			return nil, fmt.Errorf(
+				"the server will not forward to %s: %w — check AllowTcpForwarding in its sshd_config",
+				remoteAddr, err)
+		}
+	} else {
+		probe.Close()
+	}
+
 	ln, err := net.Listen("tcp", localAddr)
 	if err != nil {
 		return nil, err
@@ -323,6 +356,11 @@ func (s *SSHSession) TunnelLocal(localAddr string, remoteAddr string) (*sshTunne
 				defer conn.Close()
 				remote, err := s.client.Dial("tcp", remoteAddr)
 				if err != nil {
+					// Keep it. Closing the connection in silence is what made a
+					// forbidden forward look like a working tunnel.
+					t.mu.Lock()
+					t.lastErr = err
+					t.mu.Unlock()
 					return
 				}
 				defer remote.Close()
@@ -380,9 +418,14 @@ func (s *SSHSession) Tunnels() []map[string]any {
 	var out []map[string]any
 	for _, t := range s.tunnels {
 		t.mu.Lock()
-		out = append(out, map[string]any{
+		entry := map[string]any{
 			"id": t.ID, "kind": t.Kind, "spec": t.Spec, "connections": t.conns,
-		})
+		}
+		if t.lastErr != nil {
+			entry["last_error"] = t.lastErr.Error()
+			entry["working"] = false
+		}
+		out = append(out, entry)
 		t.mu.Unlock()
 	}
 	return out

@@ -1022,9 +1022,22 @@ review(
     "Structured entries from the protocol rather than parsed ls output, which "
     "is exactly the trap this avoids — ls output is for people.")
 review(
-    "ssh_tunnel_local", "Forwarded a local port to the remote side over the session.", 5,
-    "A real forwarded channel, managed and closable, not a backgrounded ssh -L "
-    "nobody can find later. The tunnel belongs to the session and dies with it.")
+    "ssh_tunnel_local",
+    "Opened a local port whose traffic comes out on the remote side, after asking "
+    "the server whether it will carry it at all.", 5,
+    "Validated against a genuinely remote host rather than the desktop talking to "
+    "itself, which is the only way this was going to show: a banner read through "
+    "the forwarded port came back as the peer's sshd, and closing the tunnel "
+    "closed the listener. That run also found what self-connection hides. A server "
+    "with AllowTcpForwarding no — the default on Alpine among others — denies the "
+    "channel, and the denial only arrives when something connects, by which point "
+    "the tool has already returned a tunnel id and opened a port. The dial error "
+    "was discarded inside the accept loop, so the caller held a working-looking "
+    "tunnel that dropped every connection without a word. It now asks once before "
+    "opening anything and refuses with the server's own reason, while a merely "
+    "refused connection still creates the tunnel — a service that is not up yet is "
+    "an ordinary reason to open a forward early, and that verdict can change; a "
+    "policy denial cannot. Later failures are kept and reported by ssh_tunnels.")
 review(
     "ssh_tunnel_remote", "Forwarded a remote port back to this side.", 5,
     "The harder direction, and it works the same way. Whether the remote sshd "

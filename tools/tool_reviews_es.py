@@ -939,10 +939,23 @@ review("ssh_download", "Trajo un archivo por la misma sesión SFTP.",
 review("ssh_list_remote", "Listó un directorio remoto por SFTP.",
  "Entradas estructuradas del protocolo en vez de salida de ls parseada, que es "
  "justo la trampa que esto evita — la salida de ls es para personas.")
-review("ssh_tunnel_local", "Reenvió un puerto local al lado remoto por la sesión.",
- "Un canal reenviado real, administrado y cerrable, no un ssh -L en segundo "
- "plano que después nadie encuentra. El túnel pertenece a la sesión y muere con "
- "ella.")
+review("ssh_tunnel_local",
+ "Abrió un puerto local cuyo tráfico sale por el lado remoto, después de "
+ "preguntarle al servidor si va a transportarlo.",
+ "Validado contra un host realmente remoto y no contra el escritorio hablándose "
+ "a sí mismo, que era la única forma de que esto apareciera: un banner leído por "
+ "el puerto reenviado volvió siendo el del sshd del peer, y cerrar el túnel "
+ "cerró el listener. Esa corrida encontró además lo que la autoconexión esconde. "
+ "Un servidor con AllowTcpForwarding no —el default en Alpine entre otros— niega "
+ "el canal, y la negativa recién llega cuando alguien se conecta, momento en que "
+ "la herramienta ya devolvió un id de túnel y abrió un puerto. El error del dial "
+ "se descartaba dentro del bucle de accept, así que quien llamaba tenía un túnel "
+ "de apariencia sana que tiraba cada conexión sin decir nada. Ahora pregunta una "
+ "vez antes de abrir nada y rechaza con el motivo del propio servidor, mientras "
+ "que una conexión meramente rechazada sí crea el túnel: que el servicio todavía "
+ "no esté arriba es una razón corriente para abrir el forward antes, y ese "
+ "veredicto puede cambiar; una negativa de política no. Los fallos posteriores "
+ "quedan y los reporta ssh_tunnels.")
 review("ssh_tunnel_remote", "Reenvió un puerto remoto de vuelta hacia este lado.",
  "La dirección más difícil, y funciona igual. Si el sshd remoto lo permite es "
  "decisión del servidor, y el error lo dice.")

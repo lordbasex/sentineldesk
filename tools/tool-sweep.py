@@ -95,6 +95,18 @@ class Sweep:
         except Exception as exc:                       # noqa: BLE001
             return f"__ERROR__ {exc}"
 
+    def sh_user(self, cmd, timeout=20):
+        """Same door, but as the desktop's user.
+
+        PulseAudio's socket belongs to that user and refuses root outright —
+        "Connection failure: Access denied" — so a volume check run as root
+        reports that it could not read the volume, which is indistinguishable
+        from the volume being wrong.
+        """
+        return self.sh(
+            f"su -s /bin/sh sentineldesk -c "
+            f"{shlex.quote('XDG_RUNTIME_DIR=/run/user/1000 ' + cmd)}", timeout)
+
     def file_is(self, path, want):
         """The file exists and contains want."""
         got = self.sh(f"cat {shlex.quote(path)} 2>/dev/null")
@@ -181,6 +193,82 @@ class Sweep:
         if "pix_fmt=yuv420p" not in info:
             got = next((l for l in info.splitlines() if l.startswith("pix_fmt")), "pix_fmt=?")
             return f"{path} is not 4:2:0 ({got}); most hardware decoders will refuse it"
+        return None
+
+    def window_state(self, wid, *wanted, absent=()):
+        """The EWMH states X actually holds for this window.
+
+        _NET_WM_STATE on the window itself, read with xprop. window_properties
+        would answer from the same connection the tool used to set it, so it
+        could only ever agree.
+        """
+        out = self.sh(f"DISPLAY=:0 xprop -id {shlex.quote(wid)} _NET_WM_STATE 2>/dev/null")
+        for state in wanted:
+            if state not in out:
+                return f"{state} is not set (xprop says {out.strip()[:90]})"
+        for state in absent:
+            if state in out:
+                return f"{state} is still set"
+        return None
+
+    def current_desktop(self, want):
+        out = self.sh("DISPLAY=:0 xprop -root _NET_CURRENT_DESKTOP 2>/dev/null")
+        m = re.search(r"=\s*(\d+)", out)
+        if not m:
+            return "could not read _NET_CURRENT_DESKTOP"
+        if int(m.group(1)) != want:
+            return f"the desktop is {m.group(1)}, expected {want}"
+        return None
+
+    def window_on_desktop(self, wid, want):
+        out = self.sh(f"DISPLAY=:0 xprop -id {shlex.quote(wid)} _NET_WM_DESKTOP 2>/dev/null")
+        m = re.search(r"=\s*(\d+)", out)
+        if not m:
+            return f"could not read _NET_WM_DESKTOP for {wid}"
+        if int(m.group(1)) != want:
+            return f"the window is on desktop {m.group(1)}, expected {want}"
+        return None
+
+    def focused_window(self, wid):
+        out = self.sh("DISPLAY=:0 xprop -root _NET_ACTIVE_WINDOW 2>/dev/null")
+        # xprop pads the id differently from wmctrl: 0x1a00003 against 0x01a00003.
+        m = re.search(r"(0x[0-9a-fA-F]+)", out)
+        if not m:
+            return "could not read _NET_ACTIVE_WINDOW"
+        if int(m.group(1), 16) != int(wid, 16):
+            return f"the focused window is {m.group(1)}, not {wid}"
+        return None
+
+    def screen_size(self, w, h):
+        out = self.sh("DISPLAY=:0 xdpyinfo 2>/dev/null | grep dimensions")
+        if f"{w}x{h}" not in out:
+            return f"the display is not {w}x{h} ({out.strip()[:60]})"
+        return None
+
+    def volume_is(self, percent, slack=3):
+        out = self.sh_user("pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null")
+        m = re.search(r"(\d+)%", out)
+        if not m:
+            return "could not read the sink volume"
+        if abs(int(m.group(1)) - percent) > slack:
+            return f"the volume is {m.group(1)}%, set to {percent}%"
+        return None
+
+    def port_listening(self, port, want=True):
+        """Read /proc/net/tcp rather than shelling to ss, which is not installed."""
+        hexport = f"{port:04X}"
+        out = self.sh(
+            "awk '$4==\"0A\" {split($2,a,\":\"); print a[2]}' /proc/net/tcp /proc/net/tcp6 2>/dev/null")
+        listening = hexport in out.split()
+        if listening != want:
+            return f"port {port} is {'listening' if listening else 'not listening'}, expected the opposite"
+        return None
+
+    def package_installed(self, pkg, want=True):
+        out = self.sh(f"dpkg-query -W -f='${{Status}}' {shlex.quote(pkg)} 2>/dev/null")
+        installed = "install ok installed" in out
+        if installed != want:
+            return f"{pkg} is {'installed' if installed else 'not installed'}, expected the opposite"
         return None
 
     def window_gone_titled(self, needle):
@@ -391,17 +479,30 @@ def phase_windows(s):
         s.run("switch_desktop", "Switch virtual desktop", {"desktop": 0})
         return
 
-    s.run("activate_window", "Focus and raise a window by id", {"id": wid})
+    s.run("activate_window", "Focus and raise a window by id", {"id": wid},
+          expect=lambda out: s.focused_window(wid))
     s.run("window_properties", "The raw X properties of one window", {"id": wid})
     s.run("window_hierarchy", "The raw X window tree, parents and children")
     s.run("move_window", "Move a window to a position", {"id": wid, "x": 120, "y": 120},
           expect=lambda out: s.window_geometry_near(wid, x=120, y=120))
     s.run("resize_window", "Resize a window", {"id": wid, "width": 640, "height": 400},
           expect=lambda out: s.window_geometry_near(wid, w=640, h=400))
-    s.run("minimize_window", "Minimise a window", {"id": wid})
-    s.run("restore_window", "Restore a minimised window", {"id": wid})
-    s.run("maximize_window", "Maximise a window", {"id": wid})
-    s.run("fullscreen_window", "Put a window full screen", {"id": wid})
+    s.run("minimize_window", "Minimise a window", {"id": wid},
+          expect=lambda out: s.window_state(wid, "_NET_WM_STATE_HIDDEN"))
+    # activate first: minimize hides it, and un-maximizing something nobody can
+    # see proves nothing. The sweep used to call restore_window here and
+    # describe it as "Restore a minimised window", which is not what it does —
+    # it removes the maximized states, and the tool's own description says so.
+    s.run("activate_window", "Bring the minimised window back", {"id": wid},
+          expect=lambda out: s.window_state(wid, absent=("_NET_WM_STATE_HIDDEN",)))
+    s.run("maximize_window", "Maximise a window", {"id": wid},
+          expect=lambda out: s.window_state(wid, "_NET_WM_STATE_MAXIMIZED_HORZ",
+                                            "_NET_WM_STATE_MAXIMIZED_VERT"))
+    s.run("restore_window", "Un-maximise a window back to its previous size", {"id": wid},
+          expect=lambda out: s.window_state(wid, absent=("_NET_WM_STATE_MAXIMIZED_HORZ",
+                                                         "_NET_WM_STATE_MAXIMIZED_VERT")))
+    s.run("fullscreen_window", "Put a window full screen", {"id": wid},
+          expect=lambda out: s.window_state(wid, "_NET_WM_STATE_FULLSCREEN"))
     s.run("window_set_state", "Change an EWMH state such as 'above'",
           {"id": wid, "state": "above", "action": "add"})
     s.run("set_window_desktop", "Send a window to a virtual desktop",
@@ -474,7 +575,9 @@ def phase_terminal(s):
     s.section("Terminal")
     s.run("terminal_open", "Open a terminal window a person can watch", timeout=40)
     s.run("terminal_run", "Type a command into that terminal and wait for the prompt",
-          {"command": "echo sweep-terminal-ok", "timeout_ms": 30000}, timeout=60)
+          {"command": "echo sweep-terminal-ok > /tmp/sweep-terminal.txt", "timeout_ms": 30000},
+          timeout=60,
+          expect=lambda out: s.file_is("/tmp/sweep-terminal.txt", "sweep-terminal-ok"))
     s.run("terminal_read", "Read back what the terminal shows", {"lines": 10}, timeout=30)
 
 
@@ -518,14 +621,16 @@ def phase_files(s):
 
 def phase_audio(s):
     s.section("Audio")
-    s.run("set_volume", "Set the volume, or mute", {"percent": 60})
+    s.run("set_volume", "Set the volume, or mute", {"percent": 60},
+          expect=lambda out: s.volume_is(60))
     s.run("get_audio_state", "Read the volume and mute state back")
 
 
 def phase_capture(s):
     s.section("Recording and re-streaming")
     s.run("start_recording", "Record the screen to a file alongside the live stream",
-          {"container": "mp4", "fps": 15, "audio": False}, timeout=30)
+          {"container": "mp4", "fps": 15, "audio": False}, timeout=30,
+          expect=lambda out: s.process_alive("gst-launch-1.0"))
     s.run("get_recording_status", "Whether a recording is running, and how big it is")
     s.run("wait", "Let the recording collect a second of video", {"ms": 1200})
     s.run("stop_recording", "Stop and finalise the file", timeout=60,
@@ -580,13 +685,16 @@ def phase_shell(s):
         s.run("shell_list", "The open shell sessions")
         return
     s.run("shell_exec", "Run a command in that session and wait for it",
-          {"id": sid, "command": "echo sweep-shell-ok", "timeout_ms": 10000}, timeout=30)
+          {"id": sid, "command": "echo sweep-shell-ok > /tmp/sweep-shell.txt", "timeout_ms": 10000},
+          timeout=30,
+          expect=lambda out: s.file_is("/tmp/sweep-shell.txt", "sweep-shell-ok"))
     s.run("shell_input", "Send raw keystrokes, without waiting",
-          {"id": sid, "text": "echo second", "enter": True})
+          {"id": sid, "text": "echo second > /tmp/sweep-input.txt", "enter": True})
     s.run("wait", "Give the shell a moment to produce output", {"ms": 400})
     s.run("shell_read", "Read and clear what the session has produced", {"id": sid})
     s.run("shell_list", "The open shell sessions")
-    s.run("shell_close", "End the session", {"id": sid})
+    s.run("shell_close", "End the session", {"id": sid},
+          expect=lambda out: None)
 
 
 def phase_packages(s, enabled):
@@ -604,7 +712,8 @@ def phase_packages(s, enabled):
         return False
     out = s.run("install_packages", "Install a package with apt, reporting progress",
                 {"packages": ["openssh-server"], "update": True, "timeout_ms": 300000},
-                timeout=400)
+                timeout=400,
+                expect=lambda o: s.package_installed("openssh-server"))
     return bool(out) and "exit_code\": 0" in (out or "").replace("'", '"')
 
 
@@ -685,21 +794,28 @@ def phase_ssh(s, ready):
 def phase_snapshots(s):
     s.section("Snapshots")
     s.run("snapshot_create", "A restore point: the home plus the installed package list",
-          {"name": "sweep", "note": "created by tool-sweep"}, timeout=300)
+          {"name": "sweep", "note": "created by tool-sweep"}, timeout=300,
+          expect=lambda out: None if "sweep" in s.sh(
+              "ls /home/sentineldesk/.sentineldesk-snapshots 2>/dev/null")
+          else "no snapshot named sweep on disk")
     s.run("snapshot_list", "The snapshots on disk")
     s.skip("snapshot_restore", "Roll the home back to a snapshot",
            "it would overwrite the live home directory; the only tool the sweep "
            "cannot make safe against something it created")
-    s.run("snapshot_delete", "Delete a snapshot", {"name": "sweep"})
+    s.run("snapshot_delete", "Delete a snapshot", {"name": "sweep"},
+          expect=lambda out: None if "sweep" not in s.sh(
+              "ls /home/sentineldesk/.sentineldesk-snapshots 2>/dev/null")
+          else "the snapshot directory still holds sweep")
 
 
 def phase_system(s, installed):
     s.section("System")
     s.run("set_resolution", "Change the resolution without restarting anything",
-          {"width": 1600, "height": 900}, timeout=30)
+          {"width": 1600, "height": 900}, timeout=30,
+          expect=lambda out: s.screen_size(1600, 900))
     s.run("get_screen_info", "Confirm the new geometry")
     s.run("set_resolution", "Put the resolution back", {"width": 1920, "height": 1080},
-          timeout=30)
+          timeout=30, expect=lambda out: s.screen_size(1920, 1080))
     s.run("open_app_and_wait", "Launch, wait for the window, focus it, in one call",
           {"command": "xterm -T SWEEPKILL -e sleep 300", "match": "SWEEPKILL",
            "timeout_ms": 20000}, timeout=40)
