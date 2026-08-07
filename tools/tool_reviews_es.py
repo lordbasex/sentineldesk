@@ -679,20 +679,39 @@ review(
 )
 review(
     "browser_click",
-    "Hizo clic en un elemento por selector CSS a través del DOM.",
-    "Direccionar por selector no puede errarle como sí pueden las coordenadas, "
-    "que es el mismo razonamiento que hace a ui_click mejor que mouse_click. "
-    "Despacha el clic en JavaScript en vez de por Input.dispatchMouseEvent, así "
-    "que una página que distingue un evento confiable de uno sintético — flujos "
-    "de pago, algunos chequeos anti-automatización — no lo va a aceptar.",
+    "Llevó el elemento a la vista, comprobó qué hay realmente encima, y clickeó "
+    "por Input.dispatchMouseEvent en su centro.",
+    "el.click() despachaba un solo click sintético y nada más: sin movimiento "
+    "del puntero, sin mousedown, sin mouseup, con isTrusted en falso. Medido "
+    "sobre una página que registra los cuatro, ahora produce pointerdown, "
+    "mousedown, mouseup y click, todos confiables. La reparación más útil es "
+    "que ahora puede fallar: un click por DOM nunca pregunta qué hay encima, "
+    "así que un botón debajo de un banner de cookies o de un modal se "
+    "clickeaba igual y a quien llamaba se le decía que funcionó, mientras el "
+    "banner se llevaba el click. elementFromPoint resuelve eso antes de "
+    "despachar, y un elemento tapado se reporta por nombre. Queda pendiente: "
+    "un elemento que necesita hover para volverse clickeable sigue "
+    "necesitando un movimiento aparte, porque el de acá ocurre demasiado tarde "
+    "para abrir nada.",
 )
 review(
     "browser_type",
-    "Escribió en un campo por selector.",
-    "Esto es lo que ui_set_text no puede hacer dentro de una página, y las dos "
-    "juntas cubren el escritorio entero. Misma salvedad de evento confiable que "
-    "browser_click: fijar un valor por JavaScript no siempre dispara los eventos "
-    "que escucha un framework.",
+    "Enfocó el campo, seleccionó lo que había e insertó el texto por "
+    "Input.insertText, así el cambio viene de la capa de input del navegador.",
+    "Antes asignaba el.value y disparaba un evento input sintético, que escribe "
+    "algo que la página puede ver y nada que la página crea. Los frameworks "
+    "que rastrean su propio valor reemplazan la propiedad value por un "
+    "accessor y recuerdan lo último que vieron, así que la asignación "
+    "actualiza el rastreador de paso y el evento sintético que sigue parece un "
+    "no-cambio. Reproducido contra una página que implementa ese rastreo: el "
+    "campo mostraba \"hello\", la página contaba cero cambios, y la "
+    "herramienta reportaba éxito — así que un formulario se enviaría vacío y "
+    "la validación nunca correría. Input.insertText entra donde entra una "
+    "tecla, y esa misma página ahora cuenta el cambio. Verificado en input, "
+    "textarea y contenteditable, reemplazando en vez de concatenar, y con "
+    "texto vacío vaciando el campo. Lo que todavía no hace es emitir eventos "
+    "de tecla por carácter, que un buscador que filtra mientras escribís o un "
+    "campo con máscara pueden estar escuchando.",
 )
 review(
     "browser_text",

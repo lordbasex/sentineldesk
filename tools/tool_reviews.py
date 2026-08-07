@@ -737,22 +737,39 @@ review(
 )
 review(
     "browser_click",
-    "Clicked an element by CSS selector through the DOM.",
-    4,
-    "Addressing by selector cannot miss the way coordinates can, which is the "
-    "same reasoning that makes ui_click better than mouse_click. It dispatches "
-    "the click in JavaScript rather than through Input.dispatchMouseEvent, so a "
-    "page that distinguishes a trusted event from a synthetic one — payment "
-    "flows, some anti-automation checks — will not accept it.",
+    "Scrolled the element into view, checked what is actually on top of it, and "
+    "clicked through Input.dispatchMouseEvent at its centre.",
+    5,
+    "el.click() dispatched one synthetic click and nothing else: no pointer "
+    "movement, no mousedown, no mouseup, isTrusted false. Measured on a page "
+    "recording all four, it now produces pointerdown, mousedown, mouseup and "
+    "click, every one of them trusted. The more useful repair is that it can "
+    "now fail: a DOM click never asks what is on top, so a button under a "
+    "cookie banner or a modal was clicked regardless and the caller was told it "
+    "worked, while the banner took the click. elementFromPoint settles that "
+    "before dispatching, and a covered element is reported by name instead. "
+    "Left undone: an element that must be hovered to become clickable still "
+    "needs a separate move, since the move here happens too late to open "
+    "anything.",
 )
 review(
     "browser_type",
-    "Typed into a field by selector.",
-    4,
-    "This is what ui_set_text cannot do inside a page, and the two together "
-    "cover the whole desktop. Same trusted-event caveat as browser_click: "
-    "setting a value in JavaScript does not always fire the events a framework "
-    "listens for.",
+    "Focused the field, selected what was there and inserted the text through "
+    "Input.insertText, so the change comes from the browser's input layer.",
+    5,
+    "It used to assign el.value and fire a synthetic input event, which writes "
+    "something the page can see and nothing the page believes. Frameworks that "
+    "track their own value replace the value property with an accessor and "
+    "remember what they last saw, so the assignment updates the tracker on its "
+    "way through and the synthetic event that follows looks like a non-change. "
+    "Reproduced against a page implementing that tracking: the field read "
+    "\"hello\", the page counted zero changes, and the tool reported success — "
+    "so a form would submit empty and validation would never run. "
+    "Input.insertText enters where a keystroke does, and the same page now "
+    "counts the change. Verified on input, textarea and contenteditable, "
+    "replacing rather than appending, with empty text clearing the field. What "
+    "it still does not do is emit per-character key events, which a "
+    "search-as-you-type box or a masked input may be listening for.",
 )
 review(
     "browser_text",

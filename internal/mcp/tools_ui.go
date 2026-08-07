@@ -305,21 +305,17 @@ func (s *Server) dispatchBrowser(ctx context.Context, name string, args map[stri
 		c, e := s.cdpEvalReport(argStr(args, "expression"))
 		return c, e, true
 	case "browser_click":
-		sel := argStr(args, "selector")
-		c, e := s.cdpEvalReport(fmt.Sprintf(
-			"(()=>{const el=document.querySelector(%s); if(!el) return 'ERROR: no such element '+%s; el.scrollIntoView({block:'center'}); el.click(); return 'clicked '+%s})()",
-			jsStr(sel), jsStr(sel), jsStr(sel)))
-		return c, e, true
+		res, err := cdpClick(argStr(args, "selector"))
+		if err != nil {
+			return textContent("browser_click failed: %v", err), true, true
+		}
+		return textContent("%s", res), false, true
 	case "browser_type":
-		sel, txt := argStr(args, "selector"), argStr(args, "text")
-		c, e := s.cdpEvalReport(fmt.Sprintf(
-			"(()=>{const el=document.querySelector(%s); if(!el) return 'ERROR: no such element '+%s;"+
-				"el.focus(); el.value=%s;"+
-				"el.dispatchEvent(new Event('input',{bubbles:true}));"+
-				"el.dispatchEvent(new Event('change',{bubbles:true}));"+
-				"return 'typed into '+%s})()",
-			jsStr(sel), jsStr(sel), jsStr(txt), jsStr(sel)))
-		return c, e, true
+		res, err := cdpType(argStr(args, "selector"), argStr(args, "text"))
+		if err != nil {
+			return textContent("browser_type failed: %v", err), true, true
+		}
+		return textContent("%s", res), false, true
 	case "browser_text":
 		sel := argStr(args, "selector")
 		max := argInt(args, "max_chars")

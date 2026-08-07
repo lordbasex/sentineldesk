@@ -207,6 +207,175 @@ func cdpEvalTimeout(expression string, timeout time.Duration) (string, error) {
 	return evalResult(result)
 }
 
+// cdpClick clicks an element the way a pointer would, not the way script does.
+//
+// el.click() dispatches one synthetic click on the node and nothing else: no
+// pointer movement, no mousedown, no mouseup, and isTrusted false. Pages that
+// check for a trusted event — payment flows, anti-automation — refuse it, and
+// interfaces built on the surrounding events rather than on click alone simply
+// do not respond. It also cannot fail: a node covered by a modal, a cookie
+// banner or a disabled overlay is clicked regardless, because the DOM call
+// never asks what is on top. The caller is told it clicked, and something else
+// entirely received the user's attention.
+//
+// Dispatching through Input at the element's centre restores all of that, and
+// makes the covered case visible: elementFromPoint says who would actually be
+// hit, and disagreeing with the target is worth reporting rather than clicking
+// through.
+func cdpClick(sel string) (string, error) {
+	c, err := cdpOpen()
+	if err != nil {
+		return "", err
+	}
+	defer c.Close()
+	deadline := time.Now().Add(20 * time.Second)
+
+	id, err := c.send("Runtime.evaluate", map[string]any{
+		"expression": fmt.Sprintf(`(()=>{
+  const el = document.querySelector(%s);
+  if (!el) return JSON.stringify({error: "no such element " + %s});
+  el.scrollIntoView({block: "center", inline: "center"});
+  const r = el.getBoundingClientRect();
+  if (r.width === 0 && r.height === 0) return JSON.stringify({error: "the element has no box on screen"});
+  const x = r.left + r.width / 2, y = r.top + r.height / 2;
+  const hit = document.elementFromPoint(x, y);
+  // A descendant counts: clicking a button's label is clicking the button.
+  const covered = hit && !el.contains(hit) && hit !== el;
+  return JSON.stringify({
+    x: x, y: y,
+    covered: covered,
+    by: covered ? (hit.tagName.toLowerCase() + (hit.id ? "#" + hit.id : "")) : "",
+  });
+})()`, jsStr(sel), jsStr(sel)),
+		"returnByValue": true,
+		"userGesture":   true,
+	})
+	if err != nil {
+		return "", err
+	}
+	result, err := c.reply(id, deadline)
+	if err != nil {
+		return "", err
+	}
+	raw, err := evalResult(result)
+	if err != nil {
+		return "", err
+	}
+	var box struct {
+		X, Y    float64
+		Error   string
+		Covered bool
+		By      string
+	}
+	if err := json.Unmarshal([]byte(raw), &box); err != nil {
+		return "", fmt.Errorf("could not read the element's position: %s", raw)
+	}
+	if box.Error != "" {
+		return "", fmt.Errorf("%s", box.Error)
+	}
+	if box.Covered {
+		return "", fmt.Errorf("%s is behind %s at that point — clicking would hit the other element", sel, box.By)
+	}
+
+	// Move first. Interfaces that open on hover need the pointer to arrive
+	// before the press, and a press with no preceding move is not a gesture any
+	// person could make.
+	for _, ev := range []map[string]any{
+		{"type": "mouseMoved", "x": box.X, "y": box.Y, "button": "none", "buttons": 0},
+		{"type": "mousePressed", "x": box.X, "y": box.Y, "button": "left", "buttons": 1, "clickCount": 1},
+		{"type": "mouseReleased", "x": box.X, "y": box.Y, "button": "left", "buttons": 0, "clickCount": 1},
+	} {
+		id, err := c.send("Input.dispatchMouseEvent", ev)
+		if err != nil {
+			return "", err
+		}
+		if _, err := c.reply(id, deadline); err != nil {
+			return "", err
+		}
+	}
+	return fmt.Sprintf("clicked %s", sel), nil
+}
+
+// cdpType puts text into a field through the browser's own input pipeline.
+//
+// Assigning el.value and firing a synthetic input event — which is what this
+// did — writes something the page can see and, on any framework that tracks its
+// own value, nothing the page believes. React replaces the value property with
+// an accessor and remembers what it last saw, so an assignment updates the
+// tracker on its way through; when the synthetic event then arrives, the value
+// and the tracked value already agree and onChange is suppressed as a
+// non-change. The field shows the text and the component's state stays empty,
+// so a submit sends nothing and validation never runs. Reproduced against a
+// page implementing that tracking: the input read "hello" and the page counted
+// zero changes, while the tool reported success.
+//
+// Input.insertText goes in below all of that, at the same layer a keystroke
+// arrives on, so the value change comes from the browser rather than from an
+// assignment the framework can attribute to itself. It is what Playwright's
+// fill() uses, for this exact reason.
+func cdpType(sel, text string) (string, error) {
+	c, err := cdpOpen()
+	if err != nil {
+		return "", err
+	}
+	defer c.Close()
+	deadline := time.Now().Add(20 * time.Second)
+
+	// Focus, and select what is already there so the text replaces rather than
+	// appends. contenteditable has no select(), hence the range.
+	id, err := c.send("Runtime.evaluate", map[string]any{
+		"expression": fmt.Sprintf(`(()=>{
+  const el = document.querySelector(%s);
+  if (!el) return "ERROR: no such element " + %s;
+  el.focus();
+  if (typeof el.select === "function") { el.select(); }
+  else {
+    const r = document.createRange(); r.selectNodeContents(el);
+    const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+  }
+  return "ok";
+})()`, jsStr(sel), jsStr(sel)),
+		"returnByValue": true,
+		"userGesture":   true,
+	})
+	if err != nil {
+		return "", err
+	}
+	result, err := c.reply(id, deadline)
+	if err != nil {
+		return "", err
+	}
+	if got, err := evalResult(result); err != nil {
+		return "", err
+	} else if strings.HasPrefix(got, "ERROR") {
+		return "", fmt.Errorf("%s", got)
+	}
+
+	// Empty text means clear the field, and inserting nothing does not delete a
+	// selection — the caret event does.
+	if text == "" {
+		id, err = c.send("Input.dispatchKeyEvent", map[string]any{
+			"type": "keyDown", "windowsVirtualKeyCode": 46, "key": "Delete", "code": "Delete",
+		})
+		if err != nil {
+			return "", err
+		}
+		if _, err := c.reply(id, deadline); err != nil {
+			return "", err
+		}
+		return "cleared " + sel, nil
+	}
+
+	id, err = c.send("Input.insertText", map[string]any{"text": text})
+	if err != nil {
+		return "", err
+	}
+	if _, err := c.reply(id, deadline); err != nil {
+		return "", err
+	}
+	return "typed into " + sel, nil
+}
+
 // cdpNavigate goes to a URL and waits until the page has actually loaded.
 //
 // browser_goto used to assign location.href and report "navigating" — true at
