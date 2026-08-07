@@ -39,6 +39,7 @@ import (
 
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
+	"github.com/lordbasex/sentineldesk/agent/internal/store"
 )
 
 // Role is how observable the agent's work has to be. See §12.2 of the stage 1
@@ -88,6 +89,20 @@ type Options struct {
 
 	// OnEvent reports what the loop is doing, for a console or a log.
 	OnEvent func(Progress)
+
+	// Recorder keeps the run. Optional: a runtime whose database would not open
+	// still works, unrecorded, and says so — losing the accounting is worse
+	// than not having it and better than a task that will not start because of
+	// a log.
+	Recorder Recorder
+}
+
+// Recorder is what the loop writes its history to. An interface so the loop
+// does not import a database, and so a test can watch what it would have
+// written without one.
+type Recorder interface {
+	RecordTurn(store.Turn) error
+	RecordCall(store.Call) error
 }
 
 // Progress is one thing the loop did.
@@ -174,16 +189,26 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 		r.report(Progress{Kind: "turn", Turn: turn})
 
 		started := time.Now()
-		reply, err := r.opts.Model.Complete(ctx, provider.Request{
-			System:   r.systemPrompt(),
-			Messages: messages,
-			Tools:    tools,
-		})
+		system := r.systemPrompt()
+		req := provider.Request{System: system, Messages: messages, Tools: tools}
+		reply, err := r.opts.Model.Complete(ctx, req)
 		if err != nil {
 			return res, err
 		}
 		res.InputToks += reply.InputToks
 		res.OutputToks += reply.OutputToks
+
+		// Recorded before anything is done with the answer, so a turn that ends
+		// in an interruption is still on the record. The catalogue's size goes
+		// with it: it is the largest line in the bill and the number the
+		// tool-selection work has to move, so "it got cheaper" can be shown
+		// rather than asserted.
+		r.record(store.Turn{
+			N: turn, Elapsed: time.Since(started), System: system,
+			Request: messages, Response: reply.Message, Stop: string(reply.Stop),
+			InputTokens: reply.InputToks, OutputTokens: reply.OutputToks,
+			ToolsOffered: len(tools), ToolsBytes: toolBytes(tools),
+		})
 
 		if reply.Message.Text != "" {
 			r.report(Progress{Kind: "text", Turn: turn,
@@ -206,7 +231,7 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 		results := make([]provider.ToolResult, 0, len(reply.Message.ToolCalls))
 		for _, call := range reply.Message.ToolCalls {
 			res.Calls++
-			out := r.runOne(ctx, call)
+			out := r.runOne(ctx, turn, call)
 			results = append(results, out)
 
 			// Checked between calls, not only between turns. A person taking
@@ -245,8 +270,12 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 
 // runOne calls a tool and turns whatever happened into something the model can
 // act on.
-func (r *Runner) runOne(ctx context.Context, call provider.ToolCall) provider.ToolResult {
+func (r *Runner) runOne(ctx context.Context, turn int, call provider.ToolCall) provider.ToolResult {
 	name := r.substitute(call.Name)
+	askedFor := ""
+	if name != call.Name {
+		askedFor = call.Name
+	}
 	if name != call.Name {
 		r.report(Progress{Kind: "call", Tool: name,
 			Detail: fmt.Sprintf("(substituted for %s: this run is being watched)", call.Name)})
@@ -257,9 +286,15 @@ func (r *Runner) runOne(ctx context.Context, call provider.ToolCall) provider.To
 	started := time.Now()
 	out, err := r.mcp.Call(ctx, name, call.Args)
 	if err != nil {
+		r.recordCall(store.Call{TurnN: turn, Tool: name, AskedFor: askedFor,
+			Args: call.Args, Result: err.Error(), IsError: true,
+			Elapsed: time.Since(started)})
 		return provider.ToolResult{CallID: call.ID, IsErr: true,
 			Text: fmt.Sprintf("the call could not be made: %v", err)}
 	}
+	r.recordCall(store.Call{TurnN: turn, Tool: name, AskedFor: askedFor,
+		Args: call.Args, Result: out.Text(), Denial: string(out.Denial),
+		IsError: out.IsError, Elapsed: time.Since(started)})
 	r.report(Progress{Kind: "result", Tool: name,
 		Detail: trunc(out.Text(), 200), Elapsed: time.Since(started)})
 
@@ -332,6 +367,29 @@ Somebody asked to SEE this happen. Do the work on screen where they can watch: o
 `)
 	}
 	return b.String()
+}
+
+func (r *Runner) record(t store.Turn) {
+	if r.opts.Recorder != nil {
+		_ = r.opts.Recorder.RecordTurn(t)
+	}
+}
+
+func (r *Runner) recordCall(c store.Call) {
+	if r.opts.Recorder != nil {
+		_ = r.opts.Recorder.RecordCall(c)
+	}
+}
+
+// toolBytes is what the catalogue costs on the wire. An approximation of what
+// the provider will charge for it, and an exact measure of what changed when
+// the offered set changes, which is the question it exists to answer.
+func toolBytes(tools []provider.Tool) int {
+	n := 0
+	for _, t := range tools {
+		n += len(t.Name) + len(t.Description) + len(t.InputSchema)
+	}
+	return n
 }
 
 func (r *Runner) report(p Progress) {

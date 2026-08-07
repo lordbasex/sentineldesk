@@ -33,6 +33,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/loop"
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
+	"github.com/lordbasex/sentineldesk/agent/internal/store"
 )
 
 // version is stamped in at build time, like the desktop's.
@@ -43,6 +44,8 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent doctor          check the connection and what it can do
   sentineldesk-agent tools [query]   the catalogue, or a search of it
   sentineldesk-agent run "goal"      work towards a goal
+  sentineldesk-agent costs           what has been spent, and on what
+  sentineldesk-agent history [id]    past runs, or one run in full
 
 The model:
   --role       efficient | witnessed   (witnessed does the work where people can see it)
@@ -92,6 +95,16 @@ func main() {
 	// built to end.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	// These read the local database and never touch the desktop. Requiring a
+	// running container to ask what something cost would be an odd thing to
+	// insist on.
+	switch args[0] {
+	case "costs":
+		os.Exit(showCosts())
+	case "history":
+		os.Exit(showHistory(strings.Join(args[1:], " ")))
+	}
 
 	client, how, err := connect(ctx, *container, *bin, *sock)
 	if err != nil {
@@ -474,12 +487,26 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 	task := fmt.Sprintf("run-%d-%d", c.ConnectionID(), time.Now().Unix())
 	c.SetTask(task, goal)
 
+	// The record. A database that will not open costs the accounting and
+	// nothing else: the run goes ahead, unrecorded, and says so.
+	var recorder loop.Recorder
+	var run *store.Run
+	if db, ok := openStore(); ok {
+		defer db.Close()
+		if r, err := db.StartRun(task, goal, llm.Name(), role); err != nil {
+			fmt.Fprintf(os.Stderr, "the run will not be recorded: %v\n", err)
+		} else {
+			run, recorder = r, r
+		}
+	}
+
 	runner := loop.New(c, loop.Options{
 		Role:     loop.Role(role),
 		Model:    llm,
 		Tools:    tools,
 		MaxTurns: maxTurns,
 		OnEvent:  narrate,
+		Recorder: recorder,
 	})
 
 	// Losing the controls has to reach the loop while it is running, not at the
@@ -497,6 +524,17 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 	started := time.Now()
 	res, err := runner.Run(ctx, goal)
 
+	status := "finished"
+	switch {
+	case err != nil:
+		status = "failed"
+	case res.Interrupted:
+		status = "interrupted"
+	}
+	if run != nil {
+		_ = run.Finish(status, res.Answer, res.Turns, res.Calls, res.InputToks, res.OutputToks)
+	}
+
 	fmt.Printf("\n─────\n")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "the run failed: %v\n", err)
@@ -507,14 +545,18 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, role, model string,
 		fmt.Println(res.Answer)
 		fmt.Println()
 	}
-	status := "finished"
-	if res.Interrupted {
-		status = "interrupted"
-	}
 	fmt.Printf("%s · %d turns · %d calls · %v · %d in / %d out tokens\n",
 		status, res.Turns, res.Calls, time.Since(started).Round(time.Second),
 		res.InputToks, res.OutputToks)
-	fmt.Printf("audit: sentineldesk-agent tools action_log, or the task id above\n")
+	if run != nil {
+		pricing := store.LoadPricing()
+		if cost, known := pricing.Estimated(llm.Name(), res.InputToks, res.OutputToks); known {
+			fmt.Printf("est. cost: USD %.4f   ·   history: sentineldesk-agent history %d\n",
+				cost, run.ID)
+		} else {
+			fmt.Printf("history: sentineldesk-agent history %d\n", run.ID)
+		}
+	}
 	if res.Interrupted {
 		return 4
 	}
@@ -542,4 +584,189 @@ func dim(s string) string {
 		return ""
 	}
 	return "\033[2m" + s + "\033[0m"
+}
+
+// --- what it cost -----------------------------------------------------------
+
+func openStore() (*store.DB, bool) {
+	db, err := store.Open("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "the run will not be recorded: %v\n", err)
+		return nil, false
+	}
+	return db, true
+}
+
+// showCosts prints the ledger.
+//
+// Tokens first and money second, in that order and never the other way round.
+// The counts are what the provider reported and are exact; the money is derived
+// from a rate this program cannot be authoritative about, so it is labelled and
+// the operator is told where to correct it. A number presented as more certain
+// than it is, about somebody's bill, is worse than no number.
+func showCosts() int {
+	db, ok := openStore()
+	if !ok {
+		return 1
+	}
+	defer db.Close()
+
+	totals, err := db.Totals()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 1
+	}
+	if len(totals) == 0 {
+		fmt.Println("Nothing recorded yet.")
+		return 0
+	}
+	pricing := store.LoadPricing()
+
+	fmt.Printf("\033[1m%-28s %6s %6s %6s %12s %12s %10s\033[0m\n",
+		"MODEL", "RUNS", "TURNS", "CALLS", "IN", "OUT", "EST. USD")
+	var grandIn, grandOut int
+	var grandCost float64
+	unpriced := false
+	for _, t := range totals {
+		cost, known := pricing.Estimated(t.Model, t.InputTokens, t.OutTokens)
+		money := fmt.Sprintf("%10.4f", cost)
+		if !known {
+			money = "         ?"
+			unpriced = true
+		}
+		fmt.Printf("%-28s %6d %6d %6d %12s %12s %s\n",
+			t.Model, t.Runs, t.Turns, t.Calls,
+			comma(t.InputTokens), comma(t.OutTokens), money)
+		grandIn += t.InputTokens
+		grandOut += t.OutTokens
+		grandCost += cost
+	}
+	fmt.Printf("\033[1m%-28s %6s %6s %6s %12s %12s %10.4f\033[0m\n",
+		"total", "", "", "", comma(grandIn), comma(grandOut), grandCost)
+
+	fmt.Printf("\nRates: %s", pricing.Source())
+	if pricing.Source() == "built-in estimates" {
+		fmt.Printf("  \033[33m(estimates — put the real ones in ~/.sentineldesk/pricing.json)\033[0m")
+	}
+	fmt.Println()
+	if unpriced {
+		fmt.Println("\033[33mSome models have no rate, so the total is lower than the truth.\033[0m")
+	}
+
+	// The number the tool-selection work has to move, which is the reason half
+	// of this table exists.
+	if c, err := db.CatalogueCost(); err == nil && c.Turns > 0 {
+		share := 0.0
+		if c.AvgInputToks > 0 {
+			share = (c.AvgBytes / 4) / c.AvgInputToks * 100
+		}
+		fmt.Printf("\n\033[1mWhat the catalogue costs\033[0m\n")
+		fmt.Printf("  %.0f tools offered per turn, ~%s tokens of schema\n",
+			c.AvgOffered, comma(int(c.AvgBytes/4)))
+		fmt.Printf("  ~%.0f%% of every turn's input, re-sent each time\n", share)
+	}
+
+	fmt.Printf("\n%s\n", db.Path())
+	return 0
+}
+
+// showHistory lists past runs, or opens one.
+func showHistory(arg string) int {
+	db, ok := openStore()
+	if !ok {
+		return 1
+	}
+	defer db.Close()
+
+	if arg == "" {
+		runs, err := db.Recent(20)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		if len(runs) == 0 {
+			fmt.Println("Nothing recorded yet.")
+			return 0
+		}
+		pricing := store.LoadPricing()
+		fmt.Printf("\033[1m%4s %-20s %-11s %5s %5s %10s %9s  %s\033[0m\n",
+			"ID", "WHEN", "STATUS", "TURNS", "CALLS", "TOKENS", "EST. USD", "GOAL")
+		for _, r := range runs {
+			cost, _ := pricing.Estimated(r.Model, r.InputTokens, r.OutTokens)
+			fmt.Printf("%4d %-20s %-11s %5d %5d %10s %9.4f  %s\n",
+				r.ID, shortTime(r.StartedAt), r.Status, r.Turns, r.Calls,
+				comma(r.InputTokens+r.OutTokens), cost, trunc(r.Goal, 44))
+		}
+		fmt.Printf("\nOne run in full:  sentineldesk-agent history <id>\n")
+		return 0
+	}
+
+	var id int64
+	if _, err := fmt.Sscanf(arg, "%d", &id); err != nil {
+		fmt.Fprintf(os.Stderr, "history takes a run id from `history` with no argument\n")
+		return 2
+	}
+	turns, err := db.Turns(id)
+	if err != nil || len(turns) == 0 {
+		fmt.Fprintf(os.Stderr, "run %d has no turns recorded\n", id)
+		return 1
+	}
+	calls, _ := db.Calls(id)
+
+	for _, t := range turns {
+		fmt.Printf("\n\033[1m── turn %d\033[0m  %s  %dms  %s in / %s out  (%d tools offered)\n",
+			t.N, shortTime(t.At), t.ElapsedMS,
+			comma(t.InputTokens), comma(t.OutTokens), t.ToolsOffered)
+		if t.N == 1 && t.System != "" {
+			fmt.Printf("\n\033[2m  system prompt (%d chars):\033[0m\n", len(t.System))
+			for _, line := range strings.Split(strings.TrimSpace(t.System), "\n") {
+				fmt.Printf("  \033[2m│ %s\033[0m\n", line)
+			}
+		}
+		for _, c := range calls {
+			if c.TurnN != t.N {
+				continue
+			}
+			from := ""
+			if c.AskedFor != "" {
+				from = fmt.Sprintf(" \033[33m(asked for %s)\033[0m", c.AskedFor)
+			}
+			mark := "→"
+			if c.IsError {
+				mark = "\033[31m✗\033[0m"
+			}
+			fmt.Printf("  %s %s %s%s\n", mark, c.Tool, dim(trunc(c.Args, 100)), from)
+			if c.Denial != "" {
+				fmt.Printf("      \033[33mdenied: %s\033[0m\n", c.Denial)
+			}
+			fmt.Printf("      \033[2m%s\033[0m\n", trunc(c.Result, 160))
+		}
+	}
+	fmt.Printf("\n\033[2mFull request and response JSON is in the database:\n"+
+		"  sqlite3 %s \"SELECT request, response FROM turns WHERE run_id=%d\"\033[0m\n",
+		db.Path(), id)
+	return 0
+}
+
+func comma(n int) string {
+	s := fmt.Sprint(n)
+	if len(s) <= 3 {
+		return s
+	}
+	var out []byte
+	for i, c := range []byte(s) {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			out = append(out, ',')
+		}
+		out = append(out, c)
+	}
+	return string(out)
+}
+
+func shortTime(rfc string) string {
+	t, err := time.Parse(time.RFC3339Nano, rfc)
+	if err != nil {
+		return rfc
+	}
+	return t.Format("2006-01-02 15:04:05")
 }
