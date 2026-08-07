@@ -84,6 +84,22 @@ They go **before** the subcommand.
 --container  reach the desktop through docker exec instead of the socket
 ```
 
+### `--provider` and `--model`
+
+```bash
+# Cheapest Anthropic model, for anything mechanical
+--model claude-haiku-4-5-20251001
+
+# A model on this machine: no key, no bill, and slow
+--provider ollama --model qwen3:4b --tools 6
+
+# Comparing vendors on one key
+--provider openrouter --model openai/gpt-5.2
+```
+
+[`providers.md`](providers.md) has a section per provider — what each needs, what
+each does about caching, and the thing about it that catches people out.
+
 ### `--role`
 
 `efficient` is the default: nobody is watching and nobody asked for evidence, so

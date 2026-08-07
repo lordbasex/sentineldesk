@@ -1,18 +1,13 @@
 # Providers
 
-Which models `sentineldesk-agent` can drive, what each one needs, and what each
-one does about the thing that dominates the bill.
+Which models `sentineldesk-agent` can drive, and how to run each one.
 
-```
+```bash
 sentineldesk-agent providers
 ```
 
-prints the same table with your own keys' state filled in, which is the version
-to trust: this file says what a key is called, that one says whether you have it.
-
----
-
-## The table
+prints this table with your own keys' state filled in. That is the version to
+trust: this file says what a key is called, that one says whether you have it.
 
 | `--provider` | key | default model | caching |
 |---|---|---|---|
@@ -22,64 +17,264 @@ to trust: this file says what a key is called, that one says whether you have it
 | `openai` | `~/.sentineldesk/openai.key` | `gpt-5.2` | automatic, on long prefixes |
 | `openrouter` | `~/.sentineldesk/openrouter.key` | any vendor's | depends on the model behind it |
 
-```bash
-sentineldesk-agent --provider ollama --model qwen3:8b run "…"
-```
+Flags go **before** the subcommand:
 
-`--provider` and `--model` go **before** the subcommand.
+```bash
+sentineldesk-agent --provider ollama --model qwen3:4b run "…"
+```
 
 ---
 
-## The keys
+## Keys
 
 One file per provider, outside any checkout, readable by nobody else:
 
 ```bash
 mkdir -p ~/.sentineldesk && chmod 700 ~/.sentineldesk
-cat > ~/.sentineldesk/anthropic.key     # paste, Enter, Ctrl-D
+cat > ~/.sentineldesk/anthropic.key      # paste, Enter, Ctrl-D
 chmod 600 ~/.sentineldesk/anthropic.key
 ```
 
 `cat >` rather than `echo`, so the key does not land in shell history.
 
-A file rather than an environment variable, and that ordering is deliberate: an
+A file rather than an environment variable, and the ordering is deliberate: an
 environment variable is readable from `docker inspect`, from
 `/proc/<pid>/environ` by anything running as the same user, from a crash dump,
-and by every child process — and this runtime spawns children. `ANTHROPIC_API_KEY_FILE`
-(the Docker secret convention) overrides the default path; `ANTHROPIC_API_KEY`
-works and is the leakiest of the three, so it is checked last.
+and by every child process — and this runtime spawns children.
+`<NAME>_API_KEY_FILE` (the Docker secret convention) overrides the path;
+`<NAME>_API_KEY` works and is the leakiest, so it is checked last.
 
 A key file readable by others is **refused**, not warned about. A warning is
 read once, while somebody is trying to get something working.
 
-Nothing in the repository can carry a key — `make check-secrets` scans tracked
-files and fails the build, and it was verified by planting one and watching it
-fail.
+---
+
+# Anthropic
+
+The default, and the one the catalogue was written for: the tool annotations
+this project publishes are the MCP specification's own hints, and the
+descriptions were tuned against a model that reads them.
+
+```bash
+cat > ~/.sentineldesk/anthropic.key && chmod 600 ~/.sentineldesk/anthropic.key
+
+sentineldesk-agent -container sentineldesk run "what windows are open?"
+```
+
+### Choosing a model
+
+```bash
+# The default. Good tool use, sensible price.
+sentineldesk-agent -container sentineldesk run "…"
+
+# Cheapest. Worth trying for anything mechanical — read a file, list windows,
+# check whether something is running.
+sentineldesk-agent -container sentineldesk \
+  --model claude-haiku-4-5-20251001 run "is chromium running?"
+
+# When the task needs real planning: several applications, recovering from a
+# failure, deciding what to do when the screen is not what was expected.
+sentineldesk-agent -container sentineldesk \
+  --model claude-opus-5 run "set up a python project and run its tests"
+```
+
+Model ids change. `costs` groups by whatever you passed, so running the same
+goal on two of them and comparing the rows is the way to decide — the numbers
+are in your own database, not in this file.
+
+### Caching
+
+The only provider here that takes explicit markers, and this runtime sets them:
+the system prompt and the tool catalogue are cached together and re-read at a
+fraction of the rate. Measured on one real question:
+
+| | input | cache | est. USD |
+|---|---|---|---|
+| before | 38,814 | — | 0.0776 |
+| caching | 1,140 | 37,796 read | 0.0098 |
+| + tool selection, warm | 1,140 | 6,952 read | **0.0037** |
+
+A **new goal** selects different tools and therefore pays one cache write. Two
+runs of the same question are cheaper than two different ones, and the run
+summary says which happened:
+
+```
+cache: 0 written, 6,952 read
+```
+
+`0 written` means the previous run's cache was still warm.
 
 ---
 
-## Two adapters, five providers
+# Ollama — on this machine
 
-`anthropic` has its own adapter: a different wire format, and explicit cache
-markers.
+No key, no bill, no network. Which makes it the right place to develop against:
+a run can be repeated as many times as it takes.
 
-The other four share one, because they genuinely speak the same protocol —
-chat-completions, as OpenAI defined it and everyone else adopted so that
-existing clients would work. Four near-identical files would be four places for
-a fix to be applied three times. What differs between them is a row in a table:
-the URL, the credential's name, and what the service does about caching.
+```bash
+brew install ollama
+ollama serve                    # leave it running
+ollama pull qwen3:4b
 
-**Adding a provider that speaks this protocol is that row.** The moment one of
-them needs different code it stops being a preset and gets its own file, the way
-Anthropic has.
+sentineldesk-agent -container sentineldesk \
+  --provider ollama --model qwen3:4b run "what windows are open?"
+```
+
+### The model has to support tool calling
+
+This is the first thing that goes wrong, and it fails confusingly: a model
+without tool support answers in prose about what it *would* do, the loop sees no
+tool calls, and the run ends after one turn having done nothing.
+
+Known to work: the `qwen3` family, `llama3.1` and later, `mistral-nemo`.
+`ollama show <model>` lists `tools` under capabilities when it has them.
+
+```bash
+ollama show qwen3:4b | grep -A3 Capabilities
+```
+
+### Keep the catalogue small
+
+A small model given 120 tool schemas chooses badly, and on a CPU it is worse
+than that — generating is slow, and *processing* nineteen thousand tokens of
+JSON schema before generating anything is much slower.
+
+```bash
+# Fewer tools, and the ones the goal actually ranks.
+sentineldesk-agent -container sentineldesk \
+  --provider ollama --model qwen3:4b --tools 6 \
+  run "take a screenshot"
+```
+
+`--tools 6` offers the core set plus six. If the model needs something else it
+calls `tool_search` and the runtime widens the set — the escape hatch is still
+there, it just is not paid for up front.
+
+### The GPU
+
+**On macOS, Ollama accelerates through Metal and enables it on Apple Silicon
+only.** AMD goes through ROCm, which is Linux. On an Intel Mac it runs on CPU
+whatever card is in the machine — verified on an i9-10900 with a Radeon RX 580,
+where `discovering available GPUs` reports `library=cpu` and nothing else.
+
+```bash
+grep -i "inference compute" ~/.ollama/logs/server.log   # or wherever it logs
+```
+
+It works. It is not fast. RAM is usually the real limit and a workstation
+usually has plenty.
+
+### What `costs` will say
+
+Nothing, which is correct: a local model reports no billing and has no rate, so
+`costs` shows `?` rather than zero for it. Reporting a day's work as free is the
+worst available way to be wrong about a bill, so an unknown rate says so.
 
 ---
 
-## Caching, and why there is no standard
+# Ollama — the hosted models
 
-The system prompt and the tool catalogue are byte-identical on every turn and
-are **98% of what a turn costs**. Every provider that can charge less for
-repeating them does it differently:
+The same protocol against Ollama's servers. One key and a different
+`--provider`; worth having when the machine cannot do the work.
+
+```bash
+cat > ~/.sentineldesk/ollama.key && chmod 600 ~/.sentineldesk/ollama.key
+
+sentineldesk-agent -container sentineldesk \
+  --provider ollama-cloud --model qwen3:480b-cloud \
+  run "open a terminal and show the free disk space"
+```
+
+Models with the `-cloud` suffix are the hosted ones. `ollama ls` after signing
+in shows what your account can reach.
+
+---
+
+# OpenAI
+
+```bash
+cat > ~/.sentineldesk/openai.key && chmod 600 ~/.sentineldesk/openai.key
+
+sentineldesk-agent -container sentineldesk \
+  --provider openai --model gpt-5.2 run "what windows are open?"
+```
+
+Caching is **automatic** on long prefixes — nothing to mark, and it reports how
+many tokens it reused. The runtime puts the system prompt and catalogue first
+for exactly that reason, so the same shape that earns Anthropic's cache earns
+this one's without a second code path.
+
+Cached tokens arrive folded into the prompt count here rather than beside it, so
+the adapter subtracts them: `InputToks` keeps meaning what it means everywhere
+else, which is what was paid at the full rate.
+
+---
+
+# OpenRouter
+
+One key, many vendors' models. The reason to have it is comparison — running the
+same goal across three vendors without three accounts.
+
+```bash
+cat > ~/.sentineldesk/openrouter.key && chmod 600 ~/.sentineldesk/openrouter.key
+
+for m in anthropic/claude-sonnet-5 openai/gpt-5.2 google/gemini-3-pro; do
+  sentineldesk-agent -container sentineldesk \
+    --provider openrouter --model "$m" run "what windows are open?"
+done
+
+sentineldesk-agent costs     # one row per model, same question, same desktop
+```
+
+Caching depends on whichever model is behind it and is not reported uniformly,
+so `providers` says `none` rather than promising something it cannot verify.
+
+---
+
+## Prices
+
+Tokens are recorded; money is derived.
+
+```jsonc
+// ~/.sentineldesk/pricing.json — dollars per million tokens
+{
+  "sonnet": { "input": 2.00,  "output": 10.00 },
+  "opus":   { "input": 15.00, "output": 75.00 },
+  "haiku":  { "input": 1.00,  "output": 5.00 },
+  "gpt":    { "input": 1.25,  "output": 10.00 }
+}
+```
+
+The key is matched as a substring of the model id, longest match winning, so a
+dated release inherits its family's rate instead of falling to zero. Cache
+multipliers (`cache_write_multiplier`, `cache_read_multiplier`) default to 1.25
+and 0.10 and are overridable in the same file.
+
+A price changes, and a price stored beside each row would then be wrong for
+every past run with no way to notice. Correcting this file re-prices the whole
+history, not only what comes next.
+
+**The built-in rates are estimates**, there so `costs` prints something useful
+on the first day. Calibrate against your own invoice: take the token counts
+`costs` reports, take what the console says was spent, and adjust.
+
+---
+
+## Adding one
+
+A provider that speaks chat-completions — most do — is a row in `Presets`
+(`agent/internal/provider/openaicompat.go`): id, base URL, key name, default
+model, what it does about caching, and one sentence for `providers` about the
+thing somebody has to know. Groq, Together, DeepSeek and a local `llama.cpp`
+server all fit there.
+
+One that does not gets its own file implementing `Provider` — three methods, and
+`KeySource()` if it holds a credential. `anthropic.go` is the example; the
+mapping between this package's types and the wire format is the whole job, which
+is also why no SDK is used. A dependency that changes its own types underneath
+the loop is a dependency that owns the loop.
+
+### Caching, and why there is no standard
 
 | | how |
 |---|---|
@@ -92,97 +287,6 @@ So `Request.CacheStable` is a hint about the **shape** of the request — "this
 prefix will repeat unchanged" — and each adapter does what its provider
 understands. A provider that ignores it is correct, just more expensive.
 
-Measured on one real question, same desktop, same answer:
-
-| | input | cache | cost |
-|---|---|---|---|
-| before | 38,814 | — | **$0.0800** |
-| after (cold) | 1,152 | 18,898 written / 18,898 read | $0.0564 |
-| after (warm) | 1,140 | 37,796 read | **$0.0126** |
-
-Six times cheaper. Cache tokens are counted separately from input tokens
-everywhere — in the store, in `costs`, in the run summary — because a cache
-that quietly stopped matching produces identical answers at ten times the price,
-and folded into one number that is invisible.
-
----
-
-## Running a model locally
-
-`ollama` needs no key and costs nothing, which makes it the right place to
-develop the loop: a run can be repeated as many times as it takes.
-
-```bash
-brew install ollama
-ollama serve            # leave it running
-ollama pull qwen3:8b
-sentineldesk-agent --provider ollama run "what windows are open?"
-```
-
-Two things worth knowing before spending an afternoon on it.
-
-**Apple Silicon only, for the GPU.** Ollama accelerates through Metal on macOS
-and enables it on Apple Silicon; AMD support goes through ROCm, which is Linux.
-On an Intel Mac it runs on CPU whatever card is in the machine — verified on an
-i9-10900 with a Radeon RX 580, where `discovering available GPUs` finds
-`library=cpu` and nothing else. It works. It is not fast.
-
-**The catalogue is the bottleneck, not the model.** Generating tokens on a CPU
-is slow; *processing* 19,000 tokens of tool schemas before generating anything
-is much slower. This is the same number that dominates the bill on a hosted
-provider, and it is why tool selection is not only an economy — it is what makes
-a local model usable at all.
-
-`ollama-cloud` is the same protocol against Ollama's servers, so it is one key
-and a different `--provider`. Worth having when the machine cannot do the work.
-
----
-
-## What it costs
-
-Tokens are recorded; money is derived.
-
-```bash
-sentineldesk-agent costs
-```
-
-A price changes, and a price stored beside each row would then be wrong for
-every past run with no way to notice. Recomputing from a rate you control keeps
-the history correct when the rate moves — correcting `pricing.json` re-prices
-everything, not only what comes next.
-
-```jsonc
-// ~/.sentineldesk/pricing.json — dollars per million tokens
-{
-  "sonnet": { "input": 2.00, "output": 10.00 },
-  "opus":   { "input": 15.00, "output": 75.00 },
-  "haiku":  { "input": 1.00, "output": 5.00 }
-}
-```
-
-The key is matched as a substring of the model id, longest match winning, so a
-dated release inherits its family's rate instead of falling to zero. Cache
-multipliers (`cache_write_multiplier`, `cache_read_multiplier`) default to 1.25
-and 0.10 and are overridable in the same file.
-
-**The built-in rates are estimates.** They are there so `costs` prints something
-useful on the first day, not because this project is an authority on anybody's
-billing. Calibrate against the console: take the token counts `costs` reports,
-take what the invoice says, and adjust. A model with no rate prints `?` rather
-than zero — reporting a day's work as free is the worst available way to be
-wrong about a bill.
-
----
-
-## Adding one
-
-A provider that speaks chat-completions is a row in `Presets`
-(`agent/internal/provider/openaicompat.go`): id, base URL, key name, default
-model, what it does about caching, and one sentence for `providers` about the
-thing somebody has to know.
-
-One that does not gets its own file implementing `Provider` — three methods,
-and `KeySource()` if it holds a credential. Look at `anthropic.go`; the mapping
-between this package's types and the wire format is the whole job, which is also
-why an SDK is not used: a dependency that changes its own types underneath the
-loop is a dependency that owns the loop.
+Cache tokens are counted separately everywhere: in the store, in `costs`, in the
+run summary. A cache that quietly stopped matching produces identical answers at
+ten times the price, and folded into one number that is invisible.
