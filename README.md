@@ -230,9 +230,17 @@ internal/desktop/     X11: input injection, cursor, clipboard, joystick, pointer
 internal/media/       GStreamer: pipelines, encoders, recording, upstream audio
 internal/stream/      sessions, the shared room, auth, rate limiting, TLS, files
 internal/mcp/         the MCP server, its 120 tools and the risk registry
+internal/toolsearch/  the ranking both sides use to find a tool from a task
 internal/webui/       the browser client, embedded with go:embed
+agent/                sentineldesk-agent: the runtime that drives the desktop
 deploy/               Dockerfile, compose files, desktop and supervisor config
 ```
+
+`agent/` is the second binary — an ordinary MCP client over the same socket,
+holding no privilege the socket does not grant. It builds without CGO, so it
+cross-compiles to every platform from any machine. See
+[`agent/README.md`](agent/README.md) to use it and
+[`agent/providers.md`](agent/providers.md) for the models it can drive.
 
 ## Documentation
 
