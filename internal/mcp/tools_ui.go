@@ -53,7 +53,10 @@ func (s *Server) buildUITools() []toolDef {
 			Risk:        riskRead,
 			Description: "Find UI elements by role, name or text — e.g. the button called 'Sign in', or every text entry. Returns each match with its `ref` (use it with ui_click / ui_set_text) plus its screen coordinates. This replaces OCR + find_text for real applications.",
 			InputSchema: schema(map[string]any{
-				"role":  pStr("role, e.g. 'push button', 'entry', 'menu item', 'link'"),
+				"role": pStr("role as the TOOLKIT reports it — run ui_tree first to see the " +
+					"actual names, which are not always the obvious ones: a GTK dialog's " +
+					"button is 'button' and its text field is 'text', while a Chromium " +
+					"button may be 'toggle button'"),
 				"name":  pStr("accessible name (substring, case-insensitive)"),
 				"text":  pStr("visible text (substring)"),
 				"app":   pStr("restrict to this application"),
