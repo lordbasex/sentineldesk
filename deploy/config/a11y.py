@@ -51,6 +51,23 @@ def safe(fn, default=None):
         return default
 
 
+def label_of(obj):
+    """The text of whatever labels this element, through AT-SPI's relation."""
+    relations = safe(obj.getRelationSet, []) or []
+    for rel in relations:
+        if safe(rel.getRelationType) != pyatspi.RELATION_LABELLED_BY:
+            continue
+        n = safe(rel.getNTargets, 0) or 0
+        for i in range(n):
+            target = safe(lambda: rel.getTarget(i))
+            if target is None:
+                continue
+            name = safe(lambda: target.name or "", "")
+            if name:
+                return name
+    return ""
+
+
 def describe(obj, ref):
     """One element: role, name, state, geometry and actions."""
     info = {
@@ -85,6 +102,21 @@ def describe(obj, ref):
     val = safe(obj.queryValue)
     if val:
         info["value"] = safe(lambda: val.currentValue)
+
+    # The label a toolkit put next to this element rather than inside it.
+    #
+    # GTK does not name an entry after the caption beside it: the caption is a
+    # separate label object, and the two are joined by a LABELLED_BY relation.
+    # So a form whose field reads "Name:" on screen has an entry whose own name
+    # is the empty string, and anything matching by name finds the label — an
+    # element with no editable text, which is the wrong half of the pair.
+    #
+    # Exposing it here means one lookup makes every caller able to address a
+    # field the way a person would describe it, instead of each of them
+    # rediscovering the relation.
+    label = safe(lambda: label_of(obj), "")
+    if label:
+        info["label"] = label
 
     states = safe(lambda: obj.getState().getStates(), [])
     flags = []
@@ -161,8 +193,13 @@ def cmd_tree(args):
 def matches(info, args):
     if args.role and args.role.lower() not in info.get("role", "").lower():
         return False
-    if args.name and args.name.lower() not in info.get("name", "").lower():
-        return False
+    if args.name:
+        # The label counts as a name. Without this a GTK form is unaddressable
+        # by the words printed on it: the entry is nameless and the caption
+        # beside it belongs to a different object.
+        haystack = (info.get("name", "") + " " + info.get("label", "")).lower()
+        if args.name.lower() not in haystack:
+            return False
     if args.text and args.text.lower() not in (info.get("text", "") + info.get("name", "")).lower():
         return False
     return True
@@ -181,9 +218,55 @@ def cmd_find(args):
     return {"count": len(found), "elements": found}
 
 
+def locate(args, prefer=None):
+    """The object to act on: an explicit ref, or the best match for a name.
+
+    fill_form has been calling `settext --name X` since it was written, and
+    settext only ever accepted --ref. argparse refused the call, exited 2 with
+    an empty stdout, and the Go side reported the empty output as a failed
+    field — so the tool has never filled anything, and its `submit` never
+    clicked anything either. The fix is to make the verbs addressable the way
+    every caller already assumed they were.
+
+    `prefer` picks between candidates when a name matches more than one. It
+    matters for exactly the case that motivated the labelled-by lookup: asking
+    for "Name" in a GTK dialog finds both the caption and the entry it labels,
+    and only one of them can be typed into.
+    """
+    if getattr(args, "ref", None):
+        return resolve(args.ref), args.ref, None
+    name = getattr(args, "name", None)
+    if not name:
+        return None, "", {"error": "give either --ref or --name"}
+
+    found = cmd_find(args)["elements"]
+    if not found:
+        return None, "", {"error": f"nothing matches --name {name!r}",
+                          "hint": "ui_tree shows what is there and what its role is called"}
+    if prefer:
+        for info in found:
+            if prefer(info):
+                return resolve(info["ref"]), info["ref"], None
+    return resolve(found[0]["ref"]), found[0]["ref"], None
+
+
+def editable(info):
+    return "editable" in info.get("state", []) or info.get("role") in (
+        "text", "entry", "password text", "spin button", "combo box")
+
+
+def actionable(info):
+    return bool(info.get("actions"))
+
+
 def cmd_click(args):
-    obj = resolve(args.ref)
-    act = obj.queryAction()
+    obj, ref, err = locate(args, prefer=actionable)
+    if err:
+        return err
+    try:
+        act = obj.queryAction()
+    except Exception:
+        return {"error": "the element has no actions to perform"}
     names = [act.getName(i) for i in range(act.nActions)]
     idx = 0
     if args.action:
@@ -194,17 +277,21 @@ def cmd_click(args):
         else:
             return {"error": f"action {args.action!r} is not available", "actions": names}
     act.doAction(idx)
-    return {"ok": True, "action": names[idx] if names else "", "ref": args.ref}
+    return {"ok": True, "action": names[idx] if names else "", "ref": ref}
 
 
 def cmd_settext(args):
-    obj = resolve(args.ref)
+    obj, ref, err = locate(args, prefer=editable)
+    if err:
+        return err
     try:
-        editable = obj.queryEditableText()
+        editable_iface = obj.queryEditableText()
     except Exception:
-        return {"error": "the element is not editable"}
-    editable.setTextContents(args.text)
-    return {"ok": True, "ref": args.ref, "chars": len(args.text)}
+        return {"error": "the element is not editable",
+                "hint": "with --name this may have matched the caption rather "
+                        "than the field it labels; ui_tree shows both"}
+    editable_iface.setTextContents(args.text)
+    return {"ok": True, "ref": ref, "chars": len(args.text)}
 
 
 def cmd_gettext(args):
@@ -225,12 +312,14 @@ def cmd_gettext(args):
 
 
 def cmd_focus(args):
-    obj = resolve(args.ref)
+    obj, ref, err = locate(args)
+    if err:
+        return err
     ok = False
     comp = safe(obj.queryComponent)
     if comp:
         ok = bool(safe(comp.grabFocus, False))
-    return {"ok": ok, "ref": args.ref}
+    return {"ok": ok, "ref": ref}
 
 
 # The events that can bring a matching element into existence. children-changed
@@ -353,12 +442,19 @@ def main():
     p = sub.add_parser("find")
     common(p)
 
+    # --ref or --name, for the three verbs that act on one element. Not
+    # required=True on --ref any more: that is what made `settext --name X`
+    # exit 2 before it reached any of this.
+    def addressable(p):
+        p.add_argument("--ref")
+        common(p)
+
     p = sub.add_parser("click")
-    p.add_argument("--ref", required=True)
+    addressable(p)
     p.add_argument("--action")
 
     p = sub.add_parser("settext")
-    p.add_argument("--ref", required=True)
+    addressable(p)
     p.add_argument("--text", required=True)
 
     p = sub.add_parser("gettext")
@@ -366,7 +462,7 @@ def main():
     p.add_argument("--max-chars", type=int, default=20000)
 
     p = sub.add_parser("focus")
-    p.add_argument("--ref", required=True)
+    addressable(p)
 
     p = sub.add_parser("waitfor")
     common(p)

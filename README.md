@@ -105,7 +105,10 @@ supervisord, so any piece can be restarted independently.
 
 **Video.** `ximagesrc` reads the framebuffer and hands it to GStreamer, which
 runs *inside* the Go process through go-gst rather than as a separate `gst-launch`
-child. The encoder is chosen at startup by running a real probe pipeline for each
+child. That is true of the live pipeline everyone is watching; the side pipelines
+— recording, screenshots, the roomless restream fallback — are separate processes
+on purpose, so that a bad codec combination or a full disk ends one file rather
+than the desktop. The encoder is chosen at startup by running a real probe pipeline for each
 candidate in turn — **NVENC → VA-API → x264 → software VP8** — so the choice
 reflects what actually works on this host, not what the drivers claim. Encoded
 frames leave through an `appsink` and each RTP packet goes straight onto the

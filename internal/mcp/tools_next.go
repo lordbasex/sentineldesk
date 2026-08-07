@@ -86,14 +86,20 @@ func (s *Server) buildNextTools() []toolDef {
 			Name:            "fill_form",
 			Risk:            riskWrite,
 			RequiresControl: true,
-			Description:     "Fill several fields of a dialog or form in one call, by accessibility name — no clicking or tabbing between them. Optionally press a button at the end. Far more reliable than typing blind.",
+			Description: "Fill several fields of a dialog or form in one call, by the " +
+				"label printed next to each one — no clicking or tabbing between them. " +
+				"Optionally press a button at the end. Far more reliable than typing " +
+				"blind. Works on native dialogs as well as pages: a toolkit that keeps " +
+				"the caption in a separate label is followed through the accessibility " +
+				"relation, so ask for what a person would read on screen.",
 			InputSchema: schema(map[string]any{
 				"fields": map[string]any{
 					"type":                 "object",
-					"description":          "field name -> value, e.g. {\"Username\":\"admin\",\"Password\":\"secret\"}",
+					"description":          "field label -> value, e.g. {\"Username\":\"admin\",\"Password\":\"secret\"}",
 					"additionalProperties": map[string]any{"type": "string"},
 				},
 				"submit": pStr("name of the button to press afterwards, e.g. 'Sign in'"),
+				"app":    pStr("optional: restrict to one application, so a common label like 'Name' is not matched in the wrong window"),
 			}, "fields"),
 		},
 		{
@@ -476,34 +482,66 @@ func (s *Server) toolFillForm(ctx context.Context, args map[string]any) ([]map[s
 	}
 	sort.Strings(names)
 
+	// Which application, when the caller says. Without it a name is matched
+	// across every open window, and "Name" is not a rare caption.
+	app := argStr(args, "app")
+	scope := func(cmd ...string) []string {
+		if app != "" {
+			cmd = append(cmd, "--app", app)
+		}
+		return cmd
+	}
+
 	results := make([]map[string]any, 0, len(names))
 	failed := 0
 	for _, name := range names {
 		value := fmt.Sprint(raw[name])
-		out, err := s.a11yRaw("settext", "--name", name, "--text", value)
+		out, err := s.a11yRaw(scope("settext", "--name", name, "--text", value)...)
 		entry := map[string]any{"field": name}
+		// The bridge answers in JSON either way, so the reply is read rather
+		// than scanned for the word "error" — which used to mean a field whose
+		// own label contained it reported itself as having failed.
+		var res struct {
+			OK    bool   `json:"ok"`
+			Ref   string `json:"ref"`
+			Error string `json:"error"`
+			Hint  string `json:"hint"`
+		}
 		switch {
 		case err != nil:
 			entry["ok"] = false
 			entry["error"] = err.Error()
 			failed++
-		case strings.Contains(strings.ToLower(out), "error") ||
-			strings.Contains(strings.ToLower(out), "not found"):
+		case json.Unmarshal([]byte(out), &res) != nil:
 			entry["ok"] = false
 			entry["error"] = strings.TrimSpace(out)
 			failed++
+		case !res.OK:
+			entry["ok"] = false
+			entry["error"] = res.Error
+			if res.Hint != "" {
+				entry["hint"] = res.Hint
+			}
+			failed++
 		default:
 			entry["ok"] = true
+			// The caller named a label, not an element. Saying which one was
+			// written to is the difference between a report and a claim.
+			entry["ref"] = res.Ref
 		}
 		results = append(results, entry)
 	}
 
 	res := map[string]any{"fields": results, "filled": len(names) - failed, "failed": failed}
 	if submit := argStr(args, "submit"); submit != "" {
-		out, err := s.a11yRaw("click", "--name", submit)
-		if err != nil || strings.Contains(strings.ToLower(out), "error") {
+		out, err := s.a11yRaw(scope("click", "--name", submit)...)
+		var clicked struct {
+			OK    bool   `json:"ok"`
+			Error string `json:"error"`
+		}
+		if err != nil || json.Unmarshal([]byte(out), &clicked) != nil || !clicked.OK {
 			res["submitted"] = false
-			res["submit_error"] = strings.TrimSpace(out + fmt.Sprint(err))
+			res["submit_error"] = strings.TrimSpace(clicked.Error + " " + out)
 		} else {
 			res["submitted"] = true
 			s.toolWaitForIdle(ctx, map[string]any{"timeout_ms": 8000, "quiet_ms": 800})

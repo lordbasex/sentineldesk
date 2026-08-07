@@ -204,30 +204,41 @@ func TestFillForm(t *testing.T) {
 	control(t)
 	zenityEntry(t, "FILLDIALOG")
 
-	out, isErr := shared.call(t, "fill_form", map[string]any{
-		"fields": map[string]any{"Name": "filled-by-form"}})
-
-	if !isErr && strings.Contains(out, "\"filled\": 1") {
-		entry := findRef(t, "text", "zenity")
-		eventually(t, 6*time.Second, "the field to hold what the form wrote", func() bool {
-			return strings.Contains(
-				shared.Call(t, "ui_get_text", map[string]any{"ref": entry}), "filled-by-form")
-		})
-		return
+	// The label is the only handle a person has on this field, so it is the one
+	// the tool has to accept. In GTK the caption and the entry are separate
+	// objects joined by a labelled-by relation: "Name" is the label's name and
+	// the entry's own name is empty, so a match by name lands on the half that
+	// cannot be typed into. The bridge follows the relation, and settext
+	// prefers an editable candidate when a label matches more than one thing.
+	//
+	// This used to be a skip. It was not only the relation that was missing:
+	// fill_form has always invoked `settext --name`, and settext only accepted
+	// --ref, so argparse exited 2 with an empty stdout and every field came
+	// back reported as failed. The tool had never filled anything.
+	out := shared.Call(t, "fill_form", map[string]any{
+		"app":    "zenity",
+		"fields": map[string]any{"Name": "filled-by-form"},
+	})
+	if !strings.Contains(out, "\"filled\": 1") {
+		t.Fatalf("fill_form did not fill the one field it was given:\n%s", trunc(out, 400))
 	}
 
-	// It cannot fill a GTK dialog, and the reason is structural rather than a
-	// bug in the writing: fill_form matches a field by NAME, and in GTK the
-	// label and the entry are separate elements joined by a labelled-by
-	// relation. "Name" is the label's name; the entry's own name is empty. So
-	// the ref that matches is a label, and settext on a label exits 2.
-	//
-	// Recorded rather than skipped quietly, because the fix is knowable —
-	// follow the relation from the label to what it labels — and because
-	// fill_form's usefulness on native applications depends on it. Inside a
-	// page browser_type does not have the problem, which is why the sweep
-	// reports fill_form as degraded there for a different reason entirely.
-	t.Skipf("fill_form cannot address a GTK entry by its label: %s", trunc(out, 200))
+	// Read back through the tree, which is the check that matters: a reply
+	// saying "filled" is a claim, and the entry holding the text is the fact.
+	entry := findRef(t, "text", "zenity")
+	eventually(t, 6*time.Second, "the field to hold what the form wrote", func() bool {
+		return strings.Contains(
+			shared.Call(t, "ui_get_text", map[string]any{"ref": entry}), "filled-by-form")
+	})
+
+	// A label nothing carries has to be reported, not silently counted as done.
+	out = shared.Call(t, "fill_form", map[string]any{
+		"app":    "zenity",
+		"fields": map[string]any{"NoSuchFieldAnywhere": "x"},
+	})
+	if strings.Contains(out, "\"failed\": 0") {
+		t.Errorf("a field that does not exist was reported as filled:\n%s", trunc(out, 300))
+	}
 }
 
 func TestCheckErrors(t *testing.T) {
@@ -240,25 +251,30 @@ func TestCheckErrors(t *testing.T) {
 	// tool is right to report it and a test demanding silence would be
 	// demanding a tidy desktop rather than a working tool.
 
-	// Now a real error dialog, which is how a graphical program fails — there
-	// is no exit code to read, which is the reason this tool exists.
-	// The title carries the word, not just the body.
+	// A real error dialog, which is how a graphical program fails — there is no
+	// exit code to read, which is the reason this tool exists.
 	//
-	// A dialog is only reported when its own name or text reads like a failure,
-	// and zenity puts the message in a child label — so the dialog element
-	// itself offers nothing but the title. A real error dialog titled with the
-	// application's name, message in the body, is therefore missed. That is a
-	// gap worth closing by searching a dialog's descendants, and it is recorded
-	// here rather than papered over: this test covers the case the tool does
-	// handle, which is the one where the wording is on the dialog.
-	ShUser(t, "setsid sh -c 'DISPLAY=:0 zenity --error --title=\"Error saving file\" --text=failed' </dev/null >/dev/null 2>&1 &")
+	// The title here is the application's name and says nothing about failing.
+	// That is the normal shape of an error box and it used to be invisible:
+	// zenity puts the message in a child label, and check_errors only ever read
+	// the dialog element's own name and text. So the only dialogs it caught
+	// were the ones that repeated the word "error" in their title.
+	//
+	// The wording is now looked for anywhere inside the dialog, which is where
+	// a person reads it.
+	ShUser(t, "setsid sh -c 'DISPLAY=:0 zenity --error --title=\"Archiver\" --text=\"Could not write the file\"' </dev/null >/dev/null 2>&1 &")
 	t.Cleanup(func() { ShUser(t, "pkill -f zenity 2>/dev/null || true") })
 
-	eventually(t, 15*time.Second, "the error dialog to be noticed", func() bool {
-		out := shared.Call(t, "check_errors", nil)
-		return strings.Contains(out, "Error saving file") ||
-			strings.Contains(out, "errors_on_screen\": true")
+	var last string
+	eventually(t, 15*time.Second, "the error dialog to be noticed by its body", func() bool {
+		last = shared.Call(t, "check_errors", nil)
+		return strings.Contains(last, "errors_on_screen\": true")
 	})
+	// And the text has to come back, or the agent knows something failed
+	// without knowing what — which is barely better than not being told.
+	if !strings.Contains(last, "Could not write the file") {
+		t.Errorf("the dialog was found and its message is not in the report:\n%s", trunc(last, 500))
+	}
 }
 
 // --- helpers -----------------------------------------------------------------

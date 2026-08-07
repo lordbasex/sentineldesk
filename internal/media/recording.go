@@ -26,9 +26,20 @@ import (
 
 // Recorder writes the screen (and audio) to a file using a separate gst-launch
 // process, running alongside the WebRTC stream — ximagesrc happily serves more
-// than one reader. The -e flag makes gst send EOS on SIGINT so the container is
-// finalised properly (the mp4 moov atom, the webm index): without it the file
-// is left corrupt.
+// than one reader.
+//
+// A separate process, while the live pipeline is in-process through go-gst, and
+// the asymmetry is the point rather than an inconsistency left over from
+// somewhere. This pipeline is assembled from what the caller asked for: a codec,
+// a container, a bitrate, a path — and start_recording is an MCP tool, so those
+// come from an agent. A combination this host cannot satisfy, or a disk that
+// fills halfway through, ends the child and nothing else. In-process the same
+// fault would be in the address space serving every viewer, and a recording
+// nobody is watching would have taken down the stream they are.
+//
+// The -e flag makes gst send EOS on SIGINT so the container is finalised
+// properly (the mp4 moov atom, the webm index): without it the file is left
+// corrupt.
 type Recorder struct {
 	display     string
 	audioDevice string

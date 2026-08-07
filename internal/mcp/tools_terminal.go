@@ -44,6 +44,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -237,42 +238,73 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 		}
 		return textContent("the terminal did not show a prompt in time"), true, true
 	case "check_errors":
-		// Alerts first — that is what a well-behaved toolkit uses — then any
-		// dialog whose text reads like a failure.
+		// One walk of the whole tree rather than a find per role, because the
+		// question cannot be answered from the dialog element alone.
+		//
+		// A toolkit puts the message in a child label. zenity --error --text=…
+		// produces a dialog whose own name is the title and whose text is
+		// empty, so an application that titles its error box with its own name
+		// — which is most of them — was invisible here: the wording that says
+		// it failed was one level down, in a child this never looked at.
+		//
+		// Refs are paths ("2/0/3"), so a descendant is a ref with the dialog's
+		// as its prefix. That makes the subtree free once the tree is in hand,
+		// and it is why this is one subprocess now instead of two.
+		out, err := s.a11yRaw("tree", "--depth", "14", "--limit", "1200")
+		if err != nil {
+			return textContent("could not read the accessibility tree: %v", err), true, true
+		}
+		var tree struct {
+			Elements []struct {
+				Ref  string `json:"ref"`
+				Role string `json:"role"`
+				Name string `json:"name"`
+				Text string `json:"text"`
+			} `json:"elements"`
+		}
+		if json.Unmarshal([]byte(out), &tree) != nil {
+			return textContent("the accessibility bridge did not return a tree: %s",
+				strings.TrimSpace(out)), true, true
+		}
+
 		found := []map[string]any{}
 		seen := map[string]bool{}
-		for _, role := range []string{"alert", "dialog"} {
-			out, err := s.a11yRaw("find", "--role", role)
-			if err != nil {
+		for _, e := range tree.Elements {
+			if e.Role != "alert" && e.Role != "dialog" {
 				continue
 			}
-			var res struct {
-				Elements []struct {
-					Ref  string `json:"ref"`
-					Role string `json:"role"`
-					Name string `json:"name"`
-					Text string `json:"text"`
-				} `json:"elements"`
-			}
-			if json.Unmarshal([]byte(out), &res) != nil {
+			if seen[e.Ref] {
 				continue
 			}
-			for _, e := range res.Elements {
-				if seen[e.Ref] {
-					continue
-				}
-				body := strings.TrimSpace(e.Name + " " + e.Text)
-				// An alert is worth reporting whatever it says; a dialog only
-				// when its wording suggests a failure, or every open file
-				// chooser would look like a problem.
-				if e.Role != "alert" && !errorish.MatchString(body) {
-					continue
-				}
-				seen[e.Ref] = true
-				found = append(found, map[string]any{
-					"ref": e.Ref, "role": e.Role, "title": e.Name, "text": e.Text,
-				})
+			// Everything printed inside this dialog, in tree order, so the
+			// message reads the way it does on screen.
+			var parts []string
+			if t := strings.TrimSpace(e.Text); t != "" {
+				parts = append(parts, t)
 			}
+			prefix := e.Ref + "/"
+			for _, d := range tree.Elements {
+				if !strings.HasPrefix(d.Ref, prefix) {
+					continue
+				}
+				for _, s := range []string{d.Name, d.Text} {
+					if s = strings.TrimSpace(s); s != "" && !slices.Contains(parts, s) {
+						parts = append(parts, s)
+					}
+				}
+			}
+			body := strings.TrimSpace(e.Name + " " + strings.Join(parts, " "))
+			// An alert is worth reporting whatever it says; a dialog only when
+			// its wording suggests a failure, or every open file chooser would
+			// look like a problem.
+			if e.Role != "alert" && !errorish.MatchString(body) {
+				continue
+			}
+			seen[e.Ref] = true
+			found = append(found, map[string]any{
+				"ref": e.Ref, "role": e.Role, "title": e.Name,
+				"text": strings.Join(parts, "\n"),
+			})
 		}
 		if len(found) == 0 {
 			return map[string]any{
