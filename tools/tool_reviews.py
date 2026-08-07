@@ -146,6 +146,27 @@ review(
     "would cost nothing and remove that second call.",
 )
 review(
+    "list_commands",
+    "Listed the executables on PATH grouped by the packaging system's own "
+    "sections, and marked the ones that also have a desktop entry.",
+    4,
+    "It exists because half of what is installed had no tool at all. "
+    "list_installed_apps reads .desktop entries, so it answers what is in the "
+    "menu; nothing answered what can be typed. The only way to find out whether "
+    "a command existed was to run one, and run_command, terminal_run and "
+    "shell_exec are all riskDanger — so an agent under readonly or safe could "
+    "inventory the graphical desktop and could not establish whether git was "
+    "installed. Reading directories is a read, and classifying it as one closes "
+    "that. The categories are Debian's Section field rather than anything "
+    "guessed from a name, which is why net, vcs and admin mean what they say. "
+    "The unfiltered call returns those counts and not 902 names, on the "
+    "principle that an answer nobody can read is not an answer. Descriptions "
+    "come from dpkg rather than whatis, which was the obvious source and "
+    "returns nothing here because the image strips man pages. What it does not "
+    "do is tell a command from a wrapper: git-upload-archive is listed beside "
+    "git with the same description, because the package is what carries one.",
+)
+review(
     "list_installed_apps",
     "Read the .desktop entries, so the answer is what a person would see in the "
     "menu rather than what dpkg installed.",

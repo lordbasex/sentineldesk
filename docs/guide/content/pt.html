@@ -43,7 +43,7 @@
   </ul>
 
   <p>As pessoas a operam por uma camada de controle no navegador. O agente a
-  opera por um socket local com 115 ferramentas MCP. Nenhum é convidado do
+  opera por um socket local com 116 ferramentas MCP. Nenhum é convidado do
   outro.</p>
 
   <div class="note">
@@ -79,7 +79,7 @@
       injeção XTEST, cursores XFixes, ponteiros de pares com XShape,
       EWMH</td></tr>
     <tr><td>Controle do agente</td><td>MCP sobre um socket Unix
-      <code>0600</code>, 115 ferramentas</td></tr>
+      <code>0600</code>, 116 ferramentas</td></tr>
     <tr><td>Ler a tela</td><td>Árvore de acessibilidade AT-SPI, Chrome DevTools
       Protocol — estrutura, não pixels</td></tr>
     <tr><td>Interface web</td><td><code>go:embed</code>, servida com ETags sobre
@@ -112,12 +112,12 @@
   </ul>
 
   <h3 id="capabilities-agent">Um agente, por MCP</h3>
-  <p>115 ferramentas, por famílias:</p>
+  <p>116 ferramentas, por famílias:</p>
   <table>
     <tr><th>Família</th><th>O que cobre</th></tr>
     <tr><td>Encontrar as outras</td><td>Você descreve uma tarefa e recebe de
       volta as ferramentas que a fazem, com seus esquemas — assim o agente não
-      precisa manter as 115 na cabeça de uma vez</td></tr>
+      precisa manter as 116 na cabeça de uma vez</td></tr>
     <tr><td>Ponteiro e teclado</td><td>Mover, clicar, arrastar, rolar, digitar,
       combinações de teclas, e um controle virtual</td></tr>
     <tr><td>Janelas e áreas de trabalho</td><td>Listar, ativar, mover,
@@ -1103,7 +1103,7 @@ lsof -nP -iUDP:5000</code></pre>
 <section id="ai-agent" data-track="use">
   <h2>O agente de IA</h2>
 
-  <p>O SentinelDesk expõe <b>115 ferramentas</b> por um socket Unix local usando
+  <p>O SentinelDesk expõe <b>116 ferramentas</b> por um socket Unix local usando
   o Model Context Protocol. Um host de IA — Claude Code, Claude Desktop, ou
   qualquer coisa que fale MCP — conecta através de uma ponte fina:</p>
 

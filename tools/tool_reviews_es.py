@@ -124,6 +124,27 @@ review(
     "costaría nada y sacaría esa segunda llamada.",
 )
 review(
+    "list_commands",
+    "Listó los ejecutables de PATH agrupados por las secciones del propio "
+    "sistema de paquetes, y marcó los que además tienen entrada de escritorio.",
+    "Existe porque la mitad de lo instalado no tenía ninguna herramienta. "
+    "list_installed_apps lee las entradas .desktop, así que contesta qué hay en "
+    "el menú; nada contestaba qué se puede tipear. La única forma de saber si "
+    "un comando existía era ejecutar uno, y run_command, terminal_run y "
+    "shell_exec son todas riskDanger — así que un agente bajo readonly o safe "
+    "podía inventariar el escritorio gráfico y no podía establecer si git "
+    "estaba instalado. Leer directorios es una lectura, y clasificarlo así "
+    "cierra eso. Las categorías son el campo Section de Debian y no algo "
+    "inferido de un nombre, por eso net, vcs y admin significan lo que dicen. "
+    "La llamada sin filtro devuelve esos conteos y no 902 nombres, bajo el "
+    "principio de que una respuesta que nadie puede leer no es una respuesta. "
+    "Las descripciones vienen de dpkg y no de whatis, que era la fuente obvia y "
+    "acá no devuelve nada porque la imagen borra las man pages. Lo que no hace "
+    "es distinguir un comando de un envoltorio: git-upload-archive aparece al "
+    "lado de git con la misma descripción, porque la que la tiene es el "
+    "paquete.",
+)
+review(
     "list_installed_apps",
     "Leyó las entradas .desktop, así que la respuesta es lo que una persona "
     "vería en el menú y no lo que instaló dpkg.",

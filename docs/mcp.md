@@ -58,7 +58,7 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (115)
+## Available tools (116)
 
 Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
 to its definition. It is what the three `MCP_POLICY` levels are built on, and it
@@ -299,7 +299,7 @@ task and get back the handful of tools that do it.
 
 ```json
 {
-  "matched": 6, "of": 115,
+  "matched": 6, "of": 116,
   "tools": [
     {"name": "ssh_connect",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},
     {"name": "ssh_copy_id",  "category": "ssh", "risk": "danger", "description": "…", "inputSchema": {…}},

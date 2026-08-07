@@ -418,6 +418,10 @@ type Server struct {
 	tools          []toolDef
 	control        controlIndex
 	known          nameIndex
+	argNames       argIndex
+
+	pkgOnce  sync.Once
+	pkgIndex map[string]commandOrigin
 
 	// discovery trims tools/list to the core set, read once at startup because
 	// the environment does not change under a running process and re-reading it
@@ -478,6 +482,7 @@ func NewServer(cfg config.Config, injector *desktop.InputInjector, joystick *des
 	s.policy.risk = buildRiskIndex(s.tools)
 	s.control = buildControlIndex(s.tools)
 	s.known = buildNameIndex(s.tools)
+	s.argNames = buildArgIndex(s.tools)
 	return s
 }
 
@@ -777,6 +782,25 @@ func (s *Server) handleToolCall(req rpcRequest, write func(rpcResponse), policy 
 
 	if ok, reason := policy.Allowed(params.Name, args); !ok {
 		refuse(denialPolicy, textContent("denied by the server policy: %s", reason), reason)
+		return
+	}
+
+	// After policy on purpose: a caller who may not call this tool should not
+	// learn its argument names by guessing at them.
+	//
+	// The refusal names what it did not recognise and lists what it would have
+	// taken, because the mistake is almost always a near miss — depth for
+	// max_depth, text for selector — and a caller told only "bad arguments"
+	// has to go back to tools/list to find out which one.
+	if bad := s.argNames.unknownArgs(params.Name, args); len(bad) > 0 {
+		known := s.argNames.declared(params.Name)
+		msg := fmt.Sprintf("%s does not take %s", params.Name, strings.Join(bad, ", "))
+		if len(known) > 0 {
+			msg += fmt.Sprintf(" — it takes %s", strings.Join(known, ", "))
+		} else {
+			msg += " — it takes no arguments"
+		}
+		refuse(denialBadArgs, textContent("%s", msg), "unknown argument")
 		return
 	}
 

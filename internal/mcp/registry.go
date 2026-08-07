@@ -308,9 +308,26 @@ const (
 
 	// denialToolError — the tool ran and reported failure. This is the residual
 	// case and it is deliberately coarse: tools validate their own arguments
-	// and report in prose, so an invalid_arguments kind would mean touching all
-	// of them. Worth splitting out when something needs it, not before.
+	// and report in prose, so a per-tool argument kind would mean touching all
+	// of them.
 	denialToolError denialKind = "tool_error"
+
+	// denialBadArgs — an argument was sent that the tool does not have.
+	//
+	// This is the case the note above said to split out when something needed
+	// it. Something did. Every tool ignored arguments it did not recognise, so
+	// a caller that misremembered a name got no signal at all: ui_tree was
+	// called with max_depth instead of depth three times, returned the full
+	// tree each time, and read as a tool whose depth setting did nothing.
+	// Reproduced on tools with nothing in common — wait accepted
+	// totally_made_up_parameter, screenshot accepted nonsense_arg — so it was
+	// never a tool's oversight but the absence of a check.
+	//
+	// It matters more for a model than for a person. A person notices the
+	// output did not change; a model has only the reply, and a reply that
+	// reports success for a call that quietly did something else is
+	// indistinguishable from one that did what was asked.
+	denialBadArgs denialKind = "bad_arguments"
 
 	// denialCancelled — the call was stopped, by notifications/cancelled or by
 	// the connection closing.
@@ -353,6 +370,65 @@ func buildNameIndex(tools []toolDef) nameIndex {
 		idx[t.Name] = true
 	}
 	return idx
+}
+
+// argIndex is the set of argument names each tool declares.
+type argIndex map[string]map[string]bool
+
+// buildArgIndex reads the property names out of every tool's input schema.
+//
+// The schemas were already being published to clients and then never consulted
+// again, which is how an argument no tool has could be accepted by all of them.
+// Indexing at startup means the check costs a map lookup per call, and means a
+// tool cannot forget it — the same reasoning that moved risk and the room gate
+// onto toolDef.
+func buildArgIndex(tools []toolDef) argIndex {
+	idx := make(argIndex, len(tools))
+	for _, t := range tools {
+		var schema struct {
+			Properties map[string]json.RawMessage `json:"properties"`
+		}
+		// A tool with no properties gets an empty set, which correctly refuses
+		// every argument rather than accepting any.
+		_ = json.Unmarshal(t.InputSchema, &schema)
+		names := make(map[string]bool, len(schema.Properties))
+		for name := range schema.Properties {
+			names[name] = true
+		}
+		idx[t.Name] = names
+	}
+	return idx
+}
+
+// unknownArgs returns the argument names this tool does not declare, sorted so
+// the message is the same every time it is produced.
+func (idx argIndex) unknownArgs(tool string, args map[string]any) []string {
+	known, ok := idx[tool]
+	if !ok {
+		return nil
+	}
+	var bad []string
+	for name := range args {
+		// _meta is the specification's own extension slot and belongs to the
+		// protocol rather than to the tool, so it is never a tool's argument
+		// and never a mistake.
+		if name == "_meta" || known[name] {
+			continue
+		}
+		bad = append(bad, name)
+	}
+	sort.Strings(bad)
+	return bad
+}
+
+// declared lists the argument names a tool does take, for the refusal message.
+func (idx argIndex) declared(tool string) []string {
+	names := make([]string, 0, len(idx[tool]))
+	for name := range idx[tool] {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 // --- discovery -----------------------------------------------------------------

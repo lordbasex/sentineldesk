@@ -25,6 +25,7 @@ import (
 	"github.com/lordbasex/sentineldesk/internal/media"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -146,8 +147,24 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		{
 			Name:        "list_installed_apps",
 			Risk:        riskRead,
-			Description: "List the graphical applications installed on the desktop (from .desktop entries): name and command.",
+			Description: "List the graphical applications installed on the desktop (from .desktop entries): name and command. For command-line programs rather than menu entries, use list_commands.",
 			InputSchema: schema(map[string]any{}),
+		},
+		{
+			Name: "list_commands",
+			Risk: riskRead,
+			Description: "List the command-line programs available to run, from the executables on PATH. " +
+				"Called with nothing it returns the categories and how many commands are in each — the " +
+				"packaging system's own sections (net, vcs, admin, text, editors, devel) rather than " +
+				"hundreds of bare names. Then ask for one category, or filter by name. Each command " +
+				"comes back with its package and category, and is marked when it also has a desktop " +
+				"entry, so the graphical and command-line halves of what is installed can be told apart.",
+			InputSchema: schema(map[string]any{
+				"filter":   pStr("substring to match against the command name"),
+				"category": pStr("list one category, from the categories the unfiltered call returns"),
+				"describe": pBool("include the one-line description of the package each command came from"),
+				"limit":    pInt("max results (default 100)"),
+			}),
 		},
 		// ---- fine pointer control ----
 		{
@@ -448,6 +465,9 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 		return c, e, true
 	case "is_running":
 		c, e := s.toolIsRunning(argStr(args, "name"))
+		return c, e, true
+	case "list_commands":
+		c, e := s.toolListCommands(args)
 		return c, e, true
 	case "list_installed_apps":
 		c, e := s.toolListInstalledApps()
@@ -887,6 +907,250 @@ func (s *Server) ocrImage(args map[string]any, mode string) (string, error) {
 		return "", fmt.Errorf("tesseract: %w", err)
 	}
 	return string(out), nil
+}
+
+// commandOrigin is what the packaging system knows about one executable.
+type commandOrigin struct {
+	Package string
+	Section string
+	Summary string // the package's one-line description
+}
+
+// packageIndex maps an executable's absolute path to the package that shipped
+// it and the section that package belongs to.
+//
+// The section is the point. Debian curates it — net, vcs, admin, text, editors,
+// devel — so grouping by it produces categories somebody chose rather than ones
+// guessed from a name. Nothing else available here is as good: man page
+// sections separate user commands from admin ones and stop there, and the
+// filename tells you nothing at all.
+//
+// Built once and kept. The section for every package is one 800KB read, but the
+// path-to-package direction lives in a file per package and totals eleven
+// megabytes, which is fine to do once in a long-lived daemon and not fine to do
+// per call. Only paths already known to be executables on PATH are kept, so
+// what stays in memory is a few hundred entries rather than the whole
+// filesystem manifest.
+func (s *Server) packages(wanted map[string]bool) map[string]commandOrigin {
+	s.pkgOnce.Do(func() {
+		s.pkgIndex = buildPackageIndex(wanted)
+	})
+	return s.pkgIndex
+}
+
+func buildPackageIndex(wanted map[string]bool) map[string]commandOrigin {
+	// Package -> section and summary, from the one file that has every
+	// installed package.
+	//
+	// The summary comes from here rather than from whatis, which was the
+	// obvious choice and does not work: this image strips documentation through
+	// dpkg path-exclude rules, so /usr/share/man/man1 is empty and whatis
+	// answers "nothing appropriate" for everything. dpkg's own Description
+	// field is already in the file being read for the section, needs no index
+	// to have been built, and survives an image with no manuals at all. It
+	// describes the package rather than the command, so git and git-shell share
+	// one line — which is why the field is named for the package.
+	section, summary := map[string]string{}, map[string]string{}
+	if data, err := os.ReadFile("/var/lib/dpkg/status"); err == nil {
+		var pkg string
+		for _, line := range strings.Split(string(data), "\n") {
+			if name, ok := strings.CutPrefix(line, "Package: "); ok {
+				pkg = strings.TrimSpace(name)
+			} else if sec, ok := strings.CutPrefix(line, "Section: "); ok && pkg != "" {
+				section[pkg] = strings.TrimSpace(sec)
+			} else if d, ok := strings.CutPrefix(line, "Description: "); ok && pkg != "" {
+				// Only the synopsis: the continuation lines that follow are the
+				// long description, and a paragraph per command is not what a
+				// listing is for.
+				summary[pkg] = strings.TrimSpace(d)
+			}
+		}
+	}
+
+	out := map[string]commandOrigin{}
+	entries, err := os.ReadDir("/var/lib/dpkg/info")
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		name, ok := strings.CutPrefix(e.Name(), "")
+		if !ok || !strings.HasSuffix(name, ".list") {
+			continue
+		}
+		pkg := strings.TrimSuffix(name, ".list")
+		// A package installed for one architecture is listed as pkg:arch; the
+		// section is filed under the bare name.
+		if base, _, found := strings.Cut(pkg, ":"); found {
+			pkg = base
+		}
+		data, err := os.ReadFile(filepath.Join("/var/lib/dpkg/info", e.Name()))
+		if err != nil {
+			continue
+		}
+		for _, path := range strings.Split(string(data), "\n") {
+			if !wanted[path] {
+				continue
+			}
+			out[path] = commandOrigin{Package: pkg, Section: section[pkg], Summary: summary[pkg]}
+		}
+	}
+	return out
+}
+
+// toolListCommands lists the executables on PATH.
+//
+// list_installed_apps answers half the question of what is installed — the half
+// with a menu entry. The other half had no tool at all, and the only way to
+// find out whether a command existed was to run one, which is riskDanger. So an
+// agent under MCP_POLICY=readonly or safe could inventory the graphical desktop
+// and was blind to the command line: it could not establish whether git was
+// present without permission to execute something. Reading directories is a
+// read, and classifying it as one is what closes that.
+//
+// The unfiltered case deliberately does not return every name. This container
+// has 902 executables, most of them plumbing nobody asked about —
+// git-upload-archive, git-receive-pack — and handing a model seven kilobytes of
+// those is the same mistake as returning a screenful of image placeholders: an
+// answer that is complete and useless. Counts and directories say what is there
+// and how to ask again.
+func (s *Server) toolListCommands(args map[string]any) ([]map[string]any, bool) {
+	filter := strings.ToLower(strings.TrimSpace(argStr(args, "filter")))
+	limit := argInt(args, "limit")
+	if limit <= 0 {
+		limit = 100
+	}
+	describe, _ := args["describe"].(bool)
+
+	// Which commands also appear in the menu, so the two halves can be told
+	// apart in one answer rather than by calling both tools and joining them.
+	desktopCmds := map[string]bool{}
+	if entries, err := os.ReadDir("/usr/share/applications"); err == nil {
+		for _, e := range entries {
+			if !strings.HasSuffix(e.Name(), ".desktop") {
+				continue
+			}
+			data, err := os.ReadFile(filepath.Join("/usr/share/applications", e.Name()))
+			if err != nil {
+				continue
+			}
+			for _, line := range strings.Split(string(data), "\n") {
+				exec, ok := strings.CutPrefix(line, "Exec=")
+				if !ok {
+					continue
+				}
+				exec, _, _ = strings.Cut(strings.TrimSpace(exec), " ")
+				desktopCmds[filepath.Base(exec)] = true
+				break
+			}
+		}
+	}
+
+	seen := map[string]string{} // name -> the directory it was found in
+	perDir := map[string]int{}
+	var dirs []string
+	for _, dir := range filepath.SplitList(os.Getenv("PATH")) {
+		if dir == "" {
+			continue
+		}
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		dirs = append(dirs, dir)
+		for _, e := range entries {
+			name := e.Name()
+			// Earlier directories on PATH win, which is what the shell would
+			// actually run.
+			if _, dup := seen[name]; dup {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil || info.IsDir() || info.Mode()&0o111 == 0 {
+				continue
+			}
+			seen[name] = dir
+			perDir[dir]++
+		}
+	}
+
+	// Ask the packaging system what each executable is for. Only the paths
+	// found above are looked up, so the index stays small.
+	wanted := make(map[string]bool, len(seen))
+	for name, dir := range seen {
+		wanted[filepath.Join(dir, name)] = true
+	}
+	origins := s.packages(wanted)
+
+	category := strings.ToLower(strings.TrimSpace(argStr(args, "category")))
+
+	if filter == "" && category == "" {
+		// Sections rather than names: a category with a count tells a caller
+		// what is here and what to ask for next, where 902 names tell them
+		// only that they asked the wrong question.
+		bySection := map[string]int{}
+		for name, dir := range seen {
+			sec := origins[filepath.Join(dir, name)].Section
+			if sec == "" {
+				sec = "unpackaged"
+			}
+			bySection[sec]++
+		}
+		return jsonContent(map[string]any{
+			"total":        len(seen),
+			"with_desktop": len(desktopCmds),
+			"categories":   bySection,
+			"directories":  perDir,
+			"searched":     dirs,
+			"note":         "pass category to list one group, or filter to search by name",
+		}), false
+	}
+
+	var names []string
+	for name, dir := range seen {
+		if filter != "" && !strings.Contains(strings.ToLower(name), filter) {
+			continue
+		}
+		if category != "" {
+			sec := origins[filepath.Join(dir, name)].Section
+			if sec == "" {
+				sec = "unpackaged"
+			}
+			if !strings.EqualFold(sec, category) {
+				continue
+			}
+		}
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	matched := len(names)
+	if len(names) > limit {
+		names = names[:limit]
+	}
+
+	out := make([]map[string]any, 0, len(names))
+	for _, name := range names {
+		path := filepath.Join(seen[name], name)
+		o := origins[path]
+		entry := map[string]any{"command": name, "path": path}
+		if o.Package != "" {
+			entry["package"] = o.Package
+			if o.Section != "" {
+				entry["category"] = o.Section
+			}
+		}
+		if desktopCmds[name] {
+			entry["desktop_entry"] = true
+		}
+		if describe && o.Summary != "" {
+			entry["description"] = o.Summary
+		}
+		out = append(out, entry)
+	}
+	res := map[string]any{"matched": matched, "of": len(seen), "commands": out}
+	if matched > len(names) {
+		res["note"] = fmt.Sprintf("showing %d of %d; raise limit or narrow the filter", len(names), matched)
+	}
+	return jsonContent(res), false
 }
 
 // cleanA11yText strips what the accessibility tree contributes but nobody can

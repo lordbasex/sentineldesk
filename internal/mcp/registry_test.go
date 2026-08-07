@@ -1278,3 +1278,64 @@ func TestEveryToolHasACategory(t *testing.T) {
 		}
 	}
 }
+
+// --- argument validation ------------------------------------------------------
+
+func TestEveryToolDeclaresItsArguments(t *testing.T) {
+	// The index is built from the published schema, so a tool whose schema and
+	// dispatcher disagree would start refusing arguments it actually reads.
+	// This does not catch that — nothing static can — but it does catch a tool
+	// whose schema failed to parse at all, which would silently accept
+	// everything again.
+	idx := buildArgIndex(catalogue(t))
+	for _, tool := range catalogue(t) {
+		if _, ok := idx[tool.Name]; !ok {
+			t.Errorf("%s has no entry in the argument index", tool.Name)
+		}
+	}
+}
+
+func TestUnknownArgumentsAreNamed(t *testing.T) {
+	idx := buildArgIndex(catalogue(t))
+
+	// The case that motivated this: ui_tree takes depth, and max_depth was
+	// accepted and ignored three calls running while the caller believed the
+	// depth was changing.
+	bad := idx.unknownArgs("ui_tree", map[string]any{"max_depth": 1})
+	if len(bad) != 1 || bad[0] != "max_depth" {
+		t.Fatalf("unknownArgs = %v, want [max_depth]", bad)
+	}
+	if got := idx.unknownArgs("ui_tree", map[string]any{"depth": 1}); len(got) != 0 {
+		t.Fatalf("a declared argument was rejected: %v", got)
+	}
+}
+
+func TestMetaIsNotAToolArgument(t *testing.T) {
+	// _meta is the protocol's extension slot, not the tool's, and rejecting it
+	// would break progress reporting for every tool at once.
+	idx := buildArgIndex(catalogue(t))
+	if got := idx.unknownArgs("wait", map[string]any{"ms": 5, "_meta": map[string]any{}}); len(got) != 0 {
+		t.Fatalf("_meta was treated as a tool argument: %v", got)
+	}
+}
+
+func TestToolsWithNoArgumentsRefuseAll(t *testing.T) {
+	// An empty schema means no arguments, not any argument. Defaulting the
+	// other way would leave exactly the tools with the simplest contracts
+	// accepting anything.
+	idx := buildArgIndex(catalogue(t))
+	got := idx.unknownArgs("get_screen_info", map[string]any{"width": 100})
+	if len(got) != 1 || got[0] != "width" {
+		t.Fatalf("unknownArgs = %v, want [width]", got)
+	}
+}
+
+func TestDeclaredListsWhatTheToolTakes(t *testing.T) {
+	// The refusal quotes this, and a caller who is told only "bad argument"
+	// has to go back to tools/list to find out which one they meant.
+	idx := buildArgIndex(catalogue(t))
+	names := idx.declared("wait")
+	if len(names) != 1 || names[0] != "ms" {
+		t.Fatalf("declared(wait) = %v, want [ms]", names)
+	}
+}

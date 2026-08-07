@@ -2,7 +2,7 @@
 """Call every tool in the catalogue against a running desktop, and write it up.
 
 `stage1-check.py` proves the mechanisms — annotations, denial kinds, the room
-gate, cancellation, progress. This proves the tools: all 115 of them, called in
+gate, cancellation, progress. This proves the tools: all 116 of them, called in
 an order that gives each one the state it needs, with the arguments recorded so
 a person can read what was actually done rather than trust a tick.
 
