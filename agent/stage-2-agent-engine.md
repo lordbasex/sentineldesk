@@ -408,8 +408,19 @@ unproven loop hides failures instead of surfacing them.
 
 1. **2.0** — the five server changes. Small, well understood, and everything
    below leans on them.
-2. **2.1a** — the MCP client and `doctor`. Proves the socket, the events and the
-   denial kinds before any model is involved.
+2. **2.1a** — the MCP client and `doctor`. ✅ Done. `agent/internal/mcpclient`
+   plus `agent/cmd/sentineldesk-agent`, `CGO_ENABLED=0`, cross-compiling to
+   linux/amd64, linux/arm64, darwin/arm64 and windows/amd64 from one machine
+   (ADR-002 earning its keep). `make agent`, `make agent-doctor`.
+
+   `doctor` runs 15 checks against a real desktop and all of them pass. Two
+   failed on the first run and both were client defects rather than test
+   defects: the client never asked for progress — the server sends none unless
+   a `progressToken` is present, which is right for a host that did not opt in
+   and wrong for a runtime, since a tool running for minutes in silence is
+   indistinguishable from one that has hung — and the provenance check read the
+   action log as its first call after `SetTask`, asking the log to contain an
+   entry the server had not finished writing. `action_log` cannot see itself.
 3. **2.1b** — providers and the loop, with `run` against a trivial goal.
 4. **2.1c** — tool selection, the policy overlay, the roles, and the plugin
    loader with its tool-name mapping (§3.9). The mapping depends on the roles,

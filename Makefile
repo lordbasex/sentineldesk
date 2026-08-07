@@ -232,8 +232,19 @@ release: release-binaries checksums
 test:
 	$(GO) test ./...
 
+## agent: build sentineldesk-agent (no CGO, so it cross-compiles anywhere)
+agent: _version
+	CGO_ENABLED=0 $(GO) build -trimpath \
+		-ldflags "-s -w -X main.version=$(next_version)" \
+		-o bin/sentineldesk-agent ./agent/cmd/sentineldesk-agent
+	@echo "✓ bin/sentineldesk-agent"
+
+## agent-doctor: build the agent and check it can reach the running desktop
+agent-doctor: agent
+	./bin/sentineldesk-agent doctor
+
 fmt:
-	gofmt -w cmd internal deploy
+	gofmt -w cmd internal deploy agent
 
 vet:
 	$(GO) vet ./...

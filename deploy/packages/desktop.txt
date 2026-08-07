@@ -25,6 +25,18 @@ papirus-icon-theme
 fonts-roboto
 fonts-noto-core
 
+# The gdk-pixbuf SVG loader, and the reason the two themes above are visible at
+# all. Papirus is SVG from end to end; without this loader GTK draws every one
+# of its icons as the same placeholder diamond — a panel where the menu button,
+# the launchers and every menu entry are identical blue lozenges — while every
+# file the icons live in is exactly where it belongs and no log says anything.
+#
+# It is named HERE, beside the themes it makes usable, and not only in the
+# Dockerfile and the installer's engine list where it also appears. This file is
+# what claims to describe the desktop: anything that builds a desktop from it
+# alone — which is what the list is for — otherwise gets one with no icons.
+librsvg2-common
+
 # ── Core applications ─────────────────────────────────────────────────────────
 chromium
 lxterminal

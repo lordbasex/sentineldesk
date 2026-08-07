@@ -413,8 +413,12 @@ check_panel_icons() {
   local panel=/etc/skel.sentineldesk/.config/lxpanel/LXDE/panels/panel
   [ -r "$panel" ] || return 0
 
+  # Symlinks count. Papirus is 43,000 files and 43,000 symlinks pointing at
+  # them — `applications-system.svg` is a link to `application-default-icon.svg`
+  # and so are most of the freedesktop names — so `-type f` alone reports half
+  # the theme as missing on a machine where everything works.
   local index; index=$(mktemp)
-  find /usr/share/icons /usr/share/pixmaps -type f \
+  find /usr/share/icons /usr/share/pixmaps \( -type f -o -type l \) \
        \( -name '*.svg' -o -name '*.png' -o -name '*.xpm' \) -printf '%f\n' 2>/dev/null \
     | sed -E 's/\.(svg|png|xpm)$//' | sort -u > "$index"
 
@@ -443,6 +447,23 @@ check_panel_icons() {
     warn "    dpkg -l papirus-icon-theme adwaita-icon-theme"
   else
     say "panel: all $total icons and launchers resolve"
+  fi
+
+  # And then the failure the check above cannot see, which is the one that
+  # actually looks like "the panel has no icons".
+  #
+  # Papirus is SVG, and GTK reads SVG only through the gdk-pixbuf loader that
+  # librsvg2-common registers. Without it every icon file is present, every name
+  # resolves, the line above says all twenty-six are fine — and the panel comes
+  # up with the same blue placeholder lozenge in every position. Photographed
+  # side by side on one machine with nothing changed but that package.
+  #
+  # The glob covers the architecture in the path; with no match, grep -s is
+  # quiet and simply fails, which is the answer we want.
+  if ! grep -qs svg /usr/lib/*/gdk-pixbuf-2.0/2.10.0/loaders.cache; then
+    warn "GTK has no SVG loader on this machine, so every icon will draw as a"
+    warn "  placeholder even though the files are all installed. Repair with:"
+    warn "    apt-get install --reinstall librsvg2-common"
   fi
 }
 
