@@ -88,7 +88,7 @@ VERSION_ARGS := --build-arg VERSION=$(next_version) \
                 --build-arg GIT_HASH=$(git_hash) \
                 --build-arg BUILD_DATE=$(build_date)
 
-.PHONY: build image image-lite image-full up down logs shell test fmt vet help \
+.PHONY: build image image-lite image-full up down logs shell test fmt vet help diagram \
         _version version release-binaries checksums push release ssh-peer ssh-peer-down test-integration
 
 # _version persists version.txt and prints the version. One target, so make
@@ -295,6 +295,25 @@ fmt:
 
 vet:
 	$(GO) vet ./...
+
+## diagram: re-render docs/architecture.png from the Mermaid in architecture.md
+#
+# The picture used to have no source in this repository. By the time anybody
+# checked, it said the catalogue held 106 tools and — twice, in the first image
+# of the README — that room arbitration did not apply to MCP, which was not
+# stale but backwards. Nobody could correct it without the file it was drawn in.
+#
+# So the source is the Markdown and the PNG is the artifact. Edit the Mermaid,
+# run this, commit both. It needs a network the first time, for mermaid-cli.
+diagram:
+	@command -v npx >/dev/null || { echo "diagram: needs node/npx"; exit 1; }
+	@python3 -c "import re,sys; \
+		m=re.search(r'\`\`\`mermaid\n(.*?)\`\`\`', open('docs/architecture.md').read(), re.S); \
+		sys.exit('diagram: no mermaid block in docs/architecture.md') if not m else None; \
+		open('/tmp/sd-architecture.mmd','w').write(m.group(1))"
+	npx -y @mermaid-js/mermaid-cli@11 -i /tmp/sd-architecture.mmd \
+		-o docs/architecture.png -b white -w 2400
+	@echo "docs/architecture.png regenerated — commit it alongside the source"
 
 ## help: list the targets
 help:

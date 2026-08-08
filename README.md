@@ -8,6 +8,8 @@ desktop's rail goes.
 
 ![SentinelDesk architecture](docs/architecture.png)
 
+<sub>The diagram is generated from [`docs/architecture.md`](docs/architecture.md) — edit the Mermaid there and run `make diagram`. It is in the repository as text so that a wrong arrow is a line in a diff rather than something nobody can correct.</sub>
+
 A complete Linux desktop running **inside a Docker container with no physical
 monitor**, streamed to the browser over **WebRTC** — and driven, at the same
 time, by people and by an AI agent that sees and acts on the same screen.
