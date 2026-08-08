@@ -143,6 +143,23 @@ type Capabilities struct {
 	// verify, and with explicit caching a marker in the wrong place is a
 	// silent doubling of the bill.
 	CachingIsExplicit bool
+
+	// Vision says the model can be shown a picture and reason about it.
+	//
+	// It is here rather than assumed because the runtime has to TELL the model
+	// which one it is. Measured before it was written: asked what colour the
+	// window buttons were, an agent with no vision spent twenty-five turns
+	// probing single pixels and never answered; asked whether anything looked
+	// broken, it announced that the layout was fine and that a particular
+	// button was highlighted. Neither was true and it had not looked at
+	// anything — it rebuilt the screen from the accessibility tree and then
+	// made claims about how it LOOKED.
+	//
+	// False today for every provider here: the desktop already returns a
+	// screenshot as an MCP image block, and the runtime discards it. When that
+	// changes this becomes true for the models that support it, the prompt
+	// fragment keyed off it swaps, and nothing else has to move.
+	Vision bool
 }
 
 // Provider is a model that can be asked for the next turn.

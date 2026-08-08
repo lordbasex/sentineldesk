@@ -45,7 +45,7 @@ import (
 	"strings"
 )
 
-//go:embed system.md roles
+//go:embed system.md roles perception
 var builtin embed.FS
 
 // Dir is where an override may live. Empty means ~/.sentineldesk/prompts.
@@ -95,6 +95,26 @@ func Role(name string) (string, error) {
 		return "", fmt.Errorf("role %q: a role is a name, not a path", name)
 	}
 	return read(filepath.Join("roles", name+".md"))
+}
+
+// Perception is the block that tells the model what it can and cannot see.
+//
+// Keyed off a capability rather than written into the base prompt, because the
+// answer changes per provider and will change again for all of them: the
+// desktop already returns a screenshot as an MCP image block and the runtime
+// discards it, so the day that stops being true this switches without a word of
+// the base prompt moving.
+//
+// Two files rather than one-with-a-conditional. A prompt that says "if you can
+// see, do X, otherwise do Y" spends tokens telling a model about a situation it
+// is not in, and invites it to reason about which one applies — which is a
+// question the runtime already knows the answer to.
+func Perception(canSee bool) (string, error) {
+	name := "blind.md"
+	if canSee {
+		name = "sighted.md"
+	}
+	return read(filepath.Join("perception", name))
 }
 
 // Roles lists what can be asked for, from both places, so `--role` can say what

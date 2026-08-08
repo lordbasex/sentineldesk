@@ -495,6 +495,20 @@ func (r *Runner) systemPrompt() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// What it can see, before what it should do. A model that does not know it
+	// is blind answers visual questions anyway — measured, twice — and no
+	// amount of instruction further down repairs an answer it was confident
+	// about.
+	if r.opts.Model != nil {
+		perception, err := prompts.Perception(r.opts.Model.Capabilities().Vision)
+		if err != nil {
+			return "", err
+		}
+		b.WriteString("\n")
+		b.WriteString(strings.TrimRight(perception, "\n"))
+		b.WriteString("\n")
+	}
+
 	if cat := skills.Catalogue(r.opts.Skills); cat != "" {
 		b.WriteString(cat)
 	}
