@@ -34,6 +34,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
+	"github.com/lordbasex/sentineldesk/agent/prompts"
 	"github.com/lordbasex/sentineldesk/internal/toolsearch"
 )
 
@@ -51,10 +52,11 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
 
 The model:
   --provider   anthropic | ollama | ollama-cloud | openai | openrouter
-  --role       efficient | witnessed   (witnessed does the work where people can see it)
+  --role       how the work should be done; the choices are the files in
+               agent/prompts/roles, plus anything in ~/.sentineldesk/prompts/roles
   --model      which model to use
   --max-turns  stop after this many (default 25)
-  --tools      how many goal-matched tools on top of the core set (0 = all 120)
+  --tools      how many goal-matched tools on top of the core set (0 = all of them)
 
 The catalogue is 98% of what a turn costs, so a run starts with a core set plus
 whatever the goal ranks highest, and reaches the rest through tool_search.
@@ -77,7 +79,11 @@ func main() {
 	container := fs.String("container", "", "develop from another machine: docker exec into this container instead of opening the socket")
 	bin := fs.String("bin", "sentineldesk", "the sentineldesk binary, for -container")
 	timeout := fs.Duration("timeout", 90*time.Second, "how long any one step may take")
-	role := fs.String("role", "efficient", "efficient | witnessed")
+	// The choices come from the prompts directory rather than from a literal
+	// here, so a role somebody dropped in ~/.sentineldesk/prompts/roles is one
+	// --help lists. A flag that documents only what was compiled in makes a
+	// working feature look like it does not exist.
+	role := fs.String("role", "efficient", strings.Join(prompts.Roles(), " | "))
 	providerName := fs.String("provider", "anthropic", "which provider (see `providers`)")
 	model := fs.String("model", "", "which model (default: the provider's)")
 	maxTurns := fs.Int("max-turns", 25, "stop a run after this many turns")

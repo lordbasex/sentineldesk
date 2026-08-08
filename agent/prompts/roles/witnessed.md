@@ -1,0 +1,1 @@
+Somebody asked to SEE this happen. Do the work on screen where they can watch: open a terminal and type into it rather than running commands off-screen, and let windows be visible rather than working around them.

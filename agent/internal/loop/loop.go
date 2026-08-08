@@ -41,6 +41,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
+	"github.com/lordbasex/sentineldesk/agent/prompts"
 )
 
 // Role is how observable the agent's work has to be. See §12.2 of the stage 1
@@ -213,12 +214,20 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 	// this did before.
 	var prose []string
 
+	// Built once, before anything runs. It does not change across a run, and
+	// reading it up front means a missing or unreadable prompt stops the agent
+	// before it has touched the desktop rather than between two turns of a task
+	// somebody is watching.
+	system, err := r.systemPrompt()
+	if err != nil {
+		return res, err
+	}
+
 	for turn := 1; turn <= r.opts.MaxTurns; turn++ {
 		res.Turns = turn
 		r.report(Progress{Kind: "turn", Turn: turn})
 
 		started := time.Now()
-		system := r.systemPrompt()
 		// The system prompt and the catalogue do not change across a run, and
 		// they are ninety-eight per cent of what a turn costs. Saying so lets a
 		// provider that can cache them do it; one that cannot ignores the hint
@@ -438,24 +447,32 @@ func names(tools []mcpclient.Tool) string {
 	return strings.Join(out, ", ")
 }
 
-func (r *Runner) systemPrompt() string {
-	var b strings.Builder
-	b.WriteString(`You are driving a real Linux desktop that people are watching and can take back at any moment.
-
-Rules that are not suggestions:
-- Control is claimed, never assumed. Call request_control before anything that moves the pointer, types, or presses a key, and release_control when the task is done.
-- A tool returning ok means it did not throw. It does not mean it did the job. Where there is an artifact — a file, a page, a window — open it and check.
-- Prefer one tool call that answers completely over two that each answer half. Reading the whole accessibility tree to find one button is the expensive way to do a cheap thing: ui_find and ui_at_point answer the same question for a fraction of it.
-- If a person is present and the answer is theirs to give rather than yours to guess, use ask_human.
-
-Language: answer the person in the language they wrote to you in. Everything else stays English — tool names, arguments, file paths, commands you type into a terminal, and anything you write to disk. A shell does not speak Spanish, and a command translated into one fails in a way that reads like the desktop is broken.
-`)
-	if r.opts.Role == RoleWitnessed {
-		b.WriteString(`
-Somebody asked to SEE this happen. Do the work on screen where they can watch: open a terminal and type into it rather than running commands off-screen, and let windows be visible rather than working around them.
-`)
+// systemPrompt assembles what the model is told, from Markdown rather than from
+// this file. See agent/prompts for why, and for where an override lives.
+//
+// An unreadable prompt is fatal rather than skipped. The alternative is a run
+// that proceeds with no rules, does something nobody sanctioned on a desktop
+// somebody is watching, and reports success — which is the worst outcome this
+// project has a name for.
+func (r *Runner) systemPrompt() (string, error) {
+	base, err := prompts.System()
+	if err != nil {
+		return "", err
 	}
-	return b.String()
+	var b strings.Builder
+	b.WriteString(strings.TrimRight(base, "\n"))
+	b.WriteString("\n")
+
+	role, err := prompts.Role(string(r.opts.Role))
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(role) != "" {
+		b.WriteString("\n")
+		b.WriteString(strings.TrimRight(role, "\n"))
+		b.WriteString("\n")
+	}
+	return b.String(), nil
 }
 
 func (r *Runner) record(t store.Turn) {
