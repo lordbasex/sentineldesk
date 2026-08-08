@@ -577,10 +577,14 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		fmt.Printf("%d turns, %d calls, %v\n", res.Turns, res.Calls, time.Since(started).Round(time.Second))
 		return 1
 	}
-	if res.Answer != "" {
-		fmt.Println(res.Answer)
-		fmt.Println()
-	}
+	// The answer is NOT printed here. narrate() already put every line of it on
+	// screen as the model produced it, so this block repeated the whole thing
+	// verbatim a few lines below itself — every run, twice, and more so now that
+	// res.Answer carries every turn's prose rather than only the last one.
+	//
+	// What belongs under the rule is what the transcript above cannot say: how
+	// long it took and what it cost. The answer is still stored on the run, and
+	// `sentineldesk-agent history <id>` is where somebody goes to read it back.
 	fmt.Printf("%s · %d turns · %d calls · %v · %s in / %s out tokens\n",
 		status, res.Turns, res.Calls, time.Since(started).Round(time.Second),
 		comma(res.InputToks), comma(res.OutputToks))

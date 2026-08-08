@@ -187,7 +187,16 @@ func SelectEncoder(pref string) EncoderStrategy {
 			log.Printf("encoder %s unavailable: %v", name, err)
 			continue
 		}
-		log.Printf("hardware encoder detected: %s", name)
+		// Say which KIND it is, not just its name. This line read "hardware
+		// encoder detected: x264" — and x264 is software, so the one message
+		// somebody reads when they are asking exactly this question was
+		// answering it wrong. On a machine where the GPU never appeared, the
+		// log said it had.
+		kind := "software"
+		if s.Hardware {
+			kind = "hardware"
+		}
+		log.Printf("using the %s encoder %s", kind, name)
 		return s
 	}
 	log.Printf("no hardware encoder: falling back to software VP8")

@@ -195,6 +195,24 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 	offered := r.opts.Tools
 	tools := toProviderTools(offered)
 
+	// Everything the model said, in order, so the answer is the whole answer.
+	//
+	// res.Answer used to be the LAST turn's text and nothing else, which is
+	// right whenever the run ends on its conclusion and wrong the moment it does
+	// not. A model that reported a result in one turn, released the controls in
+	// the next and signed off with a courtesy stored the courtesy: one recorded
+	// run's entire answer is "¿Necesitás algo más?". The figure it had found was
+	// on screen and in the turn log, and absent from the field every
+	// programmatic caller reads.
+	//
+	// Accumulated rather than picked, deliberately. Choosing which prose was
+	// "the real answer" means a heuristic — longest, last non-trivial, one that
+	// contains a number — and every one of those is a guess that will drop the
+	// substance in some run nobody is watching. Keeping all of it is never
+	// wrong, and for a run that ends on a single answer it is identical to what
+	// this did before.
+	var prose []string
+
 	for turn := 1; turn <= r.opts.MaxTurns; turn++ {
 		res.Turns = turn
 		r.report(Progress{Kind: "turn", Turn: turn})
@@ -231,6 +249,7 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 		})
 
 		if reply.Message.Text != "" {
+			prose = append(prose, reply.Message.Text)
 			r.report(Progress{Kind: "text", Turn: turn,
 				Detail: reply.Message.Text, Elapsed: time.Since(started)})
 		}
@@ -238,7 +257,7 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 
 		// Nothing to run: the model has said its piece and the run is over.
 		if reply.Stop != provider.StopToolUse || len(reply.Message.ToolCalls) == 0 {
-			res.Answer = reply.Message.Text
+			res.Answer = strings.Join(prose, "\n\n")
 			if reply.Stop == provider.StopLength {
 				// Truncated is not finished. Saying so beats presenting half a
 				// plan as a whole one.

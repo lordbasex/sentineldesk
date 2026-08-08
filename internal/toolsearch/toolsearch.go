@@ -237,12 +237,40 @@ func categoryMatches(category, term string) bool {
 var toolKeywords = map[string][]string{
 	// Processes — the family the naming hurts most, because "open", "start" and
 	// "run" are what a person says and three other families own those words.
-	"launch_app":          {"open", "start", "application", "program", "app", "open the"},
-	"open_app_and_wait":   {"open and wait", "start and wait", "launch and wait", "until", "and wait"},
-	"run_command":         {"execute", "shell", "one-off", "command line"},
-	"list_processes":      {"running", "tasks", "what is running", "processes"},
-	"is_running":          {"already open", "is it open", "still running", "alive"},
-	"kill_process":        {"stop", "terminate", "quit", "frozen", "hung", "force quit"},
+	"launch_app":        {"open", "start", "application", "program", "app", "open the"},
+	"open_app_and_wait": {"open and wait", "start and wait", "launch and wait", "until", "and wait"},
+	// run_command carries the OUTCOMES as well as the mechanism, and that is the
+	// whole point of the second half of this list.
+	//
+	// The vocabulary here used to describe how a tool works — "execute",
+	// "shell", "command line" — which is the vocabulary of somebody who has
+	// already decided to run a command. A person asking "how much free disk
+	// space is left" has not, and got nothing: zero hits, measured. So did "what
+	// is the CPU temperature". Neither question is exotic and both have the same
+	// answer, which is to run a command; the search simply had no way to know
+	// that because nothing in the catalogue said what running one is FOR.
+	//
+	// Deliberately short of exhaustive. Every phrase added here is one more way
+	// for run_command to crowd out a tool that answers the question directly, so
+	// this covers the things the desktop genuinely has no dedicated tool for and
+	// stops there.
+	"run_command": {"execute", "shell", "one-off", "command line",
+		"disk space", "free space", "how much space", "storage", "filesystem",
+		"how much memory", "memory usage", "ram", "swap",
+		"cpu load", "load average", "temperature", "how hot",
+		"uptime", "kernel version", "what distribution",
+		"running out of memory", "out of space", "out of disk",
+		"network", "ip address", "ping", "is the network"},
+	"list_processes": {"running", "tasks", "what is running", "processes",
+		"using the cpu", "eating memory", "hogging", "slowing everything down",
+		"using too much", "consuming", "resource usage", "what is slow",
+		// "cpu" plainly: this tool returns cpu% per process, so the word is its
+		// vocabulary and not a borrowing. Without it "what is eating the cpu"
+		// returned nothing at all — not the wrong tool, nothing.
+		"cpu", "memory"},
+	"is_running": {"already open", "is it open", "still running", "alive"},
+	"kill_process": {"stop", "terminate", "quit", "frozen", "hung", "force quit",
+		"not responding", "stopped responding", "unresponsive", "crashed", "will not close"},
 	"list_installed_apps": {"installed", "available applications", "what applications"},
 	"list_commands":       {"binaries", "executables", "programs", "what can i run", "path"},
 
@@ -284,9 +312,11 @@ var toolKeywords = map[string][]string{
 	"set_window_desktop": {"send to workspace", "move to workspace", "another workspace"},
 
 	// The room.
-	"room_state":      {"who", "connected", "participants", "viewers", "people", "others", "sharing"},
-	"ask_human":       {"ask the person", "ask them", "which did you mean", "confirm with", "check with the user", "prompt"},
-	"request_control": {"take the controls", "claim", "grab", "acquire", "may i"},
+	"room_state": {"who", "connected", "participants", "viewers", "people", "others", "sharing",
+		"am i allowed", "may i act", "can i type", "is it my turn", "who is driving"},
+	"ask_human": {"ask the person", "ask them", "which did you mean", "confirm with", "check with the user", "prompt"},
+	"request_control": {"take the controls", "claim", "grab", "acquire", "may i",
+		"drive the desktop", "let me act", "i want to act", "take over"},
 	"release_control": {"give back", "hand back", "relinquish", "let go of the controls", "done"},
 
 	// Accessibility.
