@@ -40,6 +40,7 @@ import (
 
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
+	"github.com/lordbasex/sentineldesk/agent/internal/skills"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
 	"github.com/lordbasex/sentineldesk/agent/prompts"
 )
@@ -95,6 +96,11 @@ type Options struct {
 
 	// OnEvent reports what the loop is doing, for a console or a log.
 	OnEvent func(Progress)
+
+	// Skills are the instructions somebody wrote for a kind of work, found
+	// by the caller. Only the summaries reach the prompt; the body of one is
+	// fetched by the model through skill_read when it decides it needs it.
+	Skills []skills.Skill
 
 	// Recorder keeps the run. Optional: a runtime whose database would not open
 	// still works, unrecorded, and says so — losing the accounting is worse
@@ -195,6 +201,12 @@ func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 	messages := []provider.Message{{Role: provider.RoleUser, Text: goal}}
 	offered := r.opts.Tools
 	tools := toProviderTools(offered)
+	// Offered only when there is something to read. A machine with no skills
+	// pays neither the tool's schema nor the catalogue block for a feature it
+	// is not using.
+	if len(r.opts.Skills) > 0 {
+		tools = append(tools, skillTool())
+	}
 
 	// Everything the model said, in order, so the answer is the whole answer.
 	//
@@ -349,6 +361,22 @@ func (r *Runner) runOne(ctx context.Context, turn int, call provider.ToolCall) p
 	}
 
 	started := time.Now()
+
+	// skill_read never leaves this process. The desktop has no idea what a skill
+	// is and should not — these are instructions for the model, read from the
+	// working directory and the home directory, and sending them through the MCP
+	// socket would mean the daemon growing a file reader for files that are none
+	// of its business.
+	if name == skillReadTool {
+		out := r.readSkill(call.Args)
+		r.recordCall(store.Call{TurnN: turn, Tool: name, Args: call.Args,
+			Result: out.Text, IsError: out.IsErr, Elapsed: time.Since(started)})
+		r.report(Progress{Kind: "result", Tool: name,
+			Detail: trunc(out.Text, 200), Elapsed: time.Since(started)})
+		out.CallID = call.ID
+		return out
+	}
+
 	out, err := r.mcp.Call(ctx, name, call.Args)
 	if err != nil {
 		r.recordCall(store.Call{TurnN: turn, Tool: name, AskedFor: askedFor,
@@ -467,6 +495,9 @@ func (r *Runner) systemPrompt() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if cat := skills.Catalogue(r.opts.Skills); cat != "" {
+		b.WriteString(cat)
+	}
 	if strings.TrimSpace(role) != "" {
 		b.WriteString("\n")
 		b.WriteString(strings.TrimRight(role, "\n"))
@@ -530,4 +561,60 @@ func trunc(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// --- skills -------------------------------------------------------------------
+
+// skillReadTool is the one tool this runtime answers itself.
+const skillReadTool = "skill_read"
+
+// skillTool is what the model is offered when there is at least one skill. It is
+// not in the desktop's catalogue and never will be: the desktop does not know
+// what a skill is, and the files live beside the work rather than beside the
+// display.
+func skillTool() provider.Tool {
+	return provider.Tool{
+		Name: skillReadTool,
+		Description: "Read the full instructions for one of the skills listed in " +
+			"your system prompt. Call this BEFORE starting work the skill covers — " +
+			"the summary says what it is for, the body says how it goes wrong.",
+		InputSchema: []byte(`{"type":"object","properties":{` +
+			`"name":{"type":"string","description":"the skill's name, as listed"}},` +
+			`"required":["name"]}`),
+	}
+}
+
+func (r *Runner) readSkill(args map[string]any) provider.ToolResult {
+	name, _ := args["name"].(string)
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return provider.ToolResult{IsErr: true, Text: "skill_read needs a `name`"}
+	}
+	s, ok := skills.Find(r.opts.Skills, name)
+	if !ok {
+		// Name what IS available rather than only what is not. A model that
+		// guessed a plausible name gets the real list instead of a dead end.
+		var have []string
+		for _, k := range r.opts.Skills {
+			have = append(have, k.Name)
+		}
+		if len(have) == 0 {
+			return provider.ToolResult{IsErr: true, Text: "there are no skills on this machine"}
+		}
+		return provider.ToolResult{IsErr: true,
+			Text: fmt.Sprintf("no skill called %q. There is: %s", name, strings.Join(have, ", "))}
+	}
+	// The body, plus where it lives and what is beside it. Supporting files are
+	// NAMED and not read: a skill that ships a script and a reference table
+	// would otherwise put both into every prompt of every turn. The model is
+	// told what is there and reads one with read_file when the instructions say
+	// to — which is the same bargain the tool catalogue already makes.
+	text := s.Body
+	if len(s.Files) > 0 {
+		text += fmt.Sprintf("\n\n---\nThis skill's directory is %s, and paths in the "+
+			"instructions above are relative to it. Beside SKILL.md: %s. "+
+			"Their contents are not included here — read one when the "+
+			"instructions tell you to.", s.Dir, strings.Join(s.Files, ", "))
+	}
+	return provider.ToolResult{Text: text}
 }

@@ -33,6 +33,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/loop"
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
+	"github.com/lordbasex/sentineldesk/agent/internal/skills"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
 	"github.com/lordbasex/sentineldesk/agent/internal/tui"
 	"github.com/lordbasex/sentineldesk/agent/prompts"
@@ -50,6 +51,7 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent providers       which models can be reached, and what each needs
   sentineldesk-agent costs           what has been spent, and on what
   sentineldesk-agent history [id]    past runs, or one run in full
+  sentineldesk-agent skills          the skills found, and where each came from
 
 The model:
   --provider   anthropic | ollama | ollama-cloud | openai | openrouter
@@ -142,6 +144,8 @@ func main() {
 		os.Exit(showHistory(strings.Join(args[1:], " ")))
 	case "providers":
 		os.Exit(showProviders())
+	case "skills":
+		os.Exit(showSkills())
 	}
 
 	client, how, err := connect(ctx, *container, *bin, *sock)
@@ -574,6 +578,21 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		emit = func(p loop.Progress) { events <- p }
 	}
 
+	// Skills, found beside the work and in the home directory. Problems are
+	// reported and not fatal: a SKILL.md that will not parse is one skill
+	// missing, and stopping the run over it would be a worse trade.
+	found, problems := skills.Load()
+	for _, p := range problems {
+		fmt.Fprintf(os.Stderr, "skill ignored — %v\n", p)
+	}
+	if len(found) > 0 && !live {
+		names := make([]string, len(found))
+		for i, s := range found {
+			names[i] = s.Name
+		}
+		fmt.Printf("Skills: %s\n", strings.Join(names, ", "))
+	}
+
 	runner := loop.New(c, loop.Options{
 		Role:      loop.Role(role),
 		Model:     llm,
@@ -581,6 +600,7 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		Catalogue: catalogue,
 		MaxTurns:  maxTurns,
 		OnEvent:   emit,
+		Skills:    found,
 		Recorder:  recorder,
 	})
 
@@ -986,4 +1006,42 @@ func finishRun(run *store.Run, modelName string, started time.Time, res loop.Res
 		}
 	}
 	return t
+}
+
+// showSkills lists what was found and where, because "it is not being picked
+// up" is the whole failure mode of a convention with seven search paths. Saying
+// which file won is the difference between a working feature and one somebody
+// gives up on.
+func showSkills() int {
+	found, problems := skills.Load()
+	for _, p := range problems {
+		fmt.Fprintf(os.Stderr, "\033[31m✗\033[0m %v\n", p)
+	}
+	if len(found) == 0 {
+		fmt.Println("No skills found.")
+		fmt.Println("\nA skill is a directory with a SKILL.md in it. Searched, in this order:")
+		fmt.Println("  ./.sentineldesk/skills/<name>/SKILL.md      this project")
+		fmt.Println("  ./.claude/skills/<name>/SKILL.md            this project, Claude Code's layout")
+		fmt.Println("  ./.agents/skills/<name>/SKILL.md            this project")
+		fmt.Println("  ./.opencode/skills/<name>/SKILL.md          this project, opencode's layout")
+		fmt.Println("  ~/.sentineldesk/skills/<name>/SKILL.md      every project")
+		fmt.Println("  ~/.claude/skills/<name>/SKILL.md            every project")
+		fmt.Println("  ~/.config/opencode/skills/<name>/SKILL.md   every project")
+		fmt.Println("\nThe file starts with YAML frontmatter carrying name and description,")
+		fmt.Println("then the instructions as Markdown. The description is what the agent")
+		fmt.Println("sees; it reads the rest only when it decides the skill applies.")
+		return 0
+	}
+	for _, s := range found {
+		where := "global"
+		if s.Project {
+			where = "project"
+		}
+		fmt.Printf("\033[1m%s\033[0m  \033[2m(%s)\033[0m\n", s.Name, where)
+		fmt.Printf("  %s\n", s.Description)
+		fmt.Printf("  \033[2m%s · %d bytes of instructions\033[0m\n\n", s.Path, len(s.Body))
+	}
+	fmt.Printf("%d skill(s). Only these summaries go in the prompt; the agent calls\n", len(found))
+	fmt.Printf("skill_read to get the instructions for the one it decides it needs.\n")
+	return 0
 }
