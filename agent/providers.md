@@ -182,6 +182,71 @@ the English vocabulary does not match normally falls back to offering
 everything — the right recovery when the prefix is cached and a wrong small set
 costs turns. On a CPU that is the wrong recovery, so a number you typed wins.
 
+### What a small model gets wrong, and why it is the expensive kind of wrong
+
+Everything above is about speed and cost. This one is about answers, and it is
+the reason to read the rest carefully before pointing a 3B model at a desktop
+somebody is using.
+
+The same task was run against the same desktop by several drivers: open a
+terminal and report the free space on `/`. It is about as simple as a desktop
+task gets — one command, one number, and the command prints the number in a
+labelled column.
+
+| driver | asked in | turns | calls | wall clock | answered | right? |
+|---|---|---|---|---|---|---|
+| Claude Code, driving MCP directly | — | — | 6 | 2.7s | `823G` | yes |
+| `claude-sonnet-5` | English | 5 | 4 | 11.4s | `823G` | yes |
+| `claude-sonnet-5` | Spanish | 5 | 4 | 14.9s | `823G` | yes |
+| `qwen2.5:3b` | English | 4 | 7 | 93.2s | `916GB available` | **no** — that is `Size` |
+| `qwen2.5:3b` | Spanish | 5 | 5 | 171.6s | dumped the table, never answered | **no**, and in English |
+| `qwen3:4b` | English | 4 | 4 | **32m25s** | `50G` | **no** — appears nowhere |
+
+Re-measured later, against a faster terminal and a smaller prompt, in case the
+first round had been unlucky:
+
+| driver | asked in | wall clock | answered | right? |
+|---|---|---|---|---|
+| `claude-sonnet-5` | Spanish | 13s | `805 GB` | yes |
+| `qwen2.5:3b` | English | 1m30s | `8%` | **no** — that is `Use%` |
+| `qwen2.5:3b` | Spanish | 1m19s | `approximately 8.00 GB` | **no**, and in English |
+
+The last row is the one worth staring at. `df` printed `8%` in the `Use%`
+column, and the model reported **8.00 GB of available space** — it did not read
+the wrong column, it read the wrong column and then invented a unit to go with
+it. Nothing in the tool output said GB. The JSON that reached the model was
+correct, complete and labelled; a person reading the same output could not have
+produced that sentence.
+
+Five of six small-model runs were wrong, and every one of them was wrong
+*confidently*. There was no error, no refusal, no hedge — the run finished,
+the exit code was zero, and the answer was a number that was not on the screen.
+That is the failure class this project treats as worse than a crash: a crash
+tells you it failed.
+
+**The language rule is a prompt, not a mechanism.** The system prompt says to
+answer the person in the language they wrote in. `claude-sonnet-5` honours it;
+`qwen2.5:3b` was asked in Spanish twice and answered in English both times.
+Nothing in the runtime can enforce this — the rule lives in the prompt because
+that is the only place it can live — so a model that ignores instructions
+ignores this one too.
+
+**Spanish also costs more, and the smaller the model the more it costs.**
+Measured on the same task:
+
+| | input tokens | output tokens | wall clock |
+|---|---|---|---|
+| `claude-sonnet-5` | +7% | ~0% | +31% |
+| `qwen2.5:3b` | +33% | +121% | 1.8× |
+
+**So: use a local model for work whose result you can check.** Take a
+screenshot, launch an application, list the windows, click a button that either
+appears or does not — the outcome is visible and a wrong answer announces
+itself. Do not use one to *read a value and tell you what it says*, which is
+exactly the shape of task where a confident invention is indistinguishable from
+an answer. That is what a hosted model is worth paying for, and at USD 0.03 a
+run it is not a close call.
+
 ### The GPU
 
 **On macOS, Ollama accelerates through Metal and enables it on Apple Silicon
