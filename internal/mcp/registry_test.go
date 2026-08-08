@@ -201,9 +201,46 @@ var gatedBeforeTheRefactor = []string{
 	"start_restream", "stop_restream",
 }
 
+// gatedByTheSharedScreenDecision is the separate, deliberate act the comment
+// above asks for, written down rather than folded into the frozen list.
+//
+// The gate used to mean "puts events into X". That drew the line in the right
+// place for a keyboard and in the wrong place for everything else: with
+// `you_have_control: false` it was possible to close somebody's window, move
+// another, maximise it, switch their desktop and change the volume — five out
+// of five, tried against a running desktop. None of those injects an event, and
+// all of them are unmistakably driving a desktop somebody else is looking at.
+// browser_click and browser_type are the sharpest case: they ARE keyboard and
+// pointer input, routed through the DevTools protocol instead of XTEST, and the
+// old rule let them through on a technicality.
+//
+// So the line is now "changes the shared screen", which is what visVisible
+// already meant — the classification existed and nothing consulted it.
+//
+// Three visVisible tools are deliberately NOT here, and the reason is the same
+// for all three: they are how an agent NEGOTIATES for the desktop rather than
+// uses it. Gating request_control is a deadlock. Gating ask_human means the
+// agent cannot ask permission without already holding what it is asking for.
+// release_control is the way out, and a way out that can be locked is not one.
+//
+// The cost is real and was accepted: a flow that used to open a window without
+// asking now spends one call on request_control, which is granted immediately
+// when nobody is driving.
+var gatedByTheSharedScreenDecision = []string{
+	"launch_app", "open_app_and_wait", "terminal_open", "kill_process",
+	"activate_window", "move_window", "resize_window", "close_window",
+	"minimize_window", "maximize_window", "restore_window", "fullscreen_window",
+	"window_set_state", "set_window_desktop", "switch_desktop",
+	"set_volume", "set_resolution",
+	"browser_open", "browser_goto", "browser_eval", "browser_click", "browser_type",
+}
+
 func TestControlGateParity(t *testing.T) {
 	want := map[string]bool{}
 	for _, name := range gatedBeforeTheRefactor {
+		want[name] = true
+	}
+	for _, name := range gatedByTheSharedScreenDecision {
 		want[name] = true
 	}
 
@@ -278,7 +315,12 @@ func TestRiskDoesNotImplyControl(t *testing.T) {
 		gated, notGated string
 		risk            riskLevel
 	}{
-		{"ui_click", "set_volume", riskWrite},
+		// set_clipboard rather than set_volume, which used to stand here and is
+		// now gated: changing what everyone HEARS turned out to be the same kind
+		// of act as changing what everyone sees. The pair still makes the point,
+		// and makes it better — both of these write to the desktop, and the one
+		// that does it where nobody can see is the one that goes ungated.
+		{"ui_click", "set_clipboard", riskWrite},
 		{"start_restream", "write_file", riskDanger},
 	} {
 		a, b := byName[c.gated], byName[c.notGated]

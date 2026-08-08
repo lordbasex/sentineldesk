@@ -214,10 +214,11 @@ func (s *Server) buildSysTools() []toolDef {
 			InputSchema: schema(map[string]any{"id": pStr("window id, e.g. 0x01200003")}, "id"),
 		},
 		{
-			Name:        "window_set_state",
-			Visibility:  visVisible,
-			Risk:        riskWrite,
-			Description: "Change a window state via EWMH: above, below, sticky, shaded, fullscreen, maximized_vert, maximized_horz, skip_taskbar, skip_pager, hidden, modal, demands_attention.",
+			Name:            "window_set_state",
+			Visibility:      visVisible,
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Change a window state via EWMH: above, below, sticky, shaded, fullscreen, maximized_vert, maximized_horz, skip_taskbar, skip_pager, hidden, modal, demands_attention.",
 			InputSchema: schema(map[string]any{
 				"id":     pStr("window id"),
 				"state":  pStr("state name, e.g. 'above' or 'sticky'"),

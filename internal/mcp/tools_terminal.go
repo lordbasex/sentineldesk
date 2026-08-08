@@ -96,9 +96,10 @@ func (s *Server) terminalTools() []toolDef {
 			}, "command"),
 		},
 		{
-			Name:       "terminal_open",
-			Visibility: visVisible,
-			Risk:       riskDanger,
+			Name:            "terminal_open",
+			Visibility:      visVisible,
+			Risk:            riskDanger,
+			RequiresControl: true,
 			Description: "Open a terminal window on the desktop, visible to anyone " +
 				"watching. Every interactive shell here reports its exit status, so " +
 				"terminal_run can tell a silent failure from a success — and so can " +

@@ -53,10 +53,11 @@ func snapshotDirPath() string { return filepath.Join(homeDir(), ".sentineldesk-s
 func (s *Server) buildNextTools() []toolDef {
 	return []toolDef{
 		{
-			Name:        "set_resolution",
-			Visibility:  visVisible,
-			Risk:        riskDanger,
-			Description: "Change the desktop resolution WITHOUT restarting anything. Use a smaller one for vision tasks (screenshots above ~1280 wide lose detail when the model rescales them) and the full size for real work. It can only shrink below the size the X server reserved at boot; get_screen_info reports that maximum.",
+			Name:            "set_resolution",
+			Visibility:      visVisible,
+			Risk:            riskDanger,
+			RequiresControl: true,
+			Description:     "Change the desktop resolution WITHOUT restarting anything. Use a smaller one for vision tasks (screenshots above ~1280 wide lose detail when the model rescales them) and the full size for real work. It can only shrink below the size the X server reserved at boot; get_screen_info reports that maximum.",
 			InputSchema: schema(map[string]any{
 				"width": pInt("width in pixels"), "height": pInt("height in pixels"),
 			}, "width", "height"),
@@ -73,10 +74,11 @@ func (s *Server) buildNextTools() []toolDef {
 			}),
 		},
 		{
-			Name:        "open_app_and_wait",
-			Visibility:  visVisible,
-			Risk:        riskDanger,
-			Description: "Launch a program, wait for its window to appear, focus it and wait for it to finish drawing — all in ONE call instead of launch_app + wait_for_window + activate_window + wait. Returns the window that appeared.",
+			Name:            "open_app_and_wait",
+			Visibility:      visVisible,
+			Risk:            riskDanger,
+			RequiresControl: true,
+			Description:     "Launch a program, wait for its window to appear, focus it and wait for it to finish drawing — all in ONE call instead of launch_app + wait_for_window + activate_window + wait. Returns the window that appeared.",
 			InputSchema: schema(map[string]any{
 				"command":    pStr("command line, e.g. 'lxterminal' or 'chromium https://example.com'"),
 				"match":      pStr("window title or class to wait for (default: derived from the command)"),

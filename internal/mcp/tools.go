@@ -154,10 +154,11 @@ func (s *Server) buildTools() []toolDef {
 			InputSchema:     schema(map[string]any{"keys": pStr("key or combo, e.g. ctrl+c")}, "keys"),
 		},
 		{
-			Name:        "launch_app",
-			Visibility:  visVisible,
-			Risk:        riskDanger,
-			Description: "Launch a program on the desktop (runs detached, does not block). Pass the command line, e.g. 'firefox-esr', 'lxterminal', 'chromium https://example.com'. Set as_root:true for administration GUIs that need privileges (a file manager on /etc, gparted, synaptic).",
+			Name:            "launch_app",
+			Visibility:      visVisible,
+			Risk:            riskDanger,
+			RequiresControl: true,
+			Description:     "Launch a program on the desktop (runs detached, does not block). Pass the command line, e.g. 'firefox-esr', 'lxterminal', 'chromium https://example.com'. Set as_root:true for administration GUIs that need privileges (a file manager on /etc, gparted, synaptic).",
 			InputSchema: schema(map[string]any{
 				"command": pStr("command line to run"),
 				"as_root": pBool("launch as root via sudo (default false)"),
@@ -170,11 +171,12 @@ func (s *Server) buildTools() []toolDef {
 			InputSchema: schema(map[string]any{}),
 		},
 		{
-			Name:        "activate_window",
-			Visibility:  visVisible,
-			Risk:        riskWrite,
-			Description: "Focus and raise a window by its id (from list_windows).",
-			InputSchema: schema(map[string]any{"id": pStr("window id, e.g. 0x02000007")}, "id"),
+			Name:            "activate_window",
+			Visibility:      visVisible,
+			Risk:            riskWrite,
+			RequiresControl: true,
+			Description:     "Focus and raise a window by its id (from list_windows).",
+			InputSchema:     schema(map[string]any{"id": pStr("window id, e.g. 0x02000007")}, "id"),
 		},
 		{
 			Name:        "run_command",
