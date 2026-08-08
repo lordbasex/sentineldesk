@@ -160,7 +160,7 @@ func Select(catalogue []mcpclient.Tool, goal string, limit int, capped bool) Sel
 	// Nothing matched. That is not "the core set is enough" — it is the ranking
 	// having no opinion, and the two must not produce the same behaviour.
 	//
-	// It happens whenever the goal is not in English, because the vocabulary is
+	// It used to happen to any goal not in English, because the vocabulary was
 	// English keywords: "¿qué aplicaciones están instaladas?" matched zero of a
 	// hundred and twenty tools, the run started with the core set alone, and the
 	// model spent two turns searching before it could do anything — then gave up
@@ -207,7 +207,7 @@ func (s Selection) Describe() string {
 	if s.RankingFailed && s.Dropped == 0 {
 		return fmt.Sprintf(
 			"nothing in the goal matched the catalogue, so all %d are offered "+
-				"(the ranking's vocabulary is English)", len(s.Tools))
+				"(nothing in the goal matched any vocabulary)", len(s.Tools))
 	}
 	if s.RankingFailed {
 		return fmt.Sprintf(

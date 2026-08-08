@@ -106,7 +106,7 @@ fill_form: llenar el formulario, completar el formulario
 
 browser_open: abrir el navegador, abrí el navegador, abrir chrome
 browser_goto: ir a, navegar a, entrar a, abrir la página, abrir la pagina
-browser_read: leer la página, leer la pagina, qué dice la página, que dice la pagina
+browser_text: leer la página, leer la pagina, qué dice la página, que dice la pagina
 browser_click: clic en la página, clic en la pagina, apretar en el sitio
 browser_type: escribir en la página, escribir en la pagina, llenar en el sitio
 

@@ -61,16 +61,24 @@ func TestTheGoalPullsInWhatItNeeds(t *testing.T) {
 
 // TestAGoalThatMatchesNothingGetsEverything.
 //
-// The case that cost a real run two turns and three times the money: a Spanish
-// goal matched zero of a hundred and twenty tools, the run started with the core
-// set alone as though the ranking had recommended it, and the model searched,
+// The case that cost a real run two turns and three times the money: a goal
+// matched zero of a hundred and twenty tools, the run started with the core set
+// alone as though the ranking had recommended it, and the model searched,
 // searched again, then gave up on tools and shelled out.
 //
 // A ranking with no opinion must not be mistaken for a ranking that chose the
 // core set. Turns cost more than schemas.
+//
+// The example used to be "¿qué aplicaciones están instaladas?", which matched
+// nothing because the vocabulary was English only. That is fixed — there is a
+// Spanish vocabulary now and it matches list_installed_apps — so the example had
+// to change or the test would have been asserting a bug back into existence.
+// The MECHANISM is what is being tested and it is unchanged: whatever the
+// language, a ranking that found nothing has to say so rather than pass its
+// silence off as a recommendation.
 func TestAGoalThatMatchesNothingGetsEverything(t *testing.T) {
 	catalogue := bigCatalogue()
-	sel := Select(catalogue, "¿qué aplicaciones están instaladas?", 3, false)
+	sel := Select(catalogue, "qwzx plimf zorbnak", 3, false)
 
 	if !sel.RankingFailed {
 		t.Fatal("a goal that matched nothing was not reported as a ranking failure")
@@ -81,7 +89,7 @@ func TestAGoalThatMatchesNothingGetsEverything(t *testing.T) {
 	}
 	// And it says so, because a run that costs more for this reason should not
 	// do it quietly.
-	if !strings.Contains(sel.Describe(), "English") {
+	if !strings.Contains(sel.Describe(), "matched") {
 		t.Errorf("the narration does not explain why: %q", sel.Describe())
 	}
 }
@@ -138,7 +146,7 @@ func TestAnExplicitCapIsHonouredEvenWhenTheRankingFails(t *testing.T) {
 	}
 	// And it still says why, because a run about to go badly for this reason
 	// should say so rather than let somebody discover it.
-	if !strings.Contains(sel.Describe(), "English") {
+	if !strings.Contains(sel.Describe(), "matched") {
 		t.Errorf("the narration does not explain the failure: %q", sel.Describe())
 	}
 	if !strings.Contains(sel.Describe(), "cap") {
