@@ -58,6 +58,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/lordbasex/sentineldesk/agent/internal/frontmatter"
 	"sort"
 	"strings"
 )
@@ -279,49 +281,21 @@ func homePrefix() string {
 	return home
 }
 
-// parse splits the frontmatter from the body.
-//
-// Deliberately not a YAML library. The frontmatter this format uses is two
-// scalar fields, and the two agents that read it in the wild accept exactly
-// that; pulling in a parser to read `name:` and `description:` would add a
-// dependency to the binary for a shape that fits in twenty lines. If the
-// frontmatter ever grows nesting, this should become a real parser rather than
-// grow special cases — that is the line, and it is written down so somebody
-// notices when it is crossed.
+// parse reads a SKILL.md.
 func parse(raw string) (Skill, error) {
-	raw = strings.ReplaceAll(raw, "\r\n", "\n")
-	if !strings.HasPrefix(raw, "---\n") {
-		return Skill{}, fmt.Errorf("no YAML frontmatter: a SKILL.md starts with a --- line")
-	}
-	rest := raw[4:]
-	end := strings.Index(rest, "\n---")
-	if end < 0 {
-		return Skill{}, fmt.Errorf("the frontmatter is never closed by a --- line")
-	}
-	head, body := rest[:end], rest[end+4:]
-
-	var s Skill
-	for _, line := range strings.Split(head, "\n") {
-		key, value, ok := strings.Cut(line, ":")
-		if !ok {
-			continue
-		}
-		value = strings.TrimSpace(value)
-		value = strings.Trim(value, `"'`)
-		switch strings.TrimSpace(key) {
-		case "name":
-			s.Name = value
-		case "description":
-			s.Description = value
-		}
+	fields, body, err := frontmatter.Split(raw)
+	if err != nil {
+		return Skill{}, err
 	}
 	// Unknown fields are ignored rather than rejected — license, compatibility
 	// and metadata are all in the published schema and none of them change what
-	// this runtime does with a skill.
+	// this runtime does with a skill. Rejecting them would make a file that
+	// works in the other agents unloadable here, which is the opposite of why
+	// the convention is being followed.
+	s := Skill{Name: fields["name"], Description: fields["description"], Body: body}
 	if s.Description == "" {
 		return Skill{}, fmt.Errorf("no description: without one the agent has no way to know when to use this")
 	}
-	s.Body = strings.TrimSpace(strings.TrimPrefix(body, "\n"))
 	return s, nil
 }
 

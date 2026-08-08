@@ -512,9 +512,9 @@ func (r *Runner) systemPrompt() (string, error) {
 	if cat := skills.Catalogue(r.opts.Skills); cat != "" {
 		b.WriteString(cat)
 	}
-	if strings.TrimSpace(role) != "" {
+	if strings.TrimSpace(role.Body) != "" {
 		b.WriteString("\n")
-		b.WriteString(strings.TrimRight(role, "\n"))
+		b.WriteString(strings.TrimRight(role.Body, "\n"))
 		b.WriteString("\n")
 	}
 	return b.String(), nil

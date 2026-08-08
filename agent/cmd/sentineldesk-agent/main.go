@@ -55,6 +55,7 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent providers       which models can be reached, and what each needs
   sentineldesk-agent costs           what has been spent, and on what
   sentineldesk-agent history [id]    past runs, or one run in full
+  sentineldesk-agent roles           the ways of working available, and what each sets
   sentineldesk-agent skills          the skills found, and where each came from
   sentineldesk-agent skills install  add one from the ecosystem (needs npx)
 
@@ -149,6 +150,8 @@ func main() {
 		os.Exit(showHistory(strings.Join(args[1:], " ")))
 	case "providers":
 		os.Exit(showProviders())
+	case "roles":
+		os.Exit(showRoles())
 	case "skills":
 		if len(args) > 1 && args[1] == "install" {
 			os.Exit(installSkill(args[2:]))
@@ -516,6 +519,30 @@ func errText(err error) string {
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
 func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped, debug bool) int {
+	// The role is read first because it may decide what runs. A role that names
+	// a model and a policy is a saved way of working, not a paragraph — and the
+	// point of the header is that asking for it configures the run rather than
+	// asking the model to behave as if it had been configured.
+	def, err := prompts.Role(role)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		return 2
+	}
+	// An explicit flag beats the role. Somebody who typed --model meant it.
+	if def.Model != "" && model == "" {
+		if p, m, found := strings.Cut(def.Model, "/"); found {
+			providerName, model = p, m
+		} else {
+			model = def.Model
+		}
+	}
+	if def.Tools != 0 && !toolsCapped {
+		toolLimit = def.Tools
+		if def.Tools < 0 {
+			toolLimit = 0
+		}
+		toolsCapped = true
+	}
 	// The live view by default, the line-by-line transcript when asked for it
 	// — and the transcript regardless when stdout is not a terminal. A TUI
 	// writes cursor movements, and a pipe receives them as garbage: every
@@ -611,6 +638,29 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		Skills:    found,
 		Recorder:  recorder,
 	})
+
+	// Narrowed before the first turn rather than trusted to the prompt. This is
+	// what makes a role like `readonly` a control instead of a request: the
+	// server refuses the call, and it may only ever narrow — a role cannot
+	// widen past the daemon's own ceiling, which is what makes handing one out
+	// to somebody else safe.
+	if def.Policy != "" || len(def.Deny) > 0 || len(def.Allow) > 0 {
+		level := def.Policy
+		if level == "" {
+			level = "full"
+		}
+		if _, err := c.Restrict(ctx, level, def.Deny, def.Allow); err != nil {
+			// Fatal. A run that asked to be constrained and was not is the one
+			// case where carrying on is worse than stopping: whoever chose the
+			// role chose it for a reason, and they would not learn it had been
+			// ignored until something had already been changed.
+			fmt.Fprintf(os.Stderr, "the role %q could not be applied: %v\n", role, err)
+			return 1
+		}
+		if !live {
+			fmt.Printf("Policy: %s (role %s)\n", level, role)
+		}
+	}
 
 	// Losing the controls has to reach the loop while it is running, not at the
 	// end. Subscribing before the first turn rather than after is the
@@ -1286,4 +1336,51 @@ func adopt(staging, ours string, before map[string]bool) []string {
 		_ = os.Remove(filepath.Dir(staging))
 	}
 	return moved
+}
+
+// showRoles lists what can be asked for, with what each one does.
+//
+// A role is now a way of working rather than a paragraph — it can pick the
+// model and narrow what the run may call — so a bare list of names stopped
+// being enough to choose from.
+func showRoles() int {
+	names := prompts.Roles()
+	if len(names) == 0 {
+		fmt.Println("No roles found, which should not happen: some are built in.")
+		return 1
+	}
+	for _, n := range names {
+		def, err := prompts.Role(n)
+		if err != nil {
+			fmt.Printf("\033[31m✗ %s\033[0m  %v\n", n, err)
+			continue
+		}
+		fmt.Printf("\033[1m%s\033[0m\n", n)
+		if def.Description != "" {
+			fmt.Printf("  %s\n", def.Description)
+		}
+		var settings []string
+		if def.Model != "" {
+			settings = append(settings, "model "+def.Model)
+		}
+		if def.Policy != "" {
+			settings = append(settings, "policy "+def.Policy)
+		}
+		if len(def.Deny) > 0 {
+			settings = append(settings, "denies "+strings.Join(def.Deny, ", "))
+		}
+		if len(def.Allow) > 0 {
+			settings = append(settings, "allows only "+strings.Join(def.Allow, ", "))
+		}
+		if def.Tools != 0 {
+			settings = append(settings, fmt.Sprintf("tools %d", def.Tools))
+		}
+		if len(settings) > 0 {
+			fmt.Printf("  \033[2m%s\033[0m\n", strings.Join(settings, " · "))
+		}
+		fmt.Println()
+	}
+	fmt.Printf("%d role(s). They are Markdown with a YAML header, in agent/prompts/roles\n", len(names))
+	fmt.Printf("and ~/.sentineldesk/prompts/roles — adding one is adding a file.\n")
+	return 0
 }

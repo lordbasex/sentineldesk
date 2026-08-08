@@ -42,7 +42,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/lordbasex/sentineldesk/agent/internal/frontmatter"
 )
 
 //go:embed system.md roles perception
@@ -84,17 +87,81 @@ func read(name string) (string, error) {
 // System is the base prompt every run starts from.
 func System() (string, error) { return read("system.md") }
 
-// Role is the block appended for a named role. An unknown role is an error and
-// not an empty string: a typo in --role would otherwise run the agent with
-// half the instructions it was meant to have and say nothing about it.
-func Role(name string) (string, error) {
+// RoleDef is a role: prose for the model, plus the settings a run should start
+// from when somebody asks for it.
+//
+// The settings are the reason this grew a header. A role was a paragraph
+// appended to the prompt, which meant "run read-only" was a sentence ASKING the
+// model not to touch anything — and a request is not a control. Policy here is
+// handed to the server, which refuses the call; the model's cooperation stops
+// being part of the mechanism.
+type RoleDef struct {
+	Name        string
+	Description string // shown by `roles`, so a choice can be made without opening files
+
+	// Model overrides which model runs, as provider/model — "anthropic/claude-sonnet-5",
+	// or just "qwen2.5:3b" to keep the provider and change the model.
+	Model string
+
+	// Policy narrows what the connection may call: readonly | safe | full.
+	// Deny and Allow narrow it further, by tool name. All three are sent to the
+	// server, which may only ever narrow — a role cannot widen past the
+	// daemon's own ceiling, which is what makes handing one out safe.
+	Policy string
+	Deny   []string
+	Allow  []string
+
+	// Tools is how many goal-matched tools to offer on top of the core set.
+	// Zero means "not set by this role"; -1 means "offer everything".
+	Tools int
+
+	Body string
+}
+
+// Role reads one. An unknown role is an error and not an empty string: a typo
+// in --role would otherwise run the agent with half the instructions it was
+// meant to have and say nothing about it.
+//
+// A role file with no frontmatter is still a role. The header carries settings,
+// and a role that only wants to say something to the model should not have to
+// write an empty one.
+func Role(name string) (RoleDef, error) {
 	if name == "" {
-		return "", nil
+		return RoleDef{}, nil
 	}
 	if strings.ContainsAny(name, `/\.`) {
-		return "", fmt.Errorf("role %q: a role is a name, not a path", name)
+		return RoleDef{}, fmt.Errorf("role %q: a role is a name, not a path", name)
 	}
-	return read(filepath.Join("roles", name+".md"))
+	raw, err := read(filepath.Join("roles", name+".md"))
+	if err != nil {
+		return RoleDef{}, err
+	}
+	def := RoleDef{Name: name}
+	fields, body, ferr := frontmatter.Split(raw)
+	if ferr != nil {
+		def.Body = strings.TrimSpace(raw)
+		return def, nil
+	}
+	def.Body = body
+	def.Description = fields["description"]
+	def.Model = fields["model"]
+	def.Policy = fields["policy"]
+	def.Deny = frontmatter.List(fields["deny"])
+	def.Allow = frontmatter.List(fields["allow"])
+	if v := fields["tools"]; v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			def.Tools = n
+		} else if strings.EqualFold(v, "all") {
+			def.Tools = -1
+		}
+	}
+	switch def.Policy {
+	case "", "readonly", "safe", "full":
+	default:
+		return RoleDef{}, fmt.Errorf("role %q: policy %q is not one of readonly, safe, full",
+			name, def.Policy)
+	}
+	return def, nil
 }
 
 // Perception is the block that tells the model what it can and cannot see.
