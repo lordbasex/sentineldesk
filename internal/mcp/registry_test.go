@@ -588,6 +588,7 @@ func TestReadonlyConnectionSearchesOnlyWhatItMayCall(t *testing.T) {
 type roomWithoutControls struct{ Rooms }
 
 func (roomWithoutControls) JoinAgent(string) string      { return AgentID }
+func (roomWithoutControls) LeaveAgent()                  {}
 func (roomWithoutControls) IsController(string) bool     { return false }
 func (roomWithoutControls) Controller() (string, string) { return "someone", "Viewer 1" }
 

@@ -44,6 +44,7 @@ type movableRoom struct {
 	name       string
 	subs       map[int]func()
 	seq        int
+	leaves     int
 
 	// What ask_human put to the room, and what to answer with.
 	asked        string
@@ -57,6 +58,26 @@ func newMovableRoom(controller, name string) *movableRoom {
 }
 
 func (r *movableRoom) JoinAgent(string) string { return AgentID }
+
+// LeaveAgent records the departure and frees the controls, the way the real
+// room does. Counted rather than flagged: what the connection bookkeeping has
+// to get right is that this happens ONCE, when the last connection goes, and a
+// boolean cannot tell one call from three.
+func (r *movableRoom) LeaveAgent() {
+	r.mu.Lock()
+	r.leaves++
+	if r.controller == AgentID {
+		r.controller = ""
+		r.name = ""
+	}
+	r.mu.Unlock()
+}
+
+func (r *movableRoom) leaveCount() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.leaves
+}
 
 func (r *movableRoom) Controller() (string, string) {
 	r.mu.Lock()

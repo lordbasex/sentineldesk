@@ -486,6 +486,11 @@ type Server struct {
 	haltMu  sync.RWMutex
 	halted  map[uint64]string // connection id -> why it was halted
 
+	// How many connections are open right now, as opposed to connSeq, which
+	// only ever counts up. The agent leaves the room when this reaches zero —
+	// see serve().
+	connLive atomic.Int64
+
 	// The native window and desktop reader, opened the first time something
 	// asks rather than at startup: a Server built without a display — every
 	// test in this package — then never touches X at all.
@@ -644,6 +649,28 @@ func (s *Server) serve(conn net.Conn) {
 	defer flight.cancelAll("cancelled: the connection closed")
 
 	client := &connection{id: s.connSeq.Add(1)}
+
+	// Leaving the room is the other half of joining it, and for a long time
+	// there was no other half: Room.LeaveAgent existed, released control
+	// correctly, and was called from nowhere. So an agent that took the controls
+	// and then went away — the host quitting, `docker exec` killed, a crash mid
+	// task — left the desktop held by a process that no longer existed, and the
+	// person sharing it had no way to take it back except by asking somebody to
+	// restart the daemon.
+	//
+	// Counted rather than done per connection, because "the agent" is one
+	// identity for every MCP connection there is. A host that opens a second
+	// connection alongside its first, or a `-mcp-stdio` bridge run beside a
+	// long-lived one, must not evict the agent that is still driving when only
+	// one of them hangs up. The room empties when the last of them does.
+	if s.room != nil {
+		s.connLive.Add(1)
+		defer func() {
+			if s.connLive.Add(-1) == 0 {
+				s.room.LeaveAgent()
+			}
+		}()
+	}
 
 	connPolicy := s.policy
 	var policyMu sync.RWMutex
