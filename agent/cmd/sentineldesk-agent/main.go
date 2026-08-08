@@ -34,6 +34,7 @@ import (
 	"github.com/lordbasex/sentineldesk/agent/internal/mcpclient"
 	"github.com/lordbasex/sentineldesk/agent/internal/provider"
 	"github.com/lordbasex/sentineldesk/agent/internal/store"
+	"github.com/lordbasex/sentineldesk/agent/internal/tui"
 	"github.com/lordbasex/sentineldesk/agent/prompts"
 	"github.com/lordbasex/sentineldesk/internal/toolsearch"
 )
@@ -64,6 +65,12 @@ whatever the goal ranks highest, and reaches the rest through tool_search.
 The API key is read from ~/.sentineldesk/anthropic.key (chmod 600), or from
 ANTHROPIC_API_KEY_FILE. Never pass it on the command line.
 
+How it is shown:
+  (default)    a live view of the run
+  --debug      one line per event instead — also what a pipe or a CI log gets,
+               with or without the flag, because a live view writes cursor
+               movements and a pipe receives them as garbage
+
 Reaching the desktop:
   --sock PATH        the daemon's MCP socket (the default; this runs beside it)
   --container NAME   develop from another machine, through docker exec
@@ -93,6 +100,10 @@ func main() {
 	// a cached hosted model and the wrong one against a CPU, so a number the
 	// caller actually asked for is honoured either way.
 	toolsCapped := false
+	// The live view is the default face. -debug is the old one: one line per
+	// event, which is what somebody debugging the RUNTIME wants rather than
+	// somebody watching the TASK.
+	debug := fs.Bool("debug", false, "print one line per event instead of drawing the live view")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -164,7 +175,7 @@ func main() {
 		// meant for one step. Ctrl-C still stops it, and stops it properly:
 		// the cancellation reaches the server and the tool in flight ends.
 		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model,
-			*maxTurns, *toolLimit, toolsCapped))
+			*maxTurns, *toolLimit, toolsCapped, *debug))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -492,7 +503,14 @@ func errText(err error) string {
 // other than the operator decides what happens next, and a run whose steps are
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
-func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped bool) int {
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped, debug bool) int {
+	// The live view by default, the line-by-line transcript when asked for it
+	// — and the transcript regardless when stdout is not a terminal. A TUI
+	// writes cursor movements, and a pipe receives them as garbage: every
+	// measurement this project has ever taken was made with the agent piped
+	// into something, and none of them would survive being asked to render.
+	live := !debug && tui.Usable()
+
 	llm, err := provider.Open(providerName, model)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
@@ -507,7 +525,10 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 	if k, ok := llm.(provider.KeySourced); ok {
 		source = k.KeySource()
 	}
-	fmt.Printf("Model: %s   key: %s\n", llm.Name(), source)
+	hdr := tui.Header{Model: fmt.Sprintf("%s   key: %s", llm.Name(), source), Goal: goal}
+	if !live {
+		fmt.Printf("Model: %s   key: %s\n", llm.Name(), source)
+	}
 
 	catalogue, err := c.ListTools(ctx)
 	if err != nil {
@@ -518,7 +539,10 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 	// set that changed each turn would cost more than sending everything.
 	selection := loop.Select(catalogue, goal, toolLimit, toolsCapped)
 	if line := selection.Describe(); line != "" {
-		fmt.Printf("Tools: %s\n", line)
+		hdr.Tools = line
+		if !live {
+			fmt.Printf("Tools: %s\n", line)
+		}
 	}
 
 	// A task id, so every call this run makes is one group in the server's
@@ -540,13 +564,23 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		}
 	}
 
+	// Buffered rather than dropping. A dropped event is a line of the model's
+	// own answer that nobody ever sees, and the screen drains far faster than
+	// a provider produces turns — if this ever fills, blocking the loop for a
+	// moment is the right thing to do with it.
+	events := make(chan loop.Progress, 256)
+	emit := narrate
+	if live {
+		emit = func(p loop.Progress) { events <- p }
+	}
+
 	runner := loop.New(c, loop.Options{
 		Role:      loop.Role(role),
 		Model:     llm,
 		Tools:     selection.Tools,
 		Catalogue: catalogue,
 		MaxTurns:  maxTurns,
-		OnEvent:   narrate,
+		OnEvent:   emit,
 		Recorder:  recorder,
 	})
 
@@ -561,9 +595,41 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 			"a person taking the controls will surface as a refused call instead")
 	}
 
-	fmt.Printf("Task:  %s\n\n", task)
+	hdr.Task = task
+	if !live {
+		fmt.Printf("Task:  %s\n\n", task)
+	}
 	started := time.Now()
-	res, err := runner.Run(ctx, goal)
+
+	var res loop.Result
+
+	if live {
+		// The loop runs beside the screen rather than under it. Bubble Tea owns
+		// the terminal and its own event loop, so the work cannot be done inside
+		// Update() — and it must not be: a provider call that takes ninety
+		// seconds would freeze the spinner that exists to say it is still going.
+		totals := make(chan tui.Totals, 1)
+		go func() {
+			res, err = runner.Run(ctx, goal)
+			// Closing the events channel before sending the totals, so the view
+			// has drained every line before it is told the run is over.
+			close(events)
+			totals <- finishRun(run, llm.Name(), started, res, err)
+		}()
+		if uiErr := tui.Run(hdr, events, totals); uiErr != nil {
+			fmt.Fprintf(os.Stderr, "the live view failed: %v\n", uiErr)
+		}
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "the run failed: %v\n", err)
+			return 1
+		}
+		if res.Interrupted {
+			return 4
+		}
+		return 0
+	}
+
+	res, err = runner.Run(ctx, goal)
 
 	status := "finished"
 	switch {
@@ -890,4 +956,34 @@ func wrap(s string, width, indent int) string {
 	}
 	out.WriteString(line.String())
 	return out.String()
+}
+
+// finishRun records how a run ended and packages what the live view shows once
+// it is over. The same numbers the line output prints under its rule — kept in
+// one place so the two faces cannot disagree about what a run cost.
+func finishRun(run *store.Run, modelName string, started time.Time, res loop.Result, err error) tui.Totals {
+	status := "finished"
+	switch {
+	case err != nil:
+		status = "failed"
+	case res.Interrupted:
+		status = "interrupted"
+	}
+	t := tui.Totals{
+		Status: status, Turns: res.Turns, Calls: res.Calls,
+		InputToks: res.InputToks, OutputToks: res.OutputToks,
+		CacheWriteToks: res.CacheWriteToks, CacheReadToks: res.CacheReadToks,
+		Elapsed: time.Since(started), Answer: res.Answer,
+	}
+	if run != nil {
+		_ = run.Finish(status, res.Answer, res.Turns, res.Calls,
+			res.InputToks, res.OutputToks, res.CacheWriteToks, res.CacheReadToks)
+		t.HistoryID = int64(run.ID)
+		pricing := store.LoadPricing()
+		if cost, known := pricing.EstimatedWithCache(modelName,
+			res.InputToks, res.OutputToks, res.CacheWriteToks, res.CacheReadToks); known {
+			t.Cost, t.CostKnown = cost, true
+		}
+	}
+	return t
 }
