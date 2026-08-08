@@ -255,7 +255,11 @@ func supporting(dir string) []string {
 	}
 	var out []string
 	for _, e := range entries {
-		if e.IsDir() || strings.EqualFold(e.Name(), "SKILL.md") {
+		// NOTICE.md is bookkeeping for the people reading this repository, not
+		// material for the model — listing it invites a read that answers
+		// nothing about the task.
+		if e.IsDir() || strings.EqualFold(e.Name(), "SKILL.md") ||
+			strings.EqualFold(e.Name(), "NOTICE.md") {
 			continue
 		}
 		out = append(out, e.Name())

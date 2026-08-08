@@ -21,6 +21,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -1144,6 +1145,59 @@ func installSkill(args []string) int {
 	return 0
 }
 
+// writeNotice records that a skill came from somewhere else.
+//
+// The installer copies a SKILL.md and nothing around it — not the LICENSE, not
+// the repository it came from. Once that file is sitting in this project's own
+// directory beside skills somebody here wrote, there is no way left to tell them
+// apart, and the difference matters: one of them is ours to change and the other
+// arrives under somebody else's terms.
+//
+// So the provenance goes in beside it, written by the thing that moved the file
+// rather than by whoever remembers. skills-lock.json already carries the source
+// and a hash; this puts the same facts where a person will actually see them,
+// which is next to the file.
+func writeNotice(dir, name string) {
+	source, hash := lockEntry(name)
+	if source == "" {
+		return
+	}
+	body := fmt.Sprintf(`# Third-party skill
+
+%s was installed from %s and is NOT part of this project. It is used
+under the terms its authors published with it — see that repository's LICENSE.
+
+    source  %s
+    hash    %s
+
+Written by `+"`sentineldesk-agent skills install`"+`. Edit the skill if you like;
+this file is what says where it started.
+`, name, source, source, hash)
+	_ = os.WriteFile(filepath.Join(dir, "NOTICE.md"), []byte(body), 0o644)
+}
+
+// lockEntry reads what the installer recorded about a skill.
+func lockEntry(name string) (source, hash string) {
+	raw, err := os.ReadFile("skills-lock.json")
+	if err != nil {
+		return "", ""
+	}
+	var doc struct {
+		Skills map[string]struct {
+			Source       string `json:"source"`
+			ComputedHash string `json:"computedHash"`
+		} `json:"skills"`
+	}
+	if json.Unmarshal(raw, &doc) != nil {
+		return "", ""
+	}
+	e, ok := doc.Skills[name]
+	if !ok {
+		return "", ""
+	}
+	return e.Source, e.ComputedHash
+}
+
 // installPaths is where the CLI drops a skill and where it belongs afterwards.
 func installPaths(global bool) (staging, ours string) {
 	if global {
@@ -1221,6 +1275,7 @@ func adopt(staging, ours string, before map[string]bool) []string {
 		}
 		if os.Rename(filepath.Join(staging, e.Name()), dst) == nil {
 			moved = append(moved, e.Name())
+			writeNotice(dst, e.Name())
 		}
 	}
 	// Tidy the drop point when this command is what created it. A directory
