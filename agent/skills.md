@@ -18,15 +18,38 @@ more than a better one with a single implementation.
 ~/.sentineldesk/skills/<name>/SKILL.md      every project
 ~/.claude/skills/<name>/SKILL.md            every project
 ~/.config/opencode/skills/<name>/SKILL.md   every project
+~/.agents/skills/<name>/SKILL.md            every project
 ```
 
-Searched in that order, first name wins. Project beats global, which is the
-direction that makes a skill worth checking into a repository: the one beside
-the work knows things about that work the general one cannot.
+Nearest wins. The project directories are searched **walking up** from the
+working directory to the top of the git worktree — so running the agent from a
+subdirectory still finds what the project ships — and a skill beside the work
+beats one in the home directory, which is the direction that makes checking a
+skill into a repository worth doing.
+
+## Plugins you already installed
+
+A Claude Code plugin turns out to be, structurally, a directory with a `skills/`
+folder in it — the same `<name>/SKILL.md` this reads. So a plugin installed
+through a marketplace puts ordinary skills on disk, and those are picked up too:
+
+```
+/plugin install superpowers@superpowers-marketplace   # in Claude Code
+sentineldesk-agent skills                             # they are there
+```
+
+Read from `~/.claude/plugins/installed_plugins.json` rather than by walking the
+plugin directories, because the marketplace checkout beside it holds the whole
+catalogue — every plugin offered, not the ones somebody chose.
+
+**Only the skills come across.** A plugin can also ship commands, hooks, agents
+and LSP wiring; those hook into another program's internals and mean nothing
+here. A plugin that is mostly skills works completely; one that is mostly hooks
+contributes whatever skills it happens to carry and no more.
 
 `sentineldesk-agent skills` lists what was found and **which file it came from**,
 because "it is not being picked up" is the entire failure mode of a convention
-with seven search paths.
+with this many search paths.
 
 ## What one looks like
 

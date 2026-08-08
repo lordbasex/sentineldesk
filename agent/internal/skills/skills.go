@@ -32,6 +32,7 @@
 //	~/.config/opencode/skills/           everywhere
 //	~/.claude/skills/                    everywhere
 //	~/.agents/skills/                    everywhere
+//	<installed Claude Code plugin>/skills/   whatever a marketplace install put there
 //
 // Nearest wins: a skill in the directory being worked in beats one further up,
 // which beats one in the home directory. That is deliberately NOT the rule the
@@ -53,6 +54,7 @@
 package skills
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -124,8 +126,57 @@ func searchRoots() []string {
 			filepath.Join(home, ".config", "opencode", "skills"),
 			filepath.Join(home, ".claude", "skills"),
 			filepath.Join(home, ".agents", "skills"))
+		roots = append(roots, installedPluginSkills(home)...)
 	}
 	return roots
+}
+
+// installedPluginSkills finds the skills that arrived inside a Claude Code
+// plugin.
+//
+// Worth doing because of what a plugin turned out to BE. Looking at one on a
+// real machine, a plugin is a directory with a skills/ folder in it holding the
+// same <name>/SKILL.md this package already reads — so a marketplace install
+// puts perfectly ordinary skills on disk in a place nothing was looking. Reading
+// one more directory pattern gets the whole ecosystem's skills; implementing a
+// plugin system would have got the same thing for far more work.
+//
+// What does NOT come across is everything else a plugin can ship — commands,
+// hooks, agents, LSP wiring. Those hook into another program's internals and
+// mean nothing here. A plugin that is only skills works completely; one that is
+// mostly hooks contributes whatever skills it happens to carry and no more.
+//
+// Read from installed_plugins.json rather than by walking the plugin
+// directories, because the marketplace checkout beside it contains the whole
+// CATALOGUE — every plugin offered, not the ones somebody chose. Loading those
+// would put skills in front of the model that nobody installed, which is a
+// surprising thing for a tool to do with somebody else's machine.
+func installedPluginSkills(home string) []string {
+	raw, err := os.ReadFile(filepath.Join(home, ".claude", "plugins", "installed_plugins.json"))
+	if err != nil {
+		return nil
+	}
+	var doc struct {
+		Plugins map[string][]struct {
+			InstallPath string `json:"installPath"`
+		} `json:"plugins"`
+	}
+	if json.Unmarshal(raw, &doc) != nil {
+		return nil
+	}
+	var out []string
+	for _, installs := range doc.Plugins {
+		for _, i := range installs {
+			if i.InstallPath == "" {
+				continue
+			}
+			out = append(out, filepath.Join(i.InstallPath, "skills"))
+		}
+	}
+	// Stable, so two runs on the same machine resolve a duplicated name the
+	// same way. A map's iteration order would make that a coin toss.
+	sort.Strings(out)
+	return out
 }
 
 // Load returns every skill that can be found, deduplicated by name.
