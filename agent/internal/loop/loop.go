@@ -410,8 +410,19 @@ func (r *Runner) runOne(ctx context.Context, turn int, call provider.ToolCall) p
 	r.recordCall(store.Call{TurnN: turn, Tool: name, AskedFor: askedFor,
 		Args: call.Args, Result: out.Text(), Denial: string(out.Denial),
 		IsError: out.IsError, Elapsed: time.Since(started)})
+	imgs := out.Images()
+	if len(imgs) > 0 && !r.opts.Model.Capabilities().Vision {
+		// Dropped here rather than further down, so the reason is in one place:
+		// a model that cannot see gains nothing from a megabyte of base64 and
+		// pays for every byte of it.
+		imgs = nil
+	}
+	shown := ""
+	if len(imgs) > 0 {
+		shown = fmt.Sprintf(" +%d image(s)", len(imgs))
+	}
 	r.report(Progress{Kind: "result", Tool: name,
-		Detail: trunc(out.Text(), 200), Elapsed: time.Since(started)})
+		Detail: trunc(out.Text(), 200) + shown, Elapsed: time.Since(started)})
 
 	text := out.Text()
 	// A refusal is told to the model as a refusal, with what to do about it.
@@ -428,7 +439,12 @@ func (r *Runner) runOne(ctx context.Context, turn int, call provider.ToolCall) p
 	case mcpclient.DenialEmergency:
 		text += "\n\nA person stopped this agent. Stop."
 	}
-	return provider.ToolResult{CallID: call.ID, Text: text, IsErr: out.IsError}
+	res := provider.ToolResult{CallID: call.ID, Text: text, IsErr: out.IsError}
+	for _, img := range imgs {
+		res.Images = append(res.Images, provider.Image{
+			MimeType: img.MimeType, Data: img.Data})
+	}
+	return res
 }
 
 // substitute swaps an invisible tool for its visible twin when the run is being

@@ -394,6 +394,28 @@ type Result struct {
 	Denial Denial
 }
 
+// Image is a picture a tool returned.
+type Image struct {
+	MimeType string
+	Data     string // base64, as MCP sends it
+}
+
+// Images are the pictures in this result.
+//
+// Kept apart from Text rather than inlined into it, because a provider that
+// cannot see them needs the text alone and one that can needs them as their own
+// content blocks. Flattening the two would make the first case carry a megabyte
+// of base64 it will never look at.
+func (r Result) Images() []Image {
+	var out []Image
+	for _, block := range r.Content {
+		if block.Type == "image" && block.Data != "" {
+			out = append(out, Image{MimeType: block.MimeType, Data: block.Data})
+		}
+	}
+	return out
+}
+
 // Text joins the text blocks, which is what a model reads.
 func (r Result) Text() string {
 	var parts []string
@@ -402,6 +424,9 @@ func (r Result) Text() string {
 		case "text":
 			parts = append(parts, block.Text)
 		case "image":
+			// A placeholder, still. A model that can see gets the picture
+			// itself through Images(); one that cannot gets this, which at
+			// least says a picture existed rather than nothing at all.
 			parts = append(parts, "["+block.MimeType+"]")
 		}
 	}

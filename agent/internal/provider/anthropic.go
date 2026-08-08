@@ -84,7 +84,7 @@ func NewAnthropic(model string) (*Anthropic, error) {
 func (a *Anthropic) Name() string { return "anthropic/" + a.model }
 
 func (a *Anthropic) Capabilities() Capabilities {
-	return Capabilities{Caching: true, CachingIsExplicit: true}
+	return Capabilities{Caching: true, CachingIsExplicit: true, Vision: true}
 }
 
 // KeySource says where the key came from. Safe to print: it is a path or the
@@ -118,8 +118,22 @@ type antContent struct {
 
 	// tool_result
 	ToolUseID string `json:"tool_use_id,omitempty"`
-	Content   string `json:"content,omitempty"`
-	IsError   bool   `json:"is_error,omitempty"`
+	// Content is a string for a text-only result and an ARRAY OF BLOCKS when a
+	// picture came back — the API accepts both, and a tool_result carrying an
+	// image has no other shape. Typed as any for exactly that reason; it is the
+	// one field here whose JSON is not one thing.
+	Content any  `json:"content,omitempty"`
+	IsError bool `json:"is_error,omitempty"`
+
+	// image
+	Source *antSource `json:"source,omitempty"`
+}
+
+// antSource is how the API takes an inline picture.
+type antSource struct {
+	Type      string `json:"type"`       // "base64"
+	MediaType string `json:"media_type"` // "image/png"
+	Data      string `json:"data"`
 }
 
 type antTool struct {
@@ -243,9 +257,25 @@ func toAnthropic(m Message) antMessage {
 	// Results first: the API wants a tool_result to be the first thing in the
 	// turn that answers a tool_use.
 	for _, r := range m.Results {
+		// Text alone when there is nothing to look at, which is almost always.
+		// With pictures the content becomes the block array the API needs, text
+		// first so a model reading in order has the tool's own words before the
+		// image they describe.
+		var content any = r.Text
+		if len(r.Images) > 0 {
+			blocks := []antContent{}
+			if r.Text != "" {
+				blocks = append(blocks, antContent{Type: "text", Text: r.Text})
+			}
+			for _, img := range r.Images {
+				blocks = append(blocks, antContent{Type: "image", Source: &antSource{
+					Type: "base64", MediaType: img.MimeType, Data: img.Data}})
+			}
+			content = blocks
+		}
 		out.Content = append(out.Content, antContent{
 			Type: "tool_result", ToolUseID: r.CallID,
-			Content: r.Text, IsError: r.IsErr,
+			Content: content, IsError: r.IsErr,
 		})
 	}
 	if strings.TrimSpace(m.Text) != "" {

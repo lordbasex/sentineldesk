@@ -58,6 +58,16 @@ type ToolResult struct {
 	CallID string
 	Text   string
 	IsErr  bool
+
+	// Images the tool returned. Sent only to a provider whose Capabilities say
+	// Vision; the rest get Text, which names the mime type where a picture was.
+	Images []Image
+}
+
+// Image is a picture, as MCP delivers one.
+type Image struct {
+	MimeType string
+	Data     string // base64
 }
 
 // Tool is what the model is told it can call. It is built from the MCP
