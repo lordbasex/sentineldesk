@@ -67,6 +67,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb x11-utils x11-xserver-utils xdotool wmctrl xfonts-base \
     # Window manager
     openbox xterm fonts-dejavu-core \
+    # The terminal tools' control channel. Named explicitly rather than left to
+    # arrive as somebody else's dependency, which is how it got here: terminal_run
+    # and terminal_read address the shell through a tmux pane, so a base image
+    # that stopped pulling it in transitively would take the desktop's terminal
+    # with it — and the failure would look like an empty read, not a missing
+    # package.
+    tmux \
     # Virtual audio
     pulseaudio pulseaudio-utils \
     # GStreamer: capture and codecs (VP8/H.264/Opus plus the va and nvcodec plugins)
@@ -169,7 +176,11 @@ RUN apt-get update \
        | xargs apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
-COPY deploy/desktop/openbox-themerc /usr/share/themes/SentinelDesk/openbox-3/themerc
+# The whole theme directory, not just the themerc: the frame buttons are .xbm
+# masks that live beside it, and a missing mask is the quietest kind of failure
+# — Openbox falls back to its built-in hairlines and draws something, so the
+# window still has buttons and they are simply the wrong ones.
+COPY deploy/desktop/openbox-theme/ /usr/share/themes/SentinelDesk/openbox-3/
 COPY deploy/config/supervisord.conf /etc/supervisor/supervisord.conf
 COPY deploy/desktop/desktop-init.sh /usr/local/bin/desktop-init.sh
 COPY deploy/desktop/wallpaper-rotate.sh /usr/local/bin/wallpaper-rotate.sh
@@ -190,7 +201,10 @@ COPY deploy/desktop/shell-report.sh /etc/profile.d/99-sentineldesk-report.sh
 COPY deploy/desktop/lxpanel-panel  /etc/skel.sentineldesk/.config/lxpanel/LXDE/panels/panel
 COPY deploy/desktop/lxpanel-config /etc/skel.sentineldesk/.config/lxpanel/LXDE/config
 COPY deploy/desktop/lxterminal.conf /etc/skel.sentineldesk/.config/lxterminal/lxterminal.conf
+COPY deploy/desktop/tmux.conf /etc/tmux.conf
 COPY deploy/desktop/gtk-settings.ini /etc/skel.sentineldesk/.config/gtk-3.0/settings.ini
+COPY deploy/desktop/gtk.css /etc/skel.sentineldesk/.config/gtk-3.0/gtk.css
+COPY deploy/desktop/gtk.css /etc/skel.sentineldesk/.config/gtk-4.0/gtk.css
 COPY deploy/desktop/gtkrc-2.0 /etc/skel.sentineldesk/.gtkrc-2.0
 
 # --- our own binary, last ----------------------------------------------------
@@ -216,6 +230,13 @@ RUN chmod +x /usr/local/bin/desktop-init.sh /usr/local/bin/wallpaper-rotate.sh \
     && rm /tmp/wallpaper.svg \
     # Select the theme in Openbox's global configuration
     && sed -i 's|<name>Clearlooks</name>|<name>SentinelDesk</name>|' /etc/xdg/openbox/rc.xml \
+    # Buttons to the left of a centred title. The letters are Openbox's: C close,
+    # I iconify, M maximise, L label, and the N that used to lead is the window's
+    # own icon, dropped because it put an application's artwork where this design
+    # wants nothing. Left-hand buttons are the borrowed idea here, and the reason
+    # they are worth borrowing is muscle memory, not looks: three controls in a
+    # fixed corner are found without reading them.
+    && sed -i 's|<titleLayout>[^<]*</titleLayout>|<titleLayout>CIML</titleLayout>|' /etc/xdg/openbox/rc.xml \
     # Title bars in the same monospace as the control layer. Matched by place
     # because rc.xml carries several <font> blocks and only these two draw a
     # window title.

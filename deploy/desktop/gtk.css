@@ -1,0 +1,68 @@
+/* SentinelDesk
+ * A collaborative operating system for people and AI agents.
+ *
+ * Copyright 2026 Federico Pereira <fpereira@cnsoluciones.com>
+ * Co-authored by Nicolas Pereira <npereira@cnsoluciones.com>
+ *
+ * Licensed under the Apache License, Version 2.0.
+ *
+ * This product's name and logo are trademarks of Federico Pereira and are not
+ * covered by the license above. See the README for the trademark policy.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/* Scrollbars, on the palette everything else already uses.
+ *
+ * Asking for the dark Adwaita fixed the menu bars and left this behind: the
+ * trough stayed a pale grey, so every terminal and file manager on a near-black
+ * desktop had a light strip down its right edge. It was the last thing in a
+ * screenshot that did not belong.
+ *
+ * This lives in the user's config rather than in /etc/xdg beside settings.ini,
+ * and the asymmetry is GTK's, not a mistake: GTK3 reads settings.ini from the
+ * XDG config DIRS but only ever loads gtk.css from the user's own config
+ * directory. Shipping it through the skeleton is what gets it there.
+ *
+ * Square, like the window frames, and for the same reason — there is no
+ * compositor to round anything else, so rounding this one control would make it
+ * the odd one out rather than the polished one.
+ */
+
+scrollbar,
+scrollbar trough {
+  background-color: transparent;
+  border: none;
+}
+
+scrollbar slider {
+  /* The border is transparent and the background is clipped inside it, which is
+   * how a GTK slider is made narrower than the space it has to reserve: the
+   * track stays wide enough to hit with a pointer while the visible bar is a
+   * quiet 6px line. */
+  background-color: #3b4442;
+  border: 4px solid transparent;
+  background-clip: padding-box;
+  border-radius: 0;
+  min-width: 6px;
+  min-height: 32px;
+}
+
+scrollbar slider:hover {
+  background-color: #6b7671;
+}
+
+/* Dragging is the one moment the scrollbar is the thing being used, so it takes
+ * the phosphor accent — the same colour that means "live" everywhere else. */
+scrollbar slider:active {
+  background-color: #3FD68C;
+}
+
+/* The stepper arrows at each end. Off: they are two more pieces of chrome for a
+ * gesture nobody performs, and hiding them is what lets the bar read as a line
+ * rather than as a widget. */
+scrollbar button {
+  min-width: 0;
+  min-height: 0;
+  -gtk-icon-source: none;
+}

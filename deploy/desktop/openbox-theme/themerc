@@ -1,0 +1,145 @@
+# SentinelDesk — Openbox theme matching the browser control layer.
+#
+# The window frames used to be a light PIXEL-style theme, which sat oddly next
+# to the dark instrument rail floating over them. These are the same tokens:
+# #0d1110 surfaces, #93A09A dimmed text, #E7EDEA ink, #3FD68C for anything live.
+#
+# THERE IS NO COMPOSITOR, AND THAT IS THE DESIGN.
+#
+# Openbox draws no rounded corners and no drop shadows; both need a compositor,
+# and picom was measured here rather than assumed. Its own cost is nothing —
+# 6.8% of a core at its peak — but it makes Xvfb composite offscreen pixmaps in
+# software, and Xvfb went from 31% to 81% of a core while a window was being
+# dragged. On this machine the encoder never noticed. On a two-core deployment
+# it would, and the one thing that may not degrade is the stream.
+#
+# So the geometry is square on purpose. Not a rounded design with the corners
+# filed off — a square one: hard 1px edges, generous padding, a centred title,
+# and buttons that are geometric marks rather than imitation gloss. What Apple
+# is actually good at is restraint and rhythm, and neither of those needs a
+# compositor. The corners were the only part that did.
+
+border.width: 1
+padding.width: 12
+padding.height: 9
+window.handle.width: 0
+window.client.padding.width: 0
+window.client.padding.height: 0
+
+# A hairline, dark enough to separate the window from a busy wallpaper without
+# drawing a frame around everything.
+window.active.border.color: #2f3936
+window.inactive.border.color: #1e2523
+
+window.active.title.bg: flat solid
+window.active.title.bg.color: #141917
+window.inactive.title.bg: flat solid
+window.inactive.title.bg.color: #101413
+
+# The title is information, not decoration: dimmed when the window is not the
+# one being used, so the focused window is obvious at a glance.
+#
+# Centred, which is the one borrowed move in this file. A centred title reads as
+# a label for the window rather than as the start of a toolbar, and it is the
+# cheapest thing on this list — it costs a word, no compositor and no bitmap.
+# It sits centred in the space the buttons leave rather than in the titlebar, so
+# it drifts right of true centre by half the button cluster. Left as it is: the
+# alternative is padding the empty side to match, which means a fake button.
+window.active.label.bg: parentrelative
+window.active.label.text.color: #E7EDEA
+window.active.label.text.justify: center
+window.inactive.label.bg: parentrelative
+window.inactive.label.text.color: #6b7671
+window.inactive.label.text.justify: center
+
+# The buttons: three coloured discs, in the one place this design copies
+# outright rather than adapts.
+#
+# They used to be Openbox's built-in masks — hairlines a single pixel thick, in
+# a dimmed grey, on a near-black bar. They were drawn correctly and read as
+# missing, which is exactly the report they produced.
+#
+# Two things about Openbox made the borrowed version possible, and both were
+# nearly written off as impossible here:
+#
+#   per-button colour   The documented keys are window.active.button.STATE.*,
+#                       one colour for every button on the frame. There is also
+#                       an undocumented window.active.button.NAME.STATE.* form —
+#                       visible in libobrender as the format string
+#                       "window.active.button.%s.unpressed.image.color" — and it
+#                       is what gives three lights three hues.
+#   per-state masks     Openbox looks for NAME_hover.xbm and NAME_pressed.xbm
+#                       beside NAME.xbm. So the glyph does not have to be drawn
+#                       on top of the disc: it is punched OUT of the mask, the
+#                       title bar shows through the hole, and the mark appears
+#                       only while the pointer is on it.
+#
+# The colours are the reference's own, unchanged, because a traffic light that
+# is nearly the right red is worse than one that is not a traffic light at all —
+# the recognition is the entire function.
+window.active.button.unpressed.bg: parentrelative
+window.active.button.pressed.bg: parentrelative
+window.active.button.hover.bg: parentrelative
+window.active.button.disabled.bg: parentrelative
+
+window.active.button.close.unpressed.image.color: #FF5F57
+window.active.button.close.hover.image.color: #FF5F57
+window.active.button.close.pressed.image.color: #BF4943
+
+window.active.button.iconify.unpressed.image.color: #FEBC2E
+window.active.button.iconify.hover.image.color: #FEBC2E
+window.active.button.iconify.pressed.image.color: #BE8D22
+
+window.active.button.max.unpressed.image.color: #28C840
+window.active.button.max.hover.image.color: #28C840
+window.active.button.max.pressed.image.color: #1E9630
+window.active.button.max.toggled.unpressed.image.color: #28C840
+window.active.button.max.toggled.hover.image.color: #28C840
+window.active.button.max.toggled.pressed.image.color: #1E9630
+
+window.active.button.disabled.image.color: #3b4442
+
+# An unfocused window greys its lights out entirely. That is the reference's
+# behaviour and it earns its keep: with several windows open, the coloured set
+# is the one being worked in, findable without reading a single title.
+window.inactive.button.unpressed.bg: parentrelative
+window.inactive.button.pressed.bg: parentrelative
+window.inactive.button.hover.bg: parentrelative
+window.inactive.button.disabled.bg: parentrelative
+window.inactive.button.unpressed.image.color: #454f4c
+window.inactive.button.hover.image.color: #5b6763
+window.inactive.button.pressed.image.color: #5b6763
+window.inactive.button.disabled.image.color: #2b3331
+
+menu.border.color: #2f3936
+menu.border.width: 1
+menu.overlap.x: -2
+
+menu.title.bg: flat solid
+menu.title.bg.color: #141917
+menu.title.text.color: #93A09A
+menu.title.text.justify: left
+
+menu.items.bg: flat solid
+menu.items.bg.color: #101413
+menu.items.text.color: #E7EDEA
+menu.items.disabled.text.color: #4d5754
+menu.items.active.bg: flat solid
+menu.items.active.bg.color: #3FD68C
+menu.items.active.text.color: #052B17
+menu.separator.color: #2a3230
+menu.separator.width: 1
+menu.separator.padding.width: 6
+menu.separator.padding.height: 3
+
+# The on-screen display: the box shown while moving or resizing a window.
+osd.bg: flat solid
+osd.bg.color: #101413
+osd.border.color: #2f3936
+osd.border.width: 1
+osd.label.bg: parentrelative
+osd.label.text.color: #E7EDEA
+osd.hilight.bg: flat solid
+osd.hilight.bg.color: #3FD68C
+osd.unhilight.bg: flat solid
+osd.unhilight.bg.color: #2a3230

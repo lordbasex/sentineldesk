@@ -1,4 +1,4 @@
-# Panel superior — receta Berry (estilo Raspberry Pi OS)
+# The top panel — a glass strip over the wallpaper.
 #
 # Every icon here is an absolute PATH, and every launcher gives its own image
 # and command rather than naming a .desktop file. Both are deliberate, both are
@@ -34,24 +34,38 @@
 # against what is on the machine and says which ones are not there. A silent
 # hole is the thing to avoid; a path plus a check has no silent hole, and it
 # works on the hardware people actually install this on.
+# A glass strip rather than a bar bolted to the edge.
+#
+# The transparency is real and costs nothing, which is worth spelling out
+# because the rest of this desktop gave up its rounded corners over exactly this
+# question. There is no compositor here, so a window cannot be see-through — but
+# lxpanel does not need one: it reads the wallpaper out of the root pixmap
+# (_XROOTPMAP_ID, which pcmanfm publishes in desktop mode) and paints that
+# behind itself, tinted. Sampling a pixmap is not compositing, and the encoder
+# never sees it.
+#
+# width 98 and centred leaves a gap at each end, so the strip reads as floating
+# on the wallpaper rather than welded to the screen. It cannot float away from
+# the TOP edge — lxpanel docks — and pretending otherwise would mean giving up
+# the strut, which is what stops maximised windows sliding underneath it.
 Global {
   edge=top
-  align=left
+  align=center
   margin=0
   widthtype=percent
-  width=100
-  height=36
-  transparent=0
-  tintcolor=#edeceb
-  alpha=255
+  width=98
+  height=34
+  transparent=1
+  tintcolor=#0d1110
+  alpha=165
   autohide=0
   setdocktype=1
   setpartialstrut=1
   usefontcolor=1
-  fontcolor=#1d1d1d
+  fontcolor=#E7EDEA
   background=0
   backgroundfile=
-  iconsize=28
+  iconsize=24
 }
 Plugin {
   type=space
