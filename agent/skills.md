@@ -27,6 +27,55 @@ subdirectory still finds what the project ships — and a skill beside the work
 beats one in the home directory, which is the direction that makes checking a
 skill into a repository worth doing.
 
+## Installing one
+
+Skills are catalogued at [skills.sh](https://skills.sh) and installed with the
+ecosystem's own CLI:
+
+```
+sentineldesk-agent skills install https://github.com/vercel-labs/skills --skill find-skills
+```
+
+Start with `find-skills`, because it teaches the agent to look for the others —
+after it, asking for a capability is enough and the agent searches.
+
+That command hands the work to `npx skills`. Writing our own installer would
+mean re-implementing repository fetching, version pinning and a path map for
+seventy-odd agents, to end up putting a Markdown file in a directory we already
+read; not having to own that was the point of following the convention.
+
+It installs as the `universal` agent, which the CLI maps to `.agents/skills` —
+the neutral path, and one this runtime reads. Not as `claude-code`, though that
+also lands somewhere visible here: claiming to be another agent to get a file
+into a directory is true until their path map changes, at which point skills
+installed "as Claude Code" go where Claude Code now keeps them and this runtime
+is looking somewhere else, for a reason nobody wrote down.
+
+Then it **moves what it just installed into `.sentineldesk/skills`**. The
+neutral directory is a fine drop point and a wrong home: where a file lives is
+who owns it, and a skill installed for this agent should sit under this agent's
+name rather than under a shared one it happens to be able to write to.
+
+That move is a bridge, not the end state. `sentineldesk` is not in the CLI's
+path map — there are seventy-odd agents in it and we are not one — and the end
+state is being in it, at which point the CLI writes to `.sentineldesk/skills`
+directly and the move goes away. It is a move rather than a copy so there is
+never a moment where the same skill exists twice and somebody edits the copy
+that is not being read.
+
+Only what this command installs is moved. **Nothing changes about what gets
+read**: a skill installed for Claude Code or opencode still works here, which is
+most of what following the convention bought in the first place.
+
+`skills-lock.json` is left where the CLI put it. It records where each skill came
+from and its hash, which is worth keeping: it is how a vendored skill is told
+apart from a hand-written one, and how you check that one has not quietly
+changed under you.
+
+The command is printed before it runs, in full. A skill is instructions the
+agent will follow with whatever permissions it holds, which is exactly what
+makes the ecosystem useful and exactly what is worth being deliberate about.
+
 ## Plugins you already installed
 
 A Claude Code plugin turns out to be, structurally, a directory with a `skills/`

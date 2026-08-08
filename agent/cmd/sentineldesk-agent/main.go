@@ -24,7 +24,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"syscall"
@@ -52,6 +55,7 @@ const usage = `sentineldesk-agent — the SentinelDesk agent runtime
   sentineldesk-agent costs           what has been spent, and on what
   sentineldesk-agent history [id]    past runs, or one run in full
   sentineldesk-agent skills          the skills found, and where each came from
+  sentineldesk-agent skills install  add one from the ecosystem (needs npx)
 
 The model:
   --provider   anthropic | ollama | ollama-cloud | openai | openrouter
@@ -145,6 +149,9 @@ func main() {
 	case "providers":
 		os.Exit(showProviders())
 	case "skills":
+		if len(args) > 1 && args[1] == "install" {
+			os.Exit(installSkill(args[2:]))
+		}
 		os.Exit(showSkills())
 	}
 
@@ -1044,4 +1051,184 @@ func showSkills() int {
 	fmt.Printf("%d skill(s). Only these summaries go in the prompt; the agent calls\n", len(found))
 	fmt.Printf("skill_read to get the instructions for the one it decides it needs.\n")
 	return 0
+}
+
+// skillsRegistry is where the ecosystem's skills are catalogued, and the CLI
+// that installs from it.
+const (
+	skillsRegistry = "https://skills.sh"
+	skillsCLI      = "skills@latest"
+	findSkills     = "https://github.com/vercel-labs/skills"
+)
+
+// installSkill hands the work to `npx skills`, which is the CLI the ecosystem
+// already has, rather than growing a second one here.
+//
+// Writing our own installer would mean re-implementing repository fetching,
+// version pinning and the per-agent path map for seventy-odd agents — to end up
+// putting a Markdown file in a directory we already read. The whole point of
+// following the convention was not having to own that.
+//
+// It is not run silently. A skill is instructions the agent will follow with
+// whatever permissions it holds, which is exactly the property that makes the
+// ecosystem useful and exactly the one worth being deliberate about — so the
+// command that is about to run is printed first, in full.
+func installSkill(args []string) int {
+	if _, err := exec.LookPath("npx"); err != nil {
+		fmt.Fprintln(os.Stderr, "`npx` was not found. The skills CLI is distributed through npm,")
+		fmt.Fprintln(os.Stderr, "so installing skills needs Node. Skills can also just be written:")
+		fmt.Fprintln(os.Stderr, "a directory with a SKILL.md in it, in any of the paths `skills` lists.")
+		return 1
+	}
+
+	if len(args) == 0 {
+		found, _ := skills.Load()
+		if _, have := skills.Find(found, "find-skills"); have {
+			fmt.Println("`find-skills` is already installed, so the agent can look for")
+			fmt.Println("the rest itself — ask it for what you want and it will search.")
+			fmt.Println()
+		} else {
+			fmt.Printf("Skills are catalogued at %s and installed with the `skills` CLI.\n\n", skillsRegistry)
+			fmt.Println("Start with find-skills, which teaches the agent to search for the others:")
+			fmt.Printf("\n  sentineldesk-agent skills install %s --skill find-skills\n\n", findSkills)
+		}
+		fmt.Printf("Anything else, by repository:\n\n")
+		fmt.Printf("  sentineldesk-agent skills install <owner>/<repo> [--skill <name>]\n")
+		fmt.Printf("  sentineldesk-agent skills install <owner>/<repo> --global\n\n")
+		fmt.Println("Installed project-wide by default into .agents/skills — the neutral")
+		fmt.Println("path in the convention. This agent reads that, .claude/skills,\n.opencode/skills and its own .sentineldesk/skills.")
+		return 0
+	}
+
+	// --agent universal, which the CLI maps to .agents/skills — the neutral
+	// path in the convention, and one this runtime reads.
+	//
+	// Not claude-code, though that also lands somewhere visible here. Claiming
+	// to be another agent to get a file into a directory is the kind of small
+	// lie that is true until it is not: the day their path map changes, skills
+	// installed "as Claude Code" go where Claude Code now keeps them and this
+	// runtime is looking somewhere else, for a reason nobody wrote down.
+	//
+	// `sentineldesk` is not in their map — there are seventy-odd agents in it
+	// and we are not one — so `universal` is the honest identifier available.
+	// Getting added is a change to their repository, not ours.
+	//
+	// A caller who passes their own --agent overrides this and is on their own
+	// about whether the result is visible here.
+	full := append([]string{"-y", skillsCLI, "add"}, args...)
+	if !slices.Contains(args, "--agent") && !slices.Contains(args, "-a") {
+		full = append(full, "--agent", "universal")
+	}
+
+	fmt.Printf("\033[2m$ npx %s\033[0m\n\n", strings.Join(full, " "))
+	fmt.Println("\033[33mA skill is instructions this agent will follow with whatever permissions")
+	fmt.Println("it holds. Read one before trusting it.\033[0m")
+	fmt.Println()
+
+	global := slices.Contains(args, "-g") || slices.Contains(args, "--global")
+	staging, ours := installPaths(global)
+	before := listDirs(staging)
+
+	cmd := exec.Command("npx", full...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "\nthe install did not finish: %v\n", err)
+		return 1
+	}
+
+	moved := adopt(staging, ours, before)
+	if len(moved) > 0 {
+		fmt.Printf("\n\033[2mmoved into %s: %s\033[0m\n", ours, strings.Join(moved, ", "))
+	}
+	fmt.Println("\n\033[2mRun `sentineldesk-agent skills` to see what this runtime now reads.\033[0m")
+	return 0
+}
+
+// installPaths is where the CLI drops a skill and where it belongs afterwards.
+func installPaths(global bool) (staging, ours string) {
+	if global {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", ""
+		}
+		return filepath.Join(home, ".agents", "skills"),
+			filepath.Join(home, ".sentineldesk", "skills")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", ""
+	}
+	return filepath.Join(wd, ".agents", "skills"),
+		filepath.Join(wd, ".sentineldesk", "skills")
+}
+
+func listDirs(dir string) map[string]bool {
+	out := map[string]bool{}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			out[e.Name()] = true
+		}
+	}
+	return out
+}
+
+// adopt moves what the install just produced into this runtime's own directory.
+//
+// The CLI writes as the `universal` agent, into .agents/skills, because that is
+// the honest identifier available to us in its path map. That is fine as a drop
+// point and wrong as a home: a skill somebody installed FOR this agent should
+// live under this agent's name, not under a shared one it happens to be able to
+// write to. Where the file lives is who owns it, and depending on somebody
+// else's directory for our own installs makes their layout our problem forever.
+//
+// THIS IS A BRIDGE, not the end state. The end state is `sentineldesk` being in
+// that path map, at which point the CLI writes to .sentineldesk/skills directly
+// and this function deletes itself. Until then a move is the honest way to get
+// there — and it is a move rather than a copy precisely so there is never a
+// moment where the same skill exists in two places and somebody edits the one
+// that is not being read.
+//
+// This does NOT touch anything that was already there, and it does not change
+// what gets READ. Every other location stays in the search — a skill installed
+// for Claude Code or opencode still works here, which is most of what following
+// the convention bought. What moves is only what this command just created.
+func adopt(staging, ours string, before map[string]bool) []string {
+	if staging == "" || ours == "" {
+		return nil
+	}
+	entries, err := os.ReadDir(staging)
+	if err != nil {
+		return nil
+	}
+	var moved []string
+	for _, e := range entries {
+		if !e.IsDir() || before[e.Name()] {
+			continue
+		}
+		if err := os.MkdirAll(ours, 0o755); err != nil {
+			return moved
+		}
+		dst := filepath.Join(ours, e.Name())
+		if _, err := os.Stat(dst); err == nil {
+			// Already ours, and newer is not obviously better than what
+			// somebody may have edited. Leave both and say nothing rather than
+			// overwrite a file they changed.
+			continue
+		}
+		if os.Rename(filepath.Join(staging, e.Name()), dst) == nil {
+			moved = append(moved, e.Name())
+		}
+	}
+	// Tidy the drop point when this command is what created it. A directory
+	// left behind empty is a place somebody will later look for skills that are
+	// not there.
+	if len(before) == 0 {
+		_ = os.Remove(staging)
+		_ = os.Remove(filepath.Dir(staging))
+	}
+	return moved
 }
