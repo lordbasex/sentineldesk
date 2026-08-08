@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -343,9 +344,11 @@ func (s *Server) buildAdvancedTools() []toolDef {
 		},
 		// ---- audio ----
 		{
-			Name:        "get_audio_state",
-			Risk:        riskRead,
-			Description: "Get the default audio sink, its volume and whether it is muted.",
+			Name: "get_audio_state",
+			Risk: riskRead,
+			Description: "Get the default audio sink, its volume and whether it is " +
+				"muted. `volume_percent` is the number set_volume takes, so read it " +
+				"before changing the volume if you intend to put it back.",
 			InputSchema: schema(map[string]any{}),
 		},
 		{
@@ -402,6 +405,17 @@ func (s *Server) buildAdvancedTools() []toolDef {
 			Name:        "get_desktop_info",
 			Risk:        riskRead,
 			Description: "Overall desktop status: window manager, resolution, uptime, load, memory, video encoder in use and whether joystick/recording are available.",
+			InputSchema: schema(map[string]any{}),
+		},
+		{
+			Name: "desktop_state",
+			Risk: riskRead,
+			Description: "Where things stand, in one call: every window with its " +
+				"geometry, which one has focus, the virtual desktops, the screen " +
+				"size, and who is in the room and holds control. Prefer this over " +
+				"calling list_windows, get_active_window, list_desktops and " +
+				"room_state separately — those are four answers from four different " +
+				"moments, and this is one answer from one.",
 			InputSchema: schema(map[string]any{}),
 		},
 	}
@@ -606,11 +620,14 @@ func (s *Server) dispatchAdvanced(ctx context.Context, name string, args map[str
 	case "get_desktop_info":
 		c, e := s.toolDesktopInfo()
 		return c, e, true
+	case "desktop_state":
+		c, e := s.toolDesktopState()
+		return c, e, true
 	}
 	return nil, false, false
 }
 
-// --- implementaciones ------------------------------------------------------
+// --- implementations --------------------------------------------------------
 
 func (s *Server) simpleRun(okMsg, bin string, args ...string) ([]map[string]any, bool) {
 	if err := s.run(bin, args...); err != nil {
@@ -619,7 +636,7 @@ func (s *Server) simpleRun(okMsg, bin string, args ...string) ([]map[string]any,
 	return textContent("%s", okMsg), false
 }
 
-// wmctrlGeom mueve y/o redimensiona (-1 = no cambiar).
+// wmctrlGeom moves and/or resizes a window (-1 = leave unchanged).
 func (s *Server) wmctrlGeom(id string, x, y, w, h int, verb string) ([]map[string]any, bool) {
 	geom := fmt.Sprintf("0,%d,%d,%d,%d", x, y, w, h)
 	if err := s.run("wmctrl", "-i", "-r", id, "-e", geom); err != nil {
@@ -1612,15 +1629,37 @@ func (s *Server) toolListDirectory(path string, asRoot bool) ([]map[string]any, 
 
 // --- audio -----------------------------------------------------------------
 
+// volumePercent pulls the first percentage out of what `pactl get-sink-volume`
+// prints, which is a sentence rather than a value:
+//
+//	Volume: front-left: 65536 / 100% / 0.00 dB,   front-right: 65536 / 100% / 0.00 dB
+//
+// The first channel is enough: set_volume moves every channel together, so the
+// only way they diverge is somebody setting them apart by hand outside this
+// server — and the raw line is still reported for exactly that case.
+var volumePct = regexp.MustCompile(`(\d+)%`)
+
 func (s *Server) toolAudioState() ([]map[string]any, bool) {
 	sink, _ := s.output("pactl", "get-default-sink")
 	vol, _ := s.output("pactl", "get-sink-volume", "@DEFAULT_SINK@")
 	mute, _ := s.output("pactl", "get-sink-mute", "@DEFAULT_SINK@")
-	return jsonContent(map[string]any{
+	raw := strings.TrimSpace(strings.SplitN(vol, "\n", 2)[0])
+	out := map[string]any{
 		"sink":   strings.TrimSpace(sink),
-		"volume": strings.TrimSpace(strings.SplitN(vol, "\n", 2)[0]),
+		"volume": raw,
 		"mute":   strings.Contains(mute, "yes"),
-	}), false
+	}
+	// The number as well as the prose. Without it this pair does not close:
+	// set_volume takes an integer percent, so anything that changes the volume
+	// and means to put it back had to regex a sentence to find out what to put
+	// it back TO — and a tool that cannot undo itself is one an agent should
+	// hesitate to use at all.
+	if m := volumePct.FindStringSubmatch(raw); m != nil {
+		if pct, err := strconv.Atoi(m[1]); err == nil {
+			out["volume_percent"] = pct
+		}
+	}
+	return jsonContent(out), false
 }
 
 func (s *Server) toolSetVolume(args map[string]any) ([]map[string]any, bool) {
@@ -1847,7 +1886,98 @@ func (s *Server) toolDesktopInfo() ([]map[string]any, bool) {
 	}), false
 }
 
-// --- utilidades ------------------------------------------------------------
+// toolDesktopState answers "where do things stand" once, instead of four times.
+//
+// The four tools it replaces — list_windows, get_active_window, list_desktops
+// and room_state — each return something true, and an agent that calls all four
+// assembles a picture that was never true all at once: a window can close
+// between the first and the second, control can change hands between the third
+// and the fourth. The gaps are small and the consequences are not, because what
+// gets built on top of that picture is a decision about whether to act.
+//
+// Everything here comes off one EWMH reader and one room, so the snapshot is as
+// close to a single instant as this can be without freezing the X server. The
+// room is read last on purpose: it is the part that governs whether the agent
+// may act at all, so it should be the freshest thing in the answer.
+func (s *Server) toolDesktopState() ([]map[string]any, bool) {
+	state := map[string]any{}
+
+	e, err := s.windows()
+	if err != nil {
+		// No EWMH is not "no answer". The room half still decides whether the
+		// agent may act, and reporting it beats failing the whole call over the
+		// half that broke — the alternative sends a caller back to the four
+		// separate tools, three of which would fail the same way.
+		state["windows_error"] = fmt.Sprintf("cannot read the window list: %v", err)
+	} else {
+		if wins, err := e.Windows(); err == nil {
+			state["windows"] = wins
+		} else {
+			state["windows_error"] = err.Error()
+		}
+		// The id alone rather than a second copy of the record: it is already in
+		// `windows`, and two copies are two things that can be read as
+		// disagreeing.
+		if info, ok, err := e.ActiveWindow(); err == nil && ok {
+			state["active"] = info.ID
+		} else {
+			// Nothing focused is a state, not a failure — it is what a desktop
+			// reports between the last window closing and the next one mapping.
+			state["active"] = nil
+		}
+		if desks, err := e.Desktops(); err == nil {
+			state["desktops"] = desks
+			for _, d := range desks {
+				if d.Current {
+					state["current_desktop"] = d.Number
+				}
+			}
+		}
+	}
+
+	w, h := s.injector.Screen()
+	state["screen"] = map[string]any{"width": w, "height": h}
+
+	if s.room == nil {
+		// Said out loud rather than left absent. A missing key reads as "no
+		// information about the room"; this build genuinely has no arbitration,
+		// which means the agent may act, and that is worth stating.
+		state["room"] = nil
+		state["you_have_control"] = true
+		state["note"] = "this build has no room attached; input is unarbitrated"
+		return jsonContent(state), false
+	}
+
+	s.room.JoinAgent(s.agentName)
+	members := s.room.Members()
+	people := make([]map[string]any, 0, len(members))
+	for _, m := range members {
+		people = append(people, map[string]any{
+			"id": m.ID, "name": m.Name,
+			"controller": m.Controller, "agent": m.Agent,
+			"seconds": m.Seconds,
+		})
+	}
+	ctlID, ctlName := s.room.Controller()
+	state["room"] = map[string]any{
+		"participants":   people,
+		"humans_present": s.room.HumansPresent(),
+		"controller":     ctlName,
+		"controller_id":  ctlID,
+	}
+	// Lifted out of the room object as well as inside it: this is the one field
+	// that decides whether the next call is allowed, and it should not be
+	// reachable only by walking into a nested object.
+	state["you_have_control"] = s.room.IsController(AgentID)
+	if !s.room.IsController(AgentID) {
+		state["note"] = "Control is always claimed, never assumed — even with " +
+			"nobody else here. Call request_control before anything that moves " +
+			"the pointer or types."
+	}
+	return jsonContent(state), false
+}
+
+// --- utilities ---------------------------------------------------------------
 
 func floatSlice(v any) []float64 {
 	arr, ok := v.([]any)

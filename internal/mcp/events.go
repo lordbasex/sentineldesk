@@ -131,6 +131,7 @@ type eventHub struct {
 	// built for a test can be given none and still work.
 	room    Rooms
 	watcher func() *desktop.Watcher
+	active  func() (desktop.WindowInfo, bool)
 
 	mu      sync.Mutex
 	topics  map[eventTopic]bool
@@ -139,8 +140,10 @@ type eventHub struct {
 	lastCtl string // the controller as of the last event, to describe transitions
 }
 
-func newEventHub(write func(rpcResponse), room Rooms, watcher func() *desktop.Watcher) *eventHub {
-	return &eventHub{write: write, room: room, watcher: watcher, topics: map[eventTopic]bool{}}
+func newEventHub(write func(rpcResponse), room Rooms, watcher func() *desktop.Watcher,
+	active func() (desktop.WindowInfo, bool)) *eventHub {
+	return &eventHub{write: write, room: room, watcher: watcher, active: active,
+		topics: map[eventTopic]bool{}}
 }
 
 // publish sends one event, if this connection asked for its topic.
@@ -408,7 +411,32 @@ func (h *eventHub) watchX(w *desktop.Watcher) func() {
 						"change": "window_list",
 					})
 				case desktop.WatchActive:
-					h.publish(topicFocus, map[string]any{"change": "active_window"})
+					// This one DOES carry its subject, unlike the window list
+					// above, and the difference is not inconsistency: the
+					// property that fired names exactly one window, so
+					// describing it is a single query rather than one per
+					// window on the desktop.
+					//
+					// Worth the query because of what the topic is for. An
+					// agent subscribed to focus is tracking where it is, and an
+					// event that says only "focus moved" makes it call
+					// get_active_window to find out where to — so the round trip
+					// happens either way, just later, and with a gap in between
+					// during which what it believes is wrong.
+					detail := map[string]any{"change": "active_window"}
+					if h.active != nil {
+						if info, ok := h.active(); ok {
+							detail["id"] = info.ID
+							detail["class"] = info.Class
+							detail["title"] = info.Title
+						} else {
+							// Nothing focused is a state, not a failure: it is
+							// what a desktop reports between closing the last
+							// window and the next one mapping.
+							detail["id"] = nil
+						}
+					}
+					h.publish(topicFocus, detail)
 				case desktop.WatchDesktop:
 					h.publish(topicDesktop, map[string]any{"change": "current_desktop"})
 				}

@@ -664,6 +664,13 @@ func (s *Server) serve(conn net.Conn) {
 	client.events = newEventHub(write, s.room, func() *desktop.Watcher {
 		w, _ := s.watch()
 		return w
+	}, func() (desktop.WindowInfo, bool) {
+		e, err := s.windows()
+		if err != nil {
+			return desktop.WindowInfo{}, false
+		}
+		info, ok, err := e.ActiveWindow()
+		return info, ok && err == nil
 	})
 	defer client.events.close()
 

@@ -58,7 +58,7 @@ sudo -u sentineldesk /usr/local/bin/sentineldesk -mcp-stdio \
   -mcp-sock "$(. /etc/sentineldesk/env; echo "$MCP_SOCK")"
 ```
 
-## Available tools (120)
+## Available tools (121)
 
 Every tool carries a **risk level** — `read`, `write` or `danger` — declared next
 to its definition. It is what the three `MCP_POLICY` levels are built on, and it
@@ -211,6 +211,7 @@ persistent root terminal.
 | `get_audio_state`, `set_volume` | Sink, volume and mute |
 | `wait` | Sleep N ms |
 | `get_desktop_info` | WM, resolution, uptime, memory, encoder, joystick, recording |
+| `desktop_state` | Windows, focus, desktops, screen and room in one snapshot |
 
 **🖥️ Persistent terminal** — `run_command` is one-shot; this is a real shell
 

@@ -66,6 +66,7 @@ var searchCorpus = map[string]string{
 	"gamepad_button":       "hold down a controller button",
 	"gamepad_state":        "what is the controller reporting right now",
 	"gamepad_tap":          "press and release a controller button",
+	"desktop_state":        "where do things stand on the desktop right now",
 	"get_active_window":    "which window has focus right now",
 	"get_audio_state":      "is the sound muted",
 	"get_clipboard":        "what did I copy earlier",

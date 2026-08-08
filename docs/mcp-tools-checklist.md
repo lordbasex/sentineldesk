@@ -1,6 +1,6 @@
 # MCP server — tool checklist for driving the desktop end to end
 
-> **Status: 120 tools implemented and verified.** Everything marked [x] works in
+> **Status: 121 tools implemented and verified.** Everything marked [x] works in
 > the binary (`sentineldesk`). See [mcp.md](mcp.md) for how to connect it.
 
 Goal: let an AI model use the WebRTC desktop **the way a person does** — see the
@@ -149,6 +149,8 @@ chose.
 
 - [x] `wait` — sleep N milliseconds, giving the UI time to react. 🔶 new
 - [x] `get_desktop_info` — WM, resolution, uptime, load, active video encoder. 🔶 new
+- [x] `desktop_state` — windows, focus, desktops, screen and room in one call, so
+      the picture an agent builds comes from one instant rather than four. 🔶 new
 - [x] `get_audio_state` — default sink, volume, mute. 🔶 new (pactl)
 - [x] `set_volume` — adjust volume / mute. 🔶 new (pactl)
 

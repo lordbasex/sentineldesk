@@ -368,7 +368,7 @@ func argInt(m map[string]any, k string) int {
 	return 0
 }
 
-// --- implementaciones (P0) ------------------------------------------------
+// --- implementations (P0) ---------------------------------------------------
 
 // toolScreenshot captures the screen. Where the picture ends up is the caller's
 // choice: inline (the agent looks at it), on the desktop's disk, or downloaded

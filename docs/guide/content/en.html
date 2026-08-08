@@ -41,7 +41,7 @@
   </ul>
 
   <p>People drive it through a control layer in the browser. The agent drives it
-  through a local socket with 120 MCP tools. Neither is a guest of the
+  through a local socket with 121 MCP tools. Neither is a guest of the
   other.</p>
 
   <div class="note">
@@ -76,7 +76,7 @@
     <tr><td>Human control</td><td>WebSocket signalling and a DataChannel; XTEST
       injection, XFixes cursors, XShape peer pointers, EWMH</td></tr>
     <tr><td>Agent control</td><td>MCP over a <code>0600</code> Unix socket,
-      120 tools</td></tr>
+      121 tools</td></tr>
     <tr><td>Reading the screen</td><td>AT-SPI accessibility tree, Chrome
       DevTools Protocol — structure, not pixels</td></tr>
     <tr><td>Web interface</td><td><code>go:embed</code>, served with content
@@ -106,7 +106,7 @@
   </ul>
 
   <h3 id="capabilities-agent">An agent, through MCP</h3>
-  <p>120 tools, in families:</p>
+  <p>121 tools, in families:</p>
   <table>
     <tr><th>Family</th><th>What it covers</th></tr>
     <tr><td>Finding the others</td><td>Describe a task and get back the tools
@@ -1117,7 +1117,7 @@ lsof -nP -iUDP:5000</code></pre>
 <section id="ai-agent" data-track="use">
   <h2>The AI agent</h2>
 
-  <p>SentinelDesk exposes <b>120 tools</b> over a local Unix socket using the
+  <p>SentinelDesk exposes <b>121 tools</b> over a local Unix socket using the
   Model Context Protocol. An AI host — Claude Code, Claude Desktop, or anything
   else that speaks MCP — connects through a thin bridge:</p>
 

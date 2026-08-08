@@ -29,13 +29,35 @@ package mcp
 //	                            report success in the same breath.
 //
 // The blind one is precisely the collaborative one, which is the wrong way
-// round. This closes it: the command is typed into the real terminal so the
-// person sees it happen, and the output comes back through AT-SPI — the exact
-// characters the terminal holds, not OCR of a screenshot.
+// round. This closes it: the command goes into the real terminal so the person
+// sees it happen, and the output comes back as the exact characters the
+// terminal holds, not OCR of a screenshot.
+//
+// Both halves go through tmux, running inside the graphical terminal, rather
+// than through the X server and the accessibility tree. The person sees no
+// difference — tmux writes to the same pty the emulator is drawing — but three
+// failure modes disappear with the old route:
+//
+//	typing      xdotool needed the window focused and the keyboard layout to
+//	            hold every character of the command line. tmux send-keys needs
+//	            neither: it writes to the pty, so a person clicking elsewhere
+//	            mid-command no longer redirects half of it into another window.
+//	addressing  accessibility refs are positional paths, so a closed window did
+//	            not invalidate its ref — the path started resolving to whatever
+//	            moved into its place and returned somebody else's text forever.
+//	            A pane id is a handle: it dies with the pane it names.
+//	reading     each read spawned a fresh python3, imported the AT-SPI bindings
+//	            and walked the tree — 99ms, fired four times a second for the
+//	            whole length of every command. capture-pane is 3.75ms.
 //
 // The waiting is the part that matters. Reading right after pressing Return
-// returns the command line and nothing else, so this polls until the shell's
-// prompt comes back and the text stops changing.
+// returns the command line and nothing else, so this waits for the pane to go
+// back to running the shell itself and for the text to stop changing.
+//
+// Reading somebody ELSE'S terminal still goes through accessibility, and has
+// to: a terminal a person opened from the menu is not under tmux, and refusing
+// to read it would give up the case this file exists for. Typing into one is a
+// different matter — see terminal_run.
 
 import (
 	"context"
@@ -43,6 +65,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -62,11 +85,11 @@ func (s *Server) terminalTools() []toolDef {
 			Visibility:      visInjects,
 			Risk:            riskDanger,
 			RequiresControl: true,
-			Description: "Type a command into a terminal window ON THE DESKTOP, wait " +
+			Description: "Run a command in a terminal window ON THE DESKTOP, wait " +
 				"for it to finish, and return what it printed. Use this instead of " +
 				"run_command when a person is watching: they see the command and its " +
-				"output exactly as if you had typed it. Reads the terminal through " +
-				"accessibility, so the text is exact, not OCR.",
+				"output exactly as if you had typed it. The text returned is the " +
+				"exact characters the terminal holds, not OCR.",
 			InputSchema: schema(map[string]any{
 				"command":    pStr("the command line to run"),
 				"timeout_ms": pInt("how long to wait for the prompt (default 120000)"),
@@ -162,6 +185,81 @@ func (s *Server) readTerminal(ref string) (string, error) {
 	return strings.TrimRight(got.Text, " \t\n"), nil
 }
 
+// --- the tmux control channel -----------------------------------------------
+
+// tmuxSession is the one session every terminal opened here attaches to. A
+// named session on the default socket rather than a private one (-L): a person
+// who wants to join from their own shell types `tmux attach -t sentineldesk`
+// and is in, which is the same collaborative property the graphical window has.
+const tmuxSession = "sentineldesk"
+
+// shellCommands are the process names that mean the pane is idle — the shell is
+// the foreground process, so whatever was running has finished. This is the
+// signal the old code approximated by matching a prompt against a regex, and it
+// is strictly better: a command that prints something ending in `$` no longer
+// reads as a returned prompt, and a prompt that does not end in one of the
+// expected characters no longer reads as a command still running.
+//
+// It is still paired with a settled-text check below rather than trusted alone,
+// because a person who types `bash` gets a pane whose foreground process is a
+// shell without the previous command having finished in any meaningful sense.
+var shellCommands = map[string]bool{
+	"bash": true, "sh": true, "dash": true, "zsh": true, "fish": true,
+}
+
+func (s *Server) tmux(args ...string) (string, error) {
+	out, err := s.output("tmux", args...)
+	return strings.TrimRight(out, "\n"), err
+}
+
+// activePane is the pane the person is looking at: the active pane of the
+// session's active window. Deliberately not "the most recently created" — when
+// somebody splits the window, the one they are working in is the one an agent
+// should be reading and typing into.
+func (s *Server) activePane() (string, error) {
+	pane, err := s.tmux("display-message", "-p", "-t", tmuxSession, "#{pane_id}")
+	if err != nil || strings.TrimSpace(pane) == "" {
+		return "", fmt.Errorf("no terminal is open under tmux")
+	}
+	return strings.TrimSpace(pane), nil
+}
+
+// capturePane returns what the pane holds. scrollback asks for that many lines
+// of history above the visible area; 0 is the visible area alone.
+//
+// Trailing newlines go, for the same reason the accessibility reader stripped
+// them: the pane is padded to its full height and those empty rows would defeat
+// every "has the output stopped changing" comparison below.
+func (s *Server) capturePane(pane string, scrollback int) (string, error) {
+	args := []string{"capture-pane", "-p", "-t", pane}
+	if scrollback > 0 {
+		args = append(args, "-S", "-"+strconv.Itoa(scrollback))
+	}
+	out, err := s.tmux(args...)
+	if err != nil {
+		return "", fmt.Errorf("could not read the terminal: %v", err)
+	}
+	return strings.TrimRight(out, " \t\n"), nil
+}
+
+// paneIdle reports whether the pane's foreground process is a shell.
+func (s *Server) paneIdle(pane string) bool {
+	out, err := s.tmux("display-message", "-p", "-t", pane, "#{pane_current_command}")
+	if err != nil {
+		return false
+	}
+	return shellCommands[strings.TrimSpace(out)]
+}
+
+// sessionAlive reports whether the tmux session still exists. It is how a
+// command that ended the shell is told apart from one that is merely slow:
+// `exit`, `logout` and anything else that closes the last pane takes the
+// session with it, and there is then no prompt coming to wait for.
+func (s *Server) sessionAlive() bool {
+	_, err := s.tmux("has-session", "-t", tmuxSession)
+	return err == nil
+}
+
 func lastLines(text string, n int) string {
 	lines := strings.Split(text, "\n")
 	if len(lines) > n {
@@ -183,6 +281,22 @@ var errorish = regexp.MustCompile(`(?i)\b(error|failed|failure|cannot|could not|
 // convenience. PROMPT_COMMAND writes it invisibly instead.
 const rcPath = "/tmp/sentineldesk-rc"
 
+// rcPathFor is where a particular pane's shell leaves its status. Panes get a
+// file each because the record is last-writer-wins: with one shared file, a
+// person running something in a split pane would overwrite the status of the
+// command the agent just ran, and the agent would report their exit code as its
+// own. That is the mute-failure class this file exists to close, so it does not
+// get to come back through the side door.
+//
+// The unsuffixed path stays as the fallback, and is what a shell outside tmux
+// still writes — a terminal opened from the panel menu keeps reporting.
+func rcPathFor(pane string) string {
+	if pane == "" {
+		return rcPath
+	}
+	return rcPath + "." + strings.TrimPrefix(pane, "%")
+}
+
 // readExitCode returns the status the shell recorded, the command it belonged
 // to, and whether the record is fresh enough to trust.
 //
@@ -190,12 +304,20 @@ const rcPath = "/tmp/sentineldesk-rc"
 // works for what a PERSON typed just as well as for what the agent typed. That
 // symmetry is the whole point: somebody hits an error, asks the agent to sort it
 // out, and the agent reads what actually happened rather than a retelling.
-func (s *Server) readExitCode(since time.Time) (int, string, bool) {
-	fi, err := os.Stat(rcPath)
+func (s *Server) readExitCode(pane string, since time.Time) (int, string, bool) {
+	path := rcPathFor(pane)
+	fi, err := os.Stat(path)
+	if err != nil && pane != "" {
+		// A shell that predates the per-pane hook, or one started outside tmux
+		// and later attached. Its status is in the shared file and is still
+		// worth reading; it is only ambiguous when several panes are busy.
+		path = rcPath
+		fi, err = os.Stat(path)
+	}
 	if err != nil || fi.ModTime().Before(since) {
 		return 0, "", false
 	}
-	raw, err := os.ReadFile(rcPath)
+	raw, err := os.ReadFile(path)
 	if err != nil {
 		return 0, "", false
 	}
@@ -214,28 +336,81 @@ func (s *Server) readExitCode(since time.Time) (int, string, bool) {
 func (s *Server) callTerminal(ctx context.Context, name string, args map[string]any) (any, bool, bool) {
 	switch name {
 	case "terminal_open":
-		_ = os.Remove(rcPath)
-		cmd := exec.Command("setsid", "lxterminal")
+		// Every stale status file, not just the shared one: a pane id is reused
+		// once its predecessor is gone, so a leftover file would hand the next
+		// pane the exit code of a command that ran before this terminal existed.
+		if stale, err := filepath.Glob(rcPath + "*"); err == nil {
+			for _, f := range stale {
+				_ = os.Remove(f)
+			}
+		}
+
+		// Already showing? tmux knows without asking X: a session with an
+		// attached client is a session somebody can see. Reporting it rather
+		// than stacking a second window matches browser_open, and a second
+		// client would only mirror the first anyway — both would be forced to
+		// the smaller of the two window sizes.
+		if s.sessionAlive() {
+			if clients, err := s.tmux("list-clients", "-t", tmuxSession); err == nil &&
+				strings.TrimSpace(clients) != "" {
+				pane, _ := s.activePane()
+				return map[string]any{
+					"opened": true, "already_open": true, "exit_codes": true,
+					"pane": pane,
+					"note": "a terminal was already open; this is it. Use `sudo -E su` " +
+						"rather than `sudo su` to keep exit codes across a root shell.",
+				}, false, true
+			}
+		} else {
+			if _, err := s.tmux("new-session", "-d", "-s", tmuxSession); err != nil {
+				return textContent("could not start the terminal session: %v", err), true, true
+			}
+			// Give the window back its title. The emulator names the window
+			// after the process it was told to run, which is now `tmux` — so
+			// every terminal on the desktop was called "tmux" regardless of what
+			// it was doing. That is a loss for the person reading the taskbar
+			// and for the agent reading list_windows, where the title is often
+			// the only thing distinguishing two windows of the same class.
+			//
+			// Failure here is not fatal: a plainly-titled terminal still works,
+			// and refusing to open one over a cosmetic setting would be worse
+			// than the cosmetic problem.
+			_, _ = s.tmux("set-option", "-t", tmuxSession, "set-titles", "on")
+			_, _ = s.tmux("set-option", "-t", tmuxSession, "set-titles-string",
+				"#{pane_current_command} — #{pane_current_path}")
+		}
+
+		// The emulator attaches to that session rather than running a shell of
+		// its own. What the person sees is unchanged; what it buys is that the
+		// shell is addressable by a handle instead of by its position in the
+		// accessibility tree, and readable without walking that tree at all.
+		cmd := exec.Command("setsid", "lxterminal", "-e",
+			"tmux", "attach", "-t", tmuxSession)
 		cmd.Env = append(os.Environ(), "DISPLAY="+s.display)
 		if err := cmd.Start(); err != nil {
 			return textContent("could not open a terminal: %v", err), true, true
 		}
 		go cmd.Wait()
+
 		// Wait for the shell to draw its first prompt, otherwise the caller
-		// types into a window that is not ready yet.
+		// types into a window that is not ready yet. Polled at 100ms rather
+		// than the 400ms this used to need: each check is one capture-pane, so
+		// the loop costs less now at four times the rate.
 		deadline := time.Now().Add(20 * time.Second)
 		for time.Now().Before(deadline) {
-			if !sleepCtx(ctx, 400*time.Millisecond) {
+			if !sleepCtx(ctx, 100*time.Millisecond) {
 				break
 			}
-			if ref, err := s.findTerminal(); err == nil {
-				if txt, err := s.readTerminal(ref); err == nil && promptTail.MatchString(txt) {
-					return map[string]any{
-						"opened": true, "exit_codes": true,
-						"note": "exit codes are reported. Use `sudo -E su` rather than " +
-							"`sudo su` to keep them across a root shell.",
-					}, false, true
-				}
+			pane, err := s.activePane()
+			if err != nil {
+				continue
+			}
+			if txt, err := s.capturePane(pane, 0); err == nil && promptTail.MatchString(txt) {
+				return map[string]any{
+					"opened": true, "exit_codes": true, "pane": pane,
+					"note": "exit codes are reported. Use `sudo -E su` rather than " +
+						"`sudo su` to keep them across a root shell.",
+				}, false, true
 			}
 		}
 		return textContent("the terminal did not show a prompt in time"), true, true
@@ -324,22 +499,44 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 				"after reading what it says",
 		}, false, true
 	case "terminal_read":
-		ref, err := s.findTerminal()
-		if err != nil {
-			return textContent("%v", err), true, true
-		}
-		text, err := s.readTerminal(ref)
-		if err != nil {
-			return textContent("%v", err), true, true
-		}
 		n := argInt(args, "lines")
 		if n <= 0 {
 			n = 40
 		}
+
+		// tmux first, accessibility second, and the fallback is not a leftover:
+		// a terminal a person opened from the menu is not under tmux, and this
+		// tool exists precisely for "look at the error I just hit". Refusing to
+		// read a window that is plainly on the screen would be the wrong answer
+		// to the question it was built to answer.
+		var (
+			text string
+			pane string
+			err  error
+		)
+		if pane, err = s.activePane(); err == nil {
+			// One screen of scrollback beyond whatever was asked for, so a
+			// request for more lines than the window is tall still gets them.
+			text, err = s.capturePane(pane, n)
+		}
+		if err != nil {
+			pane = ""
+			ref, ferr := s.findTerminal()
+			if ferr != nil {
+				return textContent("%v", ferr), true, true
+			}
+			if text, err = s.readTerminal(ref); err != nil {
+				return textContent("%v", err), true, true
+			}
+		}
+
 		out := map[string]any{"text": lastLines(text, n)}
+		if pane != "" {
+			out["pane"] = pane
+		}
 		// Any interactive shell records this, so the last command may well be
 		// one a person typed. That is deliberate.
-		if code, cmd, ok := s.readExitCode(time.Time{}); ok {
+		if code, cmd, ok := s.readExitCode(pane, time.Time{}); ok {
 			out["last_command"] = cmd
 			out["last_exit_code"] = code
 			out["last_succeeded"] = code == 0
@@ -360,76 +557,78 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 			timeout = 120 * time.Second
 		}
 
-		ref, err := s.findTerminal()
+		pane, err := s.activePane()
 		if err != nil {
-			return textContent("%v", err), true, true
+			// Say which of the two situations this is. "No terminal is open"
+			// while one is plainly on the screen reads as a broken tool and
+			// sends the model looking in the wrong place; the real answer is
+			// that this one is not ours to type into.
+			if refs, ferr := s.terminalRefs(); ferr == nil && len(refs) > 0 {
+				return textContent("there is a terminal on the desktop, but it was " +
+					"not opened by terminal_open, so there is no reliable way to type " +
+					"into it or read its exit codes. Call terminal_open for one this " +
+					"can drive, or terminal_read to see what that one is showing."), true, true
+			}
+			return textContent("no terminal window is open — call terminal_open first"), true, true
 		}
-		before, err := s.readTerminal(ref)
+		before, err := s.capturePane(pane, 0)
 		if err != nil {
 			return textContent("%v", err), true, true
 		}
 		started := time.Now()
 
-		// How many terminals exist before the command is sent. Some commands end
-		// the shell — `exit`, `logout`, anything that takes the emulator down
-		// with it — and those leave no prompt to wait for; without noticing, the
-		// loop below spends the whole timeout waiting for one that is never
-		// coming and then reports "it may still be running" about a command that
-		// finished long ago.
+		// send-keys rather than xdotool: it writes to the pty instead of the X
+		// server, so the command does not depend on the window holding focus or
+		// on the keyboard layout having a key for every character in it. Both
+		// were real failure modes — a person clicking another window mid-command
+		// used to split it across two applications.
 		//
-		// Counted BEFORE typing, deliberately. `echo x; exit` closes the window
-		// faster than one query to the accessibility bridge takes, so counting
-		// afterwards read zero and quietly disabled the check it was meant to arm.
-		//
-		// Counting rather than watching for a read error, because the read does
-		// not fail: refs are positional paths, so when the window closes the path
-		// starts resolving to whatever took its place and returns somebody
-		// else's text forever.
-		terminalsBefore := 0
-		if refs, err := s.terminalRefs(); err == nil {
-			terminalsBefore = len(refs)
+		// -l sends the text literally, which matters more than it looks: without
+		// it tmux reads its arguments as key names, so a command containing the
+		// word `Enter` or a token like `C-c` would be delivered as keystrokes
+		// rather than as the characters somebody asked for.
+		if _, err := s.tmux("send-keys", "-t", pane, "-l", "--", command); err != nil {
+			return textContent("could not send the command: %v", err), true, true
 		}
-
-		// xdotool rather than raw XTEST: it remaps keycodes on the fly for
-		// characters the active layout has no key for, which command lines are
-		// full of (pipes, braces, quotes).
-		if err := s.xdo("type", "--clearmodifiers", "--", command); err != nil {
-			return textContent("could not type the command: %v", err), true, true
-		}
-		// xdotool for Return too. InputInjector.Key looks the keysym up in the
-		// live keymap and returns silently when it is not there, so a missing
-		// mapping produces a command that is typed and never run — exactly the
-		// kind of mute failure this whole tool exists to eliminate.
-		if err := s.xdo("key", "--clearmodifiers", "Return"); err != nil {
+		if _, err := s.tmux("send-keys", "-t", pane, "Enter"); err != nil {
 			return textContent("could not press Return: %v", err), true, true
 		}
 
-		// Wait for the prompt to come back AND the text to settle. The prompt
-		// alone is not enough: it is still on screen from the previous command
-		// during the instant before the new one echoes.
+		// Wait for the shell to be the foreground process again AND for the text
+		// to settle. Neither alone is enough: the pane is briefly running the
+		// shell in the instant between Return and the command starting, and the
+		// text is briefly unchanged during any pause in a command's output.
+		//
+		// Polled at 100ms rather than 250ms. Each round is a capture-pane and a
+		// display-message — a few milliseconds against the ~99ms an accessibility
+		// read cost — so the loop is both finer-grained and cheaper than the one
+		// it replaces.
 		deadline := time.Now().Add(timeout)
 		var last string
 		stable := 0
 		settled := false
 		closed := false
-		tick := 0
 		for time.Now().Before(deadline) {
-			if !sleepCtx(ctx, 250*time.Millisecond) {
+			if !sleepCtx(ctx, 100*time.Millisecond) {
 				break
 			}
-			tick++
 
-			// Once a second: cheap next to the poll it guards, and a second of
-			// extra waiting is invisible beside the two minutes it replaces.
-			if terminalsBefore > 0 && tick%4 == 0 {
-				if refs, err := s.terminalRefs(); err == nil && len(refs) < terminalsBefore {
+			now, err := s.capturePane(pane, 0)
+			if err != nil {
+				// The pane is gone. Some commands end the shell — `exit`,
+				// `logout`, anything that closes the last pane — and those leave
+				// no prompt to wait for; without noticing, this would spend the
+				// whole timeout waiting for one that is never coming.
+				//
+				// A pane id is a handle, so its disappearance IS the signal.
+				// The accessibility route could not do this: refs are positional
+				// paths, so a closed window did not produce an error, it started
+				// resolving to whatever moved into its place — which is why the
+				// old code had to count terminals on a side channel instead.
+				if !s.sessionAlive() {
 					closed = true
 					break
 				}
-			}
-
-			now, err := s.readTerminal(ref)
-			if err != nil {
 				continue
 			}
 			if now == last {
@@ -438,9 +637,10 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 				stable = 0
 				last = now
 			}
-			// Two quiet rounds with an idle prompt: half a second of nothing
-			// happening, which a finished command always produces.
-			if stable >= 2 && promptTail.MatchString(now) && now != before {
+			// Two quiet rounds with the shell back in the foreground: a fifth of
+			// a second of nothing happening, which a finished command always
+			// produces.
+			if stable >= 2 && s.paneIdle(pane) && now != before {
 				settled = true
 				break
 			}
@@ -453,7 +653,7 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 			"output":   output,
 			"finished": settled,
 		}
-		if code, _, ok := s.readExitCode(started); ok {
+		if code, _, ok := s.readExitCode(pane, started); ok {
 			res["exit_code"] = code
 			res["succeeded"] = code == 0
 		}
@@ -467,15 +667,22 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 			res["note"] = "the terminal closed while the command ran, which is what " +
 				"`exit`, `logout` and anything that ends the shell do. What it " +
 				"printed before the window went away is in `output`; there is no " +
-				"prompt left to confirm against, so `finished` stays false."
+				"shell left to confirm against, so `finished` stays false."
 		case !settled:
-			res["note"] = "timed out waiting for the prompt; the command may still " +
+			res["note"] = "timed out waiting for the command to finish; it may still " +
 				"be running. Call terminal_read to check on it."
 		}
-		if _, ok := res["exit_code"]; !ok {
+		if _, ok := res["exit_code"]; !ok && !closed {
 			// Without instrumentation the text is all there is, and "no error
 			// message" is not the same as success. Say so rather than let it
 			// pass for one.
+			//
+			// Not when the shell closed, though. A shell that exits never runs
+			// its prompt hook again, so there is no status to find and that is
+			// expected — printing "this terminal was not opened with
+			// terminal_open" there is simply false, and a false explanation is
+			// worse than none: it sends the caller to fix something that is not
+			// broken. The `note` above already says what happened.
 			res["hint"] = "No exit code available — this terminal was not opened " +
 				"with terminal_open, so judge by the output alone."
 		}

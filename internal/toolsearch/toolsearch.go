@@ -269,6 +269,14 @@ var toolKeywords = map[string][]string{
 	"window_set_state":  {"always on top", "above the others", "sticky", "shaded", "keep above"},
 	"wait_for_window":   {"until the window", "window to open", "window to appear"},
 
+	// Orientation. Phrased as the questions somebody asks before doing anything
+	// rather than as the nouns the tool returns: this is what an agent reaches
+	// for when it does not yet know enough to name a more specific tool, so the
+	// vocabulary that finds it has to be the vocabulary of being lost.
+	"desktop_state": {"what is on the screen", "where am i", "what is going on",
+		"current state", "everything at once", "get my bearings", "situation",
+		"overview", "snapshot", "take stock", "what is open"},
+
 	// Desktops.
 	"list_desktops":      {"workspaces", "how many workspaces", "virtual desktops"},
 	"get_desktop_info":   {"which workspace", "current workspace", "am i on"},
