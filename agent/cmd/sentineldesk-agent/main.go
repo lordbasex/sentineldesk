@@ -73,6 +73,11 @@ whatever the goal ranks highest, and reaches the rest through tool_search.
 The API key is read from ~/.sentineldesk/anthropic.key (chmod 600), or from
 ANTHROPIC_API_KEY_FILE. Never pass it on the command line.
 
+Continuing a conversation:
+  --resume <id>   pick a past run back up; 0 is the most recent, and the ids
+                  come from the history command. The model is told how long ago
+                  it stopped, and that the desktop kept running without it.
+
 How it is shown:
   (default)    a live view of the run
   --debug      one line per event instead — also what a pipe or a CI log gets,
@@ -112,6 +117,9 @@ func main() {
 	// event, which is what somebody debugging the RUNTIME wants rather than
 	// somebody watching the TASK.
 	debug := fs.Bool("debug", false, "print one line per event instead of drawing the live view")
+	// Continue a conversation instead of starting one. 0 means the most recent
+	// run; a number names one from `history`.
+	resume := fs.Int64("resume", -1, "continue a past run: an id from `history`, or 0 for the most recent")
 	showVersion := fs.Bool("version", false, "print the version and exit")
 
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -190,7 +198,7 @@ func main() {
 		// meant for one step. Ctrl-C still stops it, and stops it properly:
 		// the cancellation reaches the server and the tool in flight ends.
 		os.Exit(runGoal(ctx, client, goal, *providerName, *role, *model,
-			*maxTurns, *toolLimit, toolsCapped, *debug))
+			*maxTurns, *toolLimit, toolsCapped, *debug, *resume))
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", args[0])
 		fs.Usage()
@@ -518,7 +526,7 @@ func errText(err error) string {
 // other than the operator decides what happens next, and a run whose steps are
 // invisible is one nobody can trust or debug — which is the same argument the
 // server's own Visibility field is built on, one layer up.
-func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped, debug bool) int {
+func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role, model string, maxTurns, toolLimit int, toolsCapped, debug bool, resume int64) int {
 	// The role is read first because it may decide what runs. A role that names
 	// a model and a policy is a saved way of working, not a paragraph — and the
 	// point of the header is that asking for it configures the run rather than
@@ -528,6 +536,49 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		return 2
 	}
+	var prior store.Resumable
+	var priorMsgs []provider.Message
+	if resume >= 0 {
+		db, ok := openStore()
+		if !ok {
+			fmt.Fprintln(os.Stderr, "cannot resume: the run database would not open")
+			return 1
+		}
+		prior, err = db.Resume(resume)
+		db.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n", err)
+			return 1
+		}
+		if err := json.Unmarshal([]byte(prior.Messages), &priorMsgs); err != nil {
+			fmt.Fprintf(os.Stderr, "run %d's history cannot be read back: %v\n", prior.RunID, err)
+			return 1
+		}
+		// The response the request did not contain. Without it the model is
+		// handed a conversation ending in tool results it never got to answer,
+		// and repeats the answer it already gave.
+		if prior.Answer != "" {
+			priorMsgs = append(priorMsgs, provider.Message{
+				Role: provider.RoleAssistant, Text: prior.Answer})
+		}
+		// A resumed run keeps what it was, unless the caller overrode it. The
+		// cheapest way to make a continuation incoherent is to continue it with
+		// a different model and a different policy.
+		if model == "" && prior.Model != "" {
+			if p, m, found := strings.Cut(prior.Model, "/"); found {
+				providerName, model = p, m
+			}
+		}
+		if role == "efficient" && prior.Role != "" {
+			role = prior.Role
+			def, err = prompts.Role(role)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v\n", err)
+				return 2
+			}
+		}
+	}
+
 	// An explicit flag beats the role. Somebody who typed --model meant it.
 	if def.Model != "" && model == "" {
 		if p, m, found := strings.Cut(def.Model, "/"); found {
@@ -636,6 +687,8 @@ func runGoal(ctx context.Context, c *mcpclient.Client, goal, providerName, role,
 		MaxTurns:  maxTurns,
 		OnEvent:   emit,
 		Skills:    found,
+		Resume:    priorMsgs,
+		StaleFor:  staleFor(prior),
 		Recorder:  recorder,
 	})
 
@@ -1383,4 +1436,13 @@ func showRoles() int {
 	fmt.Printf("%d role(s). They are Markdown with a YAML header, in agent/prompts/roles\n", len(names))
 	fmt.Printf("and ~/.sentineldesk/prompts/roles — adding one is adding a file.\n")
 	return 0
+}
+
+// staleFor is how long the resumed conversation has been sitting. Zero when
+// this is not a resume, which the loop reads as "no gap to warn about".
+func staleFor(p store.Resumable) time.Duration {
+	if p.RunID == 0 || p.EndedAt.IsZero() {
+		return 0
+	}
+	return time.Since(p.EndedAt)
 }

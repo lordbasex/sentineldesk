@@ -35,6 +35,7 @@ package store
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -528,4 +529,69 @@ func trunc(s string, n int) string {
 		return s
 	}
 	return s[:n] + "…"
+}
+
+// Resumable is what is needed to pick a conversation back up.
+type Resumable struct {
+	RunID    int64
+	Goal     string
+	Model    string
+	Role     string
+	Task     string
+	Turns    int
+	EndedAt  time.Time
+	Messages string // the serialised []provider.Message, exactly as it was sent
+	Answer   string // the assistant's last prose, which the messages do not carry
+}
+
+// Resume reads back what a run last sent the model.
+//
+// It needs no new storage. turns.request already holds the serialised message
+// array for each turn — the real one, with the tool_use ids that pair a call to
+// its result — because it was recorded for auditing and happens to be exactly
+// what replaying needs. Rebuilding a conversation from a flattened call log
+// would have meant inventing those ids and hoping the order matched; this is
+// the thing itself.
+//
+// The last turn's REQUEST plus its RESPONSE is the whole history: the request is
+// everything up to that turn, and the response is what the model said at the
+// end of it.
+//
+// id 0 means the most recent run.
+func (d *DB) Resume(id int64) (Resumable, error) {
+	var r Resumable
+	where, args := "WHERE r.id = ?", []any{id}
+	if id == 0 {
+		where, args = "WHERE 1=1", nil
+	}
+	row := d.sql.QueryRow(`
+		SELECT r.id, r.goal, r.model, r.role, r.task, r.turns, r.ended_at
+		FROM runs r `+where+`
+		ORDER BY r.id DESC LIMIT 1`, args...)
+
+	var ended sql.NullString
+	if err := row.Scan(&r.RunID, &r.Goal, &r.Model, &r.Role, &r.Task, &r.Turns, &ended); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return r, fmt.Errorf("no run to resume")
+		}
+		return r, err
+	}
+	if ended.Valid {
+		r.EndedAt, _ = time.Parse(time.RFC3339, ended.String)
+	}
+
+	// The last turn that actually sent something. A run interrupted before its
+	// first request has nothing to resume and should say so rather than hand
+	// back an empty conversation that looks like a fresh one.
+	err := d.sql.QueryRow(`
+		SELECT COALESCE(request, ''), COALESCE(response, '')
+		FROM turns WHERE run_id = ? AND request IS NOT NULL AND request != ''
+		ORDER BY n DESC LIMIT 1`, r.RunID).Scan(&r.Messages, &r.Answer)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return r, fmt.Errorf("run %d never got as far as asking the model", r.RunID)
+		}
+		return r, err
+	}
+	return r, nil
 }

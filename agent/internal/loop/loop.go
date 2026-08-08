@@ -102,6 +102,18 @@ type Options struct {
 	// fetched by the model through skill_read when it decides it needs it.
 	Skills []skills.Skill
 
+	// Resume is a conversation to continue rather than start. Empty begins a
+	// new one.
+	Resume []provider.Message
+
+	// StaleFor is how long ago the resumed conversation stopped. It is told to
+	// the model, because this is not a coding agent picking up files that are
+	// still where it left them: the desktop kept running. Windows closed,
+	// somebody else may have taken the controls, and the screen it remembers is
+	// a photograph. Acting on it without checking is the failure this project
+	// ranks worst, so the runtime says so rather than hoping.
+	StaleFor time.Duration
+
 	// Recorder keeps the run. Optional: a runtime whose database would not open
 	// still works, unrecorded, and says so — losing the accounting is worse
 	// than not having it and better than a task that will not start because of
@@ -199,6 +211,16 @@ func (r *Runner) wasInterrupted() (bool, string) {
 func (r *Runner) Run(ctx context.Context, goal string) (Result, error) {
 	var res Result
 	messages := []provider.Message{{Role: provider.RoleUser, Text: goal}}
+	if len(r.opts.Resume) > 0 {
+		// The old conversation, then a note about the gap, then what was just
+		// asked. The note goes in as a user turn rather than into the system
+		// prompt so that it sits at the point in the history where the gap
+		// actually happened — a system prompt says "this is always true", and
+		// this was true once, between two turns.
+		messages = append(append([]provider.Message{}, r.opts.Resume...),
+			provider.Message{Role: provider.RoleUser, Text: resumeNote(r.opts.StaleFor)},
+			provider.Message{Role: provider.RoleUser, Text: goal})
+	}
 	offered := r.opts.Tools
 	tools := toProviderTools(offered)
 	// Offered only when there is something to read. A machine with no skills
@@ -631,4 +653,33 @@ func (r *Runner) readSkill(args map[string]any) provider.ToolResult {
 			"instructions tell you to.", s.Dir, strings.Join(s.Files, ", "))
 	}
 	return provider.ToolResult{Text: text}
+}
+
+// resumeNote is what the model is told about the gap it did not live through.
+//
+// Without it, a resumed conversation reads as continuous: the last thing in the
+// history is a window list, and the obvious next move is to click something in
+// it. That window may have closed an hour ago. A coding agent resuming a
+// session is looking at files that are still there; this one is looking at a
+// photograph of a desktop that kept running without it.
+func resumeNote(stale time.Duration) string {
+	when := "some time"
+	switch {
+	case stale <= 0:
+		when = "an unknown amount of time"
+	case stale < time.Minute:
+		when = fmt.Sprintf("%d seconds", int(stale.Seconds()))
+	case stale < time.Hour:
+		when = fmt.Sprintf("%d minutes", int(stale.Minutes()))
+	default:
+		when = fmt.Sprintf("%.1f hours", stale.Hours())
+	}
+	return fmt.Sprintf(
+		"[This conversation is being resumed after %s. Everything above happened "+
+			"then, not now. The desktop kept running in the gap: windows may have "+
+			"closed or opened, the controls were released and somebody else may "+
+			"hold them, and any window id, ui_* reference or terminal pane from "+
+			"above may now point at something else or at nothing. Treat all of it "+
+			"as a record of what happened, not as the current state — call "+
+			"desktop_state before acting on anything you remember.]", when)
 }

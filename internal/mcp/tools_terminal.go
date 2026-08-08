@@ -252,6 +252,50 @@ func (s *Server) paneIdle(pane string) bool {
 	return shellCommands[strings.TrimSpace(out)]
 }
 
+// sessionVisible reports whether a graphical terminal is attached to the
+// session — that is, whether anybody can actually SEE it.
+//
+// Alive and visible stopped being the same thing when the terminal moved onto
+// tmux, and that is a regression this introduced rather than found. Before,
+// closing the window killed the shell and terminal_run said "no terminal window
+// is open". Now the session outlives its window: the command still runs, still
+// reports its exit code, and nobody sees a thing.
+//
+// Which breaks the one promise this tool makes. terminal_run exists so that a
+// person watching sees the work happen — it is the visible half of a pair whose
+// other half, run_command, is already there for when nobody is looking. A
+// terminal_run into a detached session is run_command wearing its name.
+func (s *Server) sessionVisible() bool {
+	out, err := s.tmux("list-clients", "-t", tmuxSession)
+	return err == nil && strings.TrimSpace(out) != ""
+}
+
+// attachWindow opens a graphical terminal onto the existing session.
+//
+// Shared by terminal_open and by terminal_run's repair, so there is one
+// definition of what "a terminal is on screen" means and one place that waits
+// for it to be true.
+func (s *Server) attachWindow(ctx context.Context) error {
+	cmd := exec.Command("setsid", "lxterminal", "-e",
+		"tmux", "attach", "-t", tmuxSession)
+	cmd.Env = append(os.Environ(), "DISPLAY="+s.display)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go cmd.Wait()
+
+	deadline := time.Now().Add(20 * time.Second)
+	for time.Now().Before(deadline) {
+		if !sleepCtx(ctx, 100*time.Millisecond) {
+			return fmt.Errorf("cancelled")
+		}
+		if s.sessionVisible() {
+			return nil
+		}
+	}
+	return fmt.Errorf("no window attached within 20s")
+}
+
 // sessionAlive reports whether the tmux session still exists. It is how a
 // command that ended the shell is told apart from one that is merely slow:
 // `exit`, `logout` and anything else that closes the last pane takes the
@@ -352,8 +396,7 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 		// client would only mirror the first anyway — both would be forced to
 		// the smaller of the two window sizes.
 		if s.sessionAlive() {
-			if clients, err := s.tmux("list-clients", "-t", tmuxSession); err == nil &&
-				strings.TrimSpace(clients) != "" {
+			if s.sessionVisible() {
 				pane, _ := s.activePane()
 				return map[string]any{
 					"opened": true, "already_open": true, "exit_codes": true,
@@ -385,13 +428,9 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 		// its own. What the person sees is unchanged; what it buys is that the
 		// shell is addressable by a handle instead of by its position in the
 		// accessibility tree, and readable without walking that tree at all.
-		cmd := exec.Command("setsid", "lxterminal", "-e",
-			"tmux", "attach", "-t", tmuxSession)
-		cmd.Env = append(os.Environ(), "DISPLAY="+s.display)
-		if err := cmd.Start(); err != nil {
+		if err := s.attachWindow(ctx); err != nil {
 			return textContent("could not open a terminal: %v", err), true, true
 		}
-		go cmd.Wait()
 
 		// Wait for the shell to draw its first prompt, otherwise the caller
 		// types into a window that is not ready yet. Polled at 100ms rather
@@ -572,6 +611,22 @@ func (s *Server) callTerminal(ctx context.Context, name string, args map[string]
 			}
 			return textContent("no terminal window is open — call terminal_open first"), true, true
 		}
+		// Detached: the session is alive and its window is gone. Put a window
+		// back rather than running into the void — the caller asked for the
+		// tool that is watched, and the honest options are to make it watched
+		// again or to refuse. Reopening keeps the shell, its history and the
+		// exit-code hook, which refusing would throw away for no gain.
+		if !s.sessionVisible() {
+			if err := s.attachWindow(ctx); err != nil {
+				return textContent("the terminal's window was closed and a new one "+
+					"could not be opened, so this would have run where nobody can "+
+					"see it: %v. Use run_command if that is what you meant.", err), true, true
+			}
+			if p, err := s.activePane(); err == nil {
+				pane = p
+			}
+		}
+
 		before, err := s.capturePane(pane, 0)
 		if err != nil {
 			return textContent("%v", err), true, true
