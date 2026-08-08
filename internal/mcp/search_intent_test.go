@@ -66,6 +66,25 @@ var intentCorpus = []struct {
 	{"put this text where I can paste it", "set_clipboard"},
 	{"wait until the thing I started has settled", "wait_for_idle"},
 	{"ask the people watching which one they meant", "ask_human"},
+
+	// Asked in Spanish. Not a translation exercise: the searcher has no idea
+	// which language it is being asked in, and a query that matches NOTHING
+	// falls back to offering all 121 schemas — roughly five times the input
+	// tokens of a run that matched. "cerrá esa ventana" returned zero against
+	// the English vocabulary while "close that window" returned fifteen, so a
+	// person asking in their own language paid five times over for nothing they
+	// did wrong.
+	//
+	// These are here so that stops being true silently. A language file that
+	// rots takes the price back with it and nothing else would notice.
+	{"cerrá esa ventana", "close_window"},
+	{"abrí una terminal", "terminal_open"},
+	{"sacá una captura de pantalla", "screenshot"},
+	{"cuánto espacio libre queda en el disco", "run_command"},
+	{"quién más está conectado", "room_state"},
+	{"qué está usando el procesador", "list_processes"},
+	{"subí el volumen", "set_volume"},
+	{"grabá un video de la pantalla", "start_recording"},
 }
 
 // TestIntentRecall keeps every one of those questions reachable.
